@@ -5,6 +5,7 @@ import secrets
 from argon2 import PasswordHasher
 from email_validator import validate_email, EmailNotValidError
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 
 from .auth_db import SessionLocal, User, SessionToken
 
@@ -34,8 +35,9 @@ def _verify(pw: str, h: str) -> bool:
 def register_user(inp: RegisterIn) -> None:
     email_norm = (inp.email or "").strip().lower()
     pw = (inp.password or "").strip()
+
+    # validate email
     try:
-        # normalize/validate
         validate_email(email_norm)
     except EmailNotValidError as e:
         raise ValueError(str(e))
@@ -55,11 +57,8 @@ def register_user(inp: RegisterIn) -> None:
         db.commit()
 
 
-# ---------- Login (no 2FA) ----------
-# core/auth_service.py
-
-def authenticate(email: str, password: str, totp_code: str | None = None) -> dict:
-    # ^ keep totp_code for backward compatibility; ignore it
+# ---------- Login ----------
+def authenticate(email: str, password: str) -> dict:
     email_norm = (email or "").strip().lower()
     pw = (password or "").strip()
 
@@ -67,18 +66,13 @@ def authenticate(email: str, password: str, totp_code: str | None = None) -> dic
         u = db.query(User).filter(User.email == email_norm).first()
         if not u or not getattr(u, "is_active", True):
             raise ValueError("Invalid email or password")
-        from argon2 import exceptions as argon2_exceptions
         try:
             ph.verify(u.hashed_password, pw)
         except Exception:
-            # don't leak which part failed
             raise ValueError("Invalid email or password")
 
-        return {
-            "user_id": u.id,
-            "email": u.email,
-            "full_name": u.full_name,
-        }
+        return {"user_id": u.id, "email": u.email, "full_name": u.full_name}
+
 
 # ---------- Profile ----------
 def get_profile(user_id: int) -> dict:
@@ -86,14 +80,10 @@ def get_profile(user_id: int) -> dict:
         u: Optional[User] = db.get(User, user_id)
         if not u:
             raise ValueError("User not found")
-        return {
-            "id": u.id,
-            "email": u.email,
-            "full_name": u.full_name,
-        }
+        return {"id": u.id, "email": u.email, "full_name": u.full_name}
 
 
-# ---------- Persistent session tokens (cookie-backed) ----------
+# ---------- Persistent session tokens ----------
 def create_persistent_session(user_id: int) -> tuple[str, datetime]:
     token = secrets.token_urlsafe(32)
     expires_at = datetime.utcnow() + timedelta(days=SESSION_DAYS)
@@ -103,23 +93,18 @@ def create_persistent_session(user_id: int) -> tuple[str, datetime]:
     return token, expires_at
 
 
-
 def validate_session_token(token: str) -> dict | None:
     now = datetime.utcnow()
     with SessionLocal() as db:
-        row: SessionToken | None = db.query(SessionToken).filter_by(token=token, revoked=False).first()
+        row: Optional[SessionToken] = db.query(SessionToken).filter_by(token=token, revoked=False).first()
         if not row or row.expires_at <= now:
             return None
 
-        u: User | None = db.get(User, row.user_id)
+        u: Optional[User] = db.get(User, row.user_id)
         if not u or not getattr(u, "is_active", True):
             return None
 
-        return {
-            "user_id": u.id,
-            "email": u.email,
-            "full_name": u.full_name,
-        }
+        return {"user_id": u.id, "email": u.email, "full_name": u.full_name}
 
 
 def revoke_session_token(token: str) -> None:

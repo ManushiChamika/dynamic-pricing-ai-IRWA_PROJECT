@@ -9,25 +9,30 @@ from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 BASE_DIR = Path(__file__).resolve().parents[1]
 DB_PATH = (BASE_DIR / "auth.db").resolve()
 
-engine = create_engine(f"sqlite:///{DB_PATH}", future=True)
+engine = create_engine(f"sqlite:///{DB_PATH}", future=True, echo=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
 Base = declarative_base()
+
 
 class User(Base):
     __tablename__ = "users"
     __table_args__ = (UniqueConstraint("email", name="uq_users_email"),)
+
     id = Column(Integer, primary_key=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
     full_name = Column(String(255))
     hashed_password = Column(String(512), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+    two_factor_enabled = Column(Boolean, default=False, nullable=False)  # ✅ Fixed
     totp_secret = Column(String(64))
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     sessions = relationship("SessionToken", back_populates="user", cascade="all, delete-orphan")
 
+
 class SessionToken(Base):
     __tablename__ = "session_tokens"
+
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     token = Column(String(255), unique=True, index=True, nullable=False)
@@ -37,5 +42,12 @@ class SessionToken(Base):
 
     user = relationship("User", back_populates="sessions")
 
+
 def init_db():
+    """Create tables if they don’t exist."""
     Base.metadata.create_all(bind=engine)
+    print(f"Database created at {DB_PATH}")
+
+
+if __name__ == "__main__":
+    init_db()
