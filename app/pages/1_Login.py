@@ -37,10 +37,11 @@ if st.session_state.get("_await_cookie_commit"):
 # 4) Redirects
 if st.session_state.get("_post_login_redirect_ready"):
     st.session_state.pop("_post_login_redirect_ready", None)
-    st.switch_page("pages/0_Home.py")
+    st.switch_page("pages/dashboard.py")
 
 if st.session_state.get("session"):
-    st.switch_page("pages/0_Home.py")
+    st.switch_page("pages/dashboard.py")
+
 
 # 5) UI
 st.title("🔐 Login")
