@@ -1,11 +1,12 @@
-@"
 # Python
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *.pyd
 
 # Envs / secrets / logs
 .venv/
+venv/
 .env
 .env.*
 *.log
@@ -23,4 +24,3 @@ Thumbs.db
 *.db
 *.sqlite*
 .cache/
-"@ | Set-Content -Encoding UTF8 .gitignore
