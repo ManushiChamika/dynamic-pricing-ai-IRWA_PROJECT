@@ -105,6 +105,7 @@ col2.metric(label="💵 Avg. Price",  value=f"${df['Price'].mean():.2f}",     de
 col3.metric(label="📦 Units Sold",  value=f"{df['Demand'].sum():,}",        delta="+8%")
 st.markdown("---")
 
+
 # =====================================
 # 7) Tabs: Charts & AI Chat Assistant
 # =====================================
