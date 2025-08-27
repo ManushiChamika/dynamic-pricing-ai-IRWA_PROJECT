@@ -1,30 +1,50 @@
-# app/pages/dashboard.py
-
 import streamlit as st
 import plotly.express as px
 import pandas as pd
 import random
+import asyncio
+import threading
+from concurrent.futures import TimeoutError as FuturesTimeout
+import sys
+import pathlib
 
-# ---- 1) Set page config first ----
+# =========================
+# 1) Page Config & Theming
+# =========================
 st.set_page_config(page_title="Dynamic Pricing Dashboard", page_icon="📊", layout="wide")
 
-# ====== 2) Custom CSS for Light Blue Theme ======
+# Tip: Prefer Streamlit's built-in theming via .streamlit/config.toml.
+# The CSS below only uses stable hooks and avoids ephemeral classnames.
 st.markdown(
     """
     <style>
-    .stApp { background-color: #a6bdde; color: #000000; }
-    .stMetric { background-color: #7da3c3; border-radius: 10px; padding: 10px; color: #000000; }
-    .css-1lcbmhc.e1fqkh3o3 { background-color: #a6bdde; color: #000000; }
-    .stSidebar { background-color: #7da3c3; color: #000000; }
-    .stChatMessage { background-color: #6b92b1; color: #000000; border-radius: 10px; padding: 5px; }
-    .stTextInput > div > div > input { background-color: #a6bdde; color: #000000; border: 1px solid #000000; }
+    :root {
+        --bg: #a6bdde;
+        --bg-accent: #7da3c3;
+        --bg-panel: #5896ed;
+        --fg: #000000;
+        --border: #000000;
+    }
+    .stApp, .stApp header, .stApp footer { background-color: var(--bg); color: var(--fg); }
+    [data-testid="stSidebar"] { background-color: var(--bg-accent); color: var(--fg); }
+    [data-testid="stMetricValue"], [data-testid="stMetricLabel"], [data-testid="stMetricDelta"] { color: var(--fg); }
+    [data-testid="stMetric"] { background-color: var(--bg-accent); border-radius: 12px; padding: 10px; }
+    /* Inputs */
+    input, textarea, select { background-color: var(--bg); color: var(--fg); border: 1px solid var(--border); }
+    /* Chat messages */
+    [data-testid="stChatMessage"] { background-color: #6b92b1; color: var(--fg); border-radius: 10px; padding: 6px; }
     </style>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
-# ====== 3) AI Agent Simulation / Retrieval ======
-def get_dynamic_pricing_data():
+# ======================================
+# 2) Data Generators (cached for reruns)
+# ======================================
+@st.cache_data(show_spinner=False)
+def get_dynamic_pricing_data(seed: int | None = None) -> pd.DataFrame:
+    if seed is not None:
+        random.seed(seed)
     products = ["A", "B", "C", "D", "E"]
     data = []
     for p in products:
@@ -33,43 +53,59 @@ def get_dynamic_pricing_data():
         data.append({"Product": p, "Price": price, "Demand": demand})
     return pd.DataFrame(data)
 
-def get_demand_trend():
+@st.cache_data(show_spinner=False)
+def get_demand_trend(seed: int | None = None) -> pd.DataFrame:
+    if seed is not None:
+        random.seed(seed + 42)
     return pd.DataFrame({
         "Date": pd.date_range(start="2025-01-01", periods=12, freq="M"),
-        "Demand": [random.randint(200, 400) for _ in range(12)]
+        "Demand": [random.randint(200, 400) for _ in range(12)],
     })
 
-def ai_chat_response(user_input):
-    if "price" in user_input.lower():
+# =======================
+# 3) Toy AI Chat Response
+# =======================
+def ai_chat_response(user_input: str) -> str:
+    text = user_input.lower()
+    if "price" in text:
         return "💡 The AI suggests adjusting prices based on demand trends to maximize profit."
-    elif "demand" in user_input.lower():
+    if "demand" in text:
         return "📊 Current demand is rising. AI recommends monitoring seasonal patterns."
-    elif "hello" in user_input.lower():
+    if "hello" in text:
         return "👋 Hello! I’m your Dynamic Pricing Assistant. Ask me about sales, demand, or prices."
-    else:
-        return "🤖 Sorry, I didn’t understand. Try asking about **price**, **demand**, or **sales**."
+    return "🤖 Sorry, I didn’t understand. Try asking about **price**, **demand**, or **sales**."
 
-# ====== 4) SESSION CHECK ======
-if "session" not in st.session_state or st.session_state["session"] is None:
+# ==================
+# 4) Session Guard
+# ==================
+# Expect a dict-like object in st.session_state["session"] created by the login flow.
+session = st.session_state.get("session")
+if not session:
     st.warning("⚠️ You must log in first!")
     st.stop()
 
-user_session = st.session_state["session"]
-user_name = user_session.get("full_name", "User")
+user_name = session.get("full_name", "User")
+user_email = session.get("email", "-")
 
-# ====== 5) DASHBOARD HEADER ======
+# =====================
+# 5) Dashboard Header
+# =====================
 st.markdown(f"<h2 style='color:#000000;'>👋 Welcome back, <b>{user_name}</b></h2>", unsafe_allow_html=True)
 
-# ====== 6) Metrics Section ======
-st.subheader("📈 Key Business Metrics")
-df = get_dynamic_pricing_data()
+# =====================
+# 6) Metrics Section
+# =====================
+seed = st.session_state.get("rng_seed", 1234)
+df = get_dynamic_pricing_data(seed)
 col1, col2, col3 = st.columns(3)
 col1.metric(label="💰 Total Sales", value=f"${df['Price'].sum() * 1000:,}", delta="+5%")
 col2.metric(label="💵 Avg. Price",  value=f"${df['Price'].mean():.2f}",     delta="-2%")
 col3.metric(label="📦 Units Sold",  value=f"{df['Demand'].sum():,}",        delta="+8%")
 st.markdown("---")
 
-# ====== 7) Tabs for Charts & AI Chat ======
+# =====================================
+# 7) Tabs: Charts & AI Chat Assistant
+# =====================================
 tab1, tab2 = st.tabs(["📊 Charts", "💬 AI Chat Assistant"])
 
 with tab1:
@@ -78,7 +114,7 @@ with tab1:
         df, x="Price", y="Demand", size="Demand", color="Product",
         hover_name="Product",
         template="plotly_white",
-        width=900, height=500
+        width=900, height=500,
     )
     fig.update_layout(
         plot_bgcolor="#5896ed",
@@ -86,24 +122,26 @@ with tab1:
         font_color="#000000",
         xaxis=dict(gridcolor="#a6bdde", title_font_color="#000000", tickfont_color="#000000"),
         yaxis=dict(gridcolor="#a6bdde", title_font_color="#000000", tickfont_color="#000000"),
-        legend=dict(font_color="#000000")
+        legend=dict(font_color="#000000"),
+        margin=dict(l=20, r=20, t=40, b=20),
     )
     st.plotly_chart(fig, use_container_width=True)
 
     st.subheader("📈 AI Forecast: Demand Over Time")
-    trend_df = get_demand_trend()
+    trend_df = get_demand_trend(seed)
     fig2 = px.line(
         trend_df, x="Date", y="Demand", markers=True,
         template="plotly_white",
-        width=900, height=400
+        width=900, height=400,
     )
-    fig2.update_traces(line=dict(color="#FFFFFF"))  # Line color white
+    fig2.update_traces(line=dict(width=3))  # keep default color for contrast
     fig2.update_layout(
         plot_bgcolor="#5896ed",
         paper_bgcolor="#5896ed",
         font_color="#000000",
         xaxis=dict(gridcolor="#a6bdde", title_font_color="#000000", tickfont_color="#000000"),
-        yaxis=dict(gridcolor="#a6bdde", title_font_color="#000000", tickfont_color="#000000")
+        yaxis=dict(gridcolor="#a6bdde", title_font_color="#000000", tickfont_color="#000000"),
+        margin=dict(l=20, r=20, t=40, b=20),
     )
     st.plotly_chart(fig2, use_container_width=True)
 
@@ -115,7 +153,8 @@ with tab2:
         with st.chat_message(chat["role"]):
             st.markdown(chat["content"])
 
-    if user_input := st.chat_input("Ask me about pricing, demand, or sales..."):
+    user_input = st.chat_input("Ask me about pricing, demand, or sales...")
+    if user_input:
         st.session_state["chat_history"].append({"role": "user", "content": user_input})
         with st.chat_message("user"):
             st.markdown(user_input)
@@ -125,34 +164,31 @@ with tab2:
         with st.chat_message("assistant"):
             st.markdown(response)
 
-# ====== 8) Sidebar ======
+# ==============
+# 8) Sidebar
+# ==============
 st.sidebar.title("⚙️ Menu")
 st.sidebar.subheader("👤 User Info")
-st.sidebar.info(f"**Name:** {user_name}\n**Email:** {user_session.get('email')}")
+st.sidebar.info(f"**Name:** {user_name}\n**Email:** {user_email}")
 
-if st.sidebar.button("🚪 Logout"):
-    st.session_state["session"] = None
-    st.success("You have been logged out. Please refresh or go back to login.")
-    st.stop()
-
-
+if st.sidebar.button("🚪 Logout", use_container_width=True):
+    # Clear only auth-related keys to avoid nuking other state if you don't want to
+    st.session_state.pop("session", None)
+    st.success("You have been logged out.")
+    st.rerun()
 
 # ============================================================================ #
 # ==================  🔧 EXTRAS: Alerts Engine & Incidents  ================== #
 # ============================================================================ #
 
-# -- Only needed for Extras section --
-import asyncio, threading
-from concurrent.futures import TimeoutError as FuturesTimeout
-import sys, pathlib
-
-# Ensure 'core' package importable (only needed before importing from core.*)
+# Make 'core' package importable (only if it exists)
 HERE = pathlib.Path(__file__).resolve()
-ROOT = next(p for p in [HERE, *HERE.parents] if (p / "core").exists())
-if str(ROOT) not in sys.path:
+ROOT = next((p for p in [HERE, *HERE.parents] if (p / "core").exists()), None)
+if ROOT and str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 # Background asyncio loop (to call alert APIs safely from Streamlit)
+
 def _ensure_bg_loop():
     if "_bg_loop" not in st.session_state:
         loop = asyncio.new_event_loop()
@@ -161,6 +197,7 @@ def _ensure_bg_loop():
         st.session_state["_bg_loop"] = loop
     return st.session_state["_bg_loop"]
 
+
 def run_async(coro, timeout: float | None = 10.0):
     loop = _ensure_bg_loop()
     fut = asyncio.run_coroutine_threadsafe(coro, loop)
@@ -168,18 +205,29 @@ def run_async(coro, timeout: float | None = 10.0):
         return fut.result(timeout=timeout)
     except FuturesTimeout:
         return None
+    except Exception:
+        return None
 
 # Start alerts engine once (so incidents flow even on the dashboard)
-from core.agents.alert_service import api as alerts
-if "_alerts_started" not in st.session_state:
-    asyncio.run_coroutine_threadsafe(alerts.start(), _ensure_bg_loop())
-    st.session_state["_alerts_started"] = True
+alerts = None
+try:
+    from core.agents.alert_service import api as _alerts
+    alerts = _alerts
+except Exception:
+    alerts = None
 
-# Live incidents summary (collapsible)
-with st.expander("🔔 Incidents (live — extras)", expanded=False):
-    rows = run_async(alerts.list_incidents(None)) or []
-    st.metric("Open incidents", sum(1 for r in rows if r.get("status") == "OPEN"))
-    if rows:
-        st.dataframe(pd.DataFrame(rows))
-    else:
-        st.info("No incidents yet — go to **Alerts & Notifications** and trigger a Demo scenario.")
+if alerts:
+    if "_alerts_started" not in st.session_state:
+        asyncio.run_coroutine_threadsafe(alerts.start(), _ensure_bg_loop())
+        st.session_state["_alerts_started"] = True
+
+    with st.expander("🔔 Incidents (live — extras)", expanded=False):
+        rows = run_async(alerts.list_incidents(None)) or []
+        st.metric("Open incidents", sum(1 for r in rows if r.get("status") == "OPEN"))
+        if rows:
+            st.dataframe(pd.DataFrame(rows))
+        else:
+            st.info("No incidents yet — go to **Alerts & Notifications** and trigger a Demo scenario.")
+else:
+    with st.expander("🔔 Incidents (live — extras)", expanded=False):
+        st.info("Alerts service not available. Ensure `core/agents/alert_service` exists and dependencies are installed.")
