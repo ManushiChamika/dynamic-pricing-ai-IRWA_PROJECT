@@ -62,6 +62,7 @@ def get_demand_trend(seed: int | None = None) -> pd.DataFrame:
         "Demand": [random.randint(200, 400) for _ in range(12)],
     })
 
+
 # =======================
 # 3) Toy AI Chat Response
 # =======================
@@ -74,6 +75,7 @@ def ai_chat_response(user_input: str) -> str:
     if "hello" in text:
         return "👋 Hello! I’m your Dynamic Pricing Assistant. Ask me about sales, demand, or prices."
     return "🤖 Sorry, I didn’t understand. Try asking about **price**, **demand**, or **sales**."
+
 
 # ==================
 # 4) Session Guard
