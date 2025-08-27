@@ -65,8 +65,8 @@ st.subheader("📈 Key Business Metrics")
 df = get_dynamic_pricing_data()
 col1, col2, col3 = st.columns(3)
 col1.metric(label="💰 Total Sales", value=f"${df['Price'].sum() * 1000:,}", delta="+5%")
-col2.metric(label="💵 Avg. Price", value=f"${df['Price'].mean():.2f}", delta="-2%")
-col3.metric(label="📦 Units Sold", value=f"{df['Demand'].sum():,}", delta="+8%")
+col2.metric(label="💵 Avg. Price",  value=f"${df['Price'].mean():.2f}",     delta="-2%")
+col3.metric(label="📦 Units Sold",  value=f"{df['Demand'].sum():,}",        delta="+8%")
 st.markdown("---")
 
 # ====== 7) Tabs for Charts & AI Chat ======
@@ -134,3 +134,52 @@ if st.sidebar.button("🚪 Logout"):
     st.session_state["session"] = None
     st.success("You have been logged out. Please refresh or go back to login.")
     st.stop()
+
+
+
+# ============================================================================ #
+# ==================  🔧 EXTRAS: Alerts Engine & Incidents  ================== #
+# ============================================================================ #
+
+# -- Only needed for Extras section --
+import asyncio, threading
+from concurrent.futures import TimeoutError as FuturesTimeout
+import sys, pathlib
+
+# Ensure 'core' package importable (only needed before importing from core.*)
+HERE = pathlib.Path(__file__).resolve()
+ROOT = next(p for p in [HERE, *HERE.parents] if (p / "core").exists())
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+# Background asyncio loop (to call alert APIs safely from Streamlit)
+def _ensure_bg_loop():
+    if "_bg_loop" not in st.session_state:
+        loop = asyncio.new_event_loop()
+        t = threading.Thread(target=loop.run_forever, daemon=True)
+        t.start()
+        st.session_state["_bg_loop"] = loop
+    return st.session_state["_bg_loop"]
+
+def run_async(coro, timeout: float | None = 10.0):
+    loop = _ensure_bg_loop()
+    fut = asyncio.run_coroutine_threadsafe(coro, loop)
+    try:
+        return fut.result(timeout=timeout)
+    except FuturesTimeout:
+        return None
+
+# Start alerts engine once (so incidents flow even on the dashboard)
+from core.agents.alert_service import api as alerts
+if "_alerts_started" not in st.session_state:
+    asyncio.run_coroutine_threadsafe(alerts.start(), _ensure_bg_loop())
+    st.session_state["_alerts_started"] = True
+
+# Live incidents summary (collapsible)
+with st.expander("🔔 Incidents (live — extras)", expanded=False):
+    rows = run_async(alerts.list_incidents(None)) or []
+    st.metric("Open incidents", sum(1 for r in rows if r.get("status") == "OPEN"))
+    if rows:
+        st.dataframe(pd.DataFrame(rows))
+    else:
+        st.info("No incidents yet — go to **Alerts & Notifications** and trigger a Demo scenario.")

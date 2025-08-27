@@ -8,3 +8,7 @@ extra-streamlit-components==0.1.71
 qrcode==7.4.2
 Pillow==10.4.0
 plotly
+aiosqlite
+aiohttp
+aiosmtplib
+pydantic
