@@ -240,6 +240,7 @@ else:
         st.markdown('</div></div>', unsafe_allow_html=True)
     a3.write("")
 
+
 # ————————————————————————————————————————————————————————————————
 # Status Summary
 # ————————————————————————————————————————————————————————————————
@@ -256,6 +257,7 @@ with s2:
     st.markdown('<div class="card metric lift"><div class="kicker">Active Agents</div><h3 style="color: var(--info)">4</h3></div>', unsafe_allow_html=True)
 with s3:
     st.markdown('<div class="card metric lift"><div class="kicker">Monitoring</div><h3 style="color: var(--primary)">24/7</h3></div>', unsafe_allow_html=True)
+
 
 # ————————————————————————————————————————————————————————————————
 # Footer
