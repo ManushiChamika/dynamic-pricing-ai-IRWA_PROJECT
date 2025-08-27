@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyd
+
+# Envs / secrets / logs
+.venv/
+venv/
+.env
+.env.*
+*.log
+
+# OS / IDE
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Local DBs / caches
+*.db
+*.sqlite*
+.cache/
