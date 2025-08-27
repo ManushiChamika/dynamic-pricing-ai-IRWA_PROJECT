@@ -1,29 +1,28 @@
-# app/pages/dashboard.py
-
 import streamlit as st
 import plotly.express as px
 import pandas as pd
 import random
+import os
+import json
+from datetime import datetime
 
-# ---- 1) Set page config first ----
+from core.agents.user_interaction_agent import UserInteractionAgent
+
+# ---- Streamlit Page Config ----
 st.set_page_config(page_title="Dynamic Pricing Dashboard", page_icon="📊", layout="wide")
 
-# ====== 2) Custom CSS for Light Blue Theme ======
-st.markdown(
-    """
-    <style>
-    .stApp { background-color: #a6bdde; color: #000000; }
-    .stMetric { background-color: #7da3c3; border-radius: 10px; padding: 10px; color: #000000; }
-    .css-1lcbmhc.e1fqkh3o3 { background-color: #a6bdde; color: #000000; }
-    .stSidebar { background-color: #7da3c3; color: #000000; }
-    .stChatMessage { background-color: #6b92b1; color: #000000; border-radius: 10px; padding: 5px; }
-    .stTextInput > div > div > input { background-color: #a6bdde; color: #000000; border: 1px solid #000000; }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+# ---- Custom CSS ----
+st.markdown("""
+<style>
+.stApp { background-color: #a6bdde; color: #000000; }
+.stMetric { background-color: #7da3c3; border-radius: 10px; padding: 10px; color: #000000; }
+.stSidebar { background-color: #7da3c3; color: #000000; }
+.stChatMessage { background-color: #6b92b1; color: #000000; border-radius: 10px; padding: 5px; }
+.stTextInput > div > div > input { background-color: #a6bdde; color: #000000; border: 1px solid #000000; }
+</style>
+""", unsafe_allow_html=True)
 
-# ====== 3) AI Agent Simulation / Retrieval ======
+# ---- Simulated Data ----
 def get_dynamic_pricing_data():
     products = ["A", "B", "C", "D", "E"]
     data = []
@@ -39,97 +38,137 @@ def get_demand_trend():
         "Demand": [random.randint(200, 400) for _ in range(12)]
     })
 
-def ai_chat_response(user_input):
-    if "price" in user_input.lower():
-        return "💡 The AI suggests adjusting prices based on demand trends to maximize profit."
-    elif "demand" in user_input.lower():
-        return "📊 Current demand is rising. AI recommends monitoring seasonal patterns."
-    elif "hello" in user_input.lower():
-        return "👋 Hello! I’m your Dynamic Pricing Assistant. Ask me about sales, demand, or prices."
-    else:
-        return "🤖 Sorry, I didn’t understand. Try asking about **price**, **demand**, or **sales**."
+# ---- User Data Persistence ----
+DATA_FILE = "user_data.json"
 
-# ====== 4) SESSION CHECK ======
+def load_user_data(email):
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, "r") as f:
+                all_data = json.load(f)
+            return all_data.get(email, {"chat_history": [], "metrics": None})
+        except json.JSONDecodeError:
+            return {"chat_history": [], "metrics": None}
+    return {"chat_history": [], "metrics": None}
+
+def save_user_data(email, data):
+    all_data = {}
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, "r") as f:
+                all_data = json.load(f)
+        except json.JSONDecodeError:
+            all_data = {}
+    all_data[email] = data
+    with open(DATA_FILE, "w") as f:
+        json.dump(all_data, f, indent=4)
+
+# ---- Session Check ----
 if "session" not in st.session_state or st.session_state["session"] is None:
     st.warning("⚠️ You must log in first!")
     st.stop()
 
 user_session = st.session_state["session"]
 user_name = user_session.get("full_name", "User")
+user_email = user_session.get("email")
 
-# ====== 5) DASHBOARD HEADER ======
+# ---- Load Previous Data ----
+user_data = load_user_data(user_email)
+if "chat_history" not in st.session_state:
+    st.session_state["chat_history"] = user_data.get("chat_history", [])
+if "metrics" not in st.session_state:
+    st.session_state["metrics"] = user_data.get("metrics", None)
+
+# ---- Initialize Local Agent ----
+agent = UserInteractionAgent(user_name=user_name, model_name="gpt2")  # or smaller chat model
+
+# ---- Dashboard Header ----
 st.markdown(f"<h2 style='color:#000000;'>👋 Welcome back, <b>{user_name}</b></h2>", unsafe_allow_html=True)
 
-# ====== 6) Metrics Section ======
+# ---- Metrics ----
 st.subheader("📈 Key Business Metrics")
 df = get_dynamic_pricing_data()
 col1, col2, col3 = st.columns(3)
-col1.metric(label="💰 Total Sales", value=f"${df['Price'].sum() * 1000:,}", delta="+5%")
-col2.metric(label="💵 Avg. Price", value=f"${df['Price'].mean():.2f}", delta="-2%")
-col3.metric(label="📦 Units Sold", value=f"{df['Demand'].sum():,}", delta="+8%")
+
+total_sales = int(df['Price'].sum() * 1000)
+avg_price = float(df['Price'].mean())
+units_sold = int(df['Demand'].sum())
+
+if st.session_state["metrics"] is None:
+    st.session_state["metrics"] = {
+        "total_sales": total_sales,
+        "avg_price": avg_price,
+        "units_sold": units_sold
+    }
+
+col1.metric(label="💰 Total Sales", value=f"${st.session_state['metrics']['total_sales']:,}", delta="+5%")
+col2.metric(label="💵 Avg. Price", value=f"${st.session_state['metrics']['avg_price']:.2f}", delta="-2%")
+col3.metric(label="📦 Units Sold", value=f"{st.session_state['metrics']['units_sold']:,}", delta="+8%")
 st.markdown("---")
 
-# ====== 7) Tabs for Charts & AI Chat ======
-tab1, tab2 = st.tabs(["📊 Charts", "💬 AI Chat Assistant"])
+save_user_data(user_email, {
+    "chat_history": st.session_state["chat_history"],
+    "metrics": st.session_state["metrics"]
+})
 
-with tab1:
-    st.subheader("💡 AI Prediction: Price vs Demand")
-    fig = px.scatter(
-        df, x="Price", y="Demand", size="Demand", color="Product",
-        hover_name="Product",
-        template="plotly_white",
-        width=900, height=500
-    )
-    fig.update_layout(
-        plot_bgcolor="#5896ed",
-        paper_bgcolor="#5896ed",
-        font_color="#000000",
-        xaxis=dict(gridcolor="#a6bdde", title_font_color="#000000", tickfont_color="#000000"),
-        yaxis=dict(gridcolor="#a6bdde", title_font_color="#000000", tickfont_color="#000000"),
-        legend=dict(font_color="#000000")
-    )
-    st.plotly_chart(fig, use_container_width=True)
+# ---- Charts ----
+st.subheader("📊 AI Prediction: Price vs Demand")
+fig = px.scatter(
+    df, x="Price", y="Demand", size="Demand", color="Product",
+    hover_name="Product", template="plotly_white", width=900, height=500
+)
+fig.update_layout(plot_bgcolor="#5896ed", paper_bgcolor="#5896ed", font_color="#000000")
+st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("📈 AI Forecast: Demand Over Time")
-    trend_df = get_demand_trend()
-    fig2 = px.line(
-        trend_df, x="Date", y="Demand", markers=True,
-        template="plotly_white",
-        width=900, height=400
-    )
-    fig2.update_traces(line=dict(color="#FFFFFF"))  # Line color white
-    fig2.update_layout(
-        plot_bgcolor="#5896ed",
-        paper_bgcolor="#5896ed",
-        font_color="#000000",
-        xaxis=dict(gridcolor="#a6bdde", title_font_color="#000000", tickfont_color="#000000"),
-        yaxis=dict(gridcolor="#a6bdde", title_font_color="#000000", tickfont_color="#000000")
-    )
-    st.plotly_chart(fig2, use_container_width=True)
+st.subheader("📈 AI Forecast: Demand Over Time")
+trend_df = get_demand_trend()
+fig2 = px.line(trend_df, x="Date", y="Demand", markers=True, template="plotly_white", width=900, height=400)
+fig2.update_traces(line=dict(color="#FFFFFF"))
+fig2.update_layout(plot_bgcolor="#5896ed", paper_bgcolor="#5896ed", font_color="#000000")
+st.plotly_chart(fig2, use_container_width=True)
 
-with tab2:
-    if "chat_history" not in st.session_state:
-        st.session_state["chat_history"] = []
-
-    for chat in st.session_state["chat_history"]:
-        with st.chat_message(chat["role"]):
-            st.markdown(chat["content"])
-
-    if user_input := st.chat_input("Ask me about pricing, demand, or sales..."):
-        st.session_state["chat_history"].append({"role": "user", "content": user_input})
-        with st.chat_message("user"):
-            st.markdown(user_input)
-
-        response = ai_chat_response(user_input)
-        st.session_state["chat_history"].append({"role": "assistant", "content": response})
-        with st.chat_message("assistant"):
-            st.markdown(response)
-
-# ====== 8) Sidebar ======
+# ---- Sidebar ----
 st.sidebar.title("⚙️ Menu")
 st.sidebar.subheader("👤 User Info")
-st.sidebar.info(f"**Name:** {user_name}\n**Email:** {user_session.get('email')}")
+st.sidebar.info(f"**Name:** {user_name}\n**Email:** {user_email}")
 
+# Chat history
+st.sidebar.subheader("💬 Chat History")
+chat_container = st.sidebar.container()
+for chat in st.session_state.chat_history:
+    role = chat.get("role")
+    message = chat.get("content")
+    time = chat.get("time", datetime.now().strftime("%H:%M:%S"))
+    if role == "user":
+        chat_container.markdown(f"🧑 **[{time}] User:** {message}")
+    else:
+        chat_container.markdown(f"🤖 **[{time}] Bot:** {message}")
+
+# Chat input
+if user_input := st.chat_input("Ask me about pricing, demand, or sales..."):
+    st.session_state["chat_history"].append({
+        "role": "user",
+        "content": user_input,
+        "time": datetime.now().strftime("%H:%M:%S")
+    })
+    with st.chat_message("user"):
+        st.markdown(user_input)
+
+    response = agent.get_response(user_input)
+    st.session_state["chat_history"].append({
+        "role": "assistant",
+        "content": response,
+        "time": datetime.now().strftime("%H:%M:%S")
+    })
+    with st.chat_message("assistant"):
+        st.markdown(response)
+
+    save_user_data(user_email, {
+        "chat_history": st.session_state["chat_history"],
+        "metrics": st.session_state["metrics"]
+    })
+
+# Logout
 if st.sidebar.button("🚪 Logout"):
     st.session_state["session"] = None
     st.success("You have been logged out. Please refresh or go back to login.")
