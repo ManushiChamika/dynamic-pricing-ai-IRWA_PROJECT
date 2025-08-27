@@ -258,7 +258,6 @@ with s2:
 with s3:
     st.markdown('<div class="card metric lift"><div class="kicker">Monitoring</div><h3 style="color: var(--primary)">24/7</h3></div>', unsafe_allow_html=True)
 
-
 # ————————————————————————————————————————————————————————————————
 # Footer
 # ————————————————————————————————————————————————————————————————
