@@ -1,1 +1,33 @@
+
 prompts sasindu.md
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE/editor
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Databases and logs
+*.sqlite
+*.db
+.env
+*.log
+
+# Archives and builds
+*.zip
+*.tar.gz
+dist/
+build/
