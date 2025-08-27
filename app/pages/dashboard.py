@@ -94,6 +94,7 @@ user_email = session.get("email", "-")
 # =====================
 st.markdown(f"<h2 style='color:#000000;'>👋 Welcome back, <b>{user_name}</b></h2>", unsafe_allow_html=True)
 
+
 # =====================
 # 6) Metrics Section
 # =====================
