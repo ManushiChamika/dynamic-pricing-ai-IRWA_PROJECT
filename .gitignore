@@ -1,8 +1,6 @@
-
-prompts sasindu.md
-
 # Python
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *.pyo
 *.pyd
@@ -22,8 +20,10 @@ Thumbs.db
 
 # Databases and logs
 *.sqlite
+*.sqlite*
 *.db
 .env
+.env.*
 *.log
 
 # Archives and builds
@@ -31,6 +31,12 @@ Thumbs.db
 *.tar.gz
 dist/
 build/
+.cache/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Ignore dump and script files
 project_code_dump.txt
 prompts.md
 scripts/collect_project_code.ps1
