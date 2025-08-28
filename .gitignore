@@ -1,42 +1,34 @@
-# Python
-__pycache__/
-**/__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-
-# Virtual environments
-venv/
-env/
-.venv/
-
-# IDE/editor
-.vscode/
-.idea/
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Databases and logs
-*.sqlite
-*.sqlite*
-*.db
+# Env & secrets
 .env
 .env.*
-*.log
+!.env.example
 
-# Archives and builds
-*.zip
-*.tar.gz
+# Databases
+*.db
+*.sqlite
+auth.db
+app/alert.db
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Build / cache
 dist/
 build/
 .cache/
+.ipynb_checkpoints/
+.streamlit/
 
-# Streamlit
-.streamlit/secrets.toml
+# Node (if present)
+node_modules/
 
-# Ignore dump and script files
-project_code_dump.txt
-prompts.md
-scripts/collect_project_code.ps1
+# OS
+.DS_Store
+Thumbs.db
+
+# Project-specific
+user_data.json
