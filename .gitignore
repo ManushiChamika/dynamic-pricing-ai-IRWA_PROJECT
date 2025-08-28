@@ -1,0 +1,54 @@
+########################################################
+# Python
+_pycache_/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE/editor
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Databases and logs
+*.sqlite
+*.sqlite3
+*.db
+.env
+.env.*
+*.log
+auth.db
+app/alert.db
+
+# Archives and builds
+*.zip
+*.tar.gz
+dist/
+build/
+.cache/
+.ipynb_checkpoints/
+
+# Streamlit
+.streamlit/secrets.toml
+.streamlit/
+
+# Node (if present)
+node_modules/
+
+# Ignore dump and script files
+project_code_dump.txt
+prompts.md
+scripts/collect_project_code.ps1
+
+# Project-specific
+user_data.json
+!.env.example
+########################################################
