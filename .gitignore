@@ -1,34 +1,55 @@
-# Env & secrets
+########################################################
+# Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE/editor
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Databases and logs
+*.sqlite
+*.sqlite*
+*.db
 .env
 .env.*
-!.env.example
-
-# Databases
-*.db
-*.sqlite
+*.log
 auth.db
 app/alert.db
 
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
-
-# Build / cache
+# Archives and builds
+*.zip
+*.tar.gz
 dist/
 build/
 .cache/
 .ipynb_checkpoints/
+
+# Streamlit
+.streamlit/secrets.toml
 .streamlit/
 
 # Node (if present)
 node_modules/
 
-# OS
-.DS_Store
-Thumbs.db
+# Ignore dump and script files
+project_code_dump.txt
+prompts.md
+scripts/collect_project_code.ps1
 
 # Project-specific
 user_data.json
+!.env.example
+########################################################
