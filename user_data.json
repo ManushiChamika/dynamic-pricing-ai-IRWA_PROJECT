@@ -327,5 +327,94 @@
             "avg_price": 169.4,
             "units_sold": 1720
         }
+    },
+    "mckettipearachchi@gmail.com": {
+        "chat_history": [
+            {
+                "role": "user",
+                "content": "hello",
+                "time": "20:23:14"
+            },
+            {
+                "role": "assistant",
+                "content": "(Stub agent) Hi manu123, you asked: 'hello'. Replace this stub by installing the core agent package.",
+                "time": "20:23:14"
+            },
+            {
+                "role": "user",
+                "content": "give me pricing",
+                "time": "20:23:32"
+            },
+            {
+                "role": "assistant",
+                "content": "(Stub agent) Hi manu123, you asked: 'give me pricing'. Replace this stub by installing the core agent package.",
+                "time": "20:23:32"
+            },
+            {
+                "role": "user",
+                "content": "give me pricings",
+                "time": "20:23:38"
+            },
+            {
+                "role": "assistant",
+                "content": "(Stub agent) Hi manu123, you asked: 'give me pricings'. Replace this stub by installing the core agent package.",
+                "time": "20:23:38"
+            },
+            {
+                "role": "user",
+                "content": "hello",
+                "time": "20:24:18"
+            },
+            {
+                "role": "assistant",
+                "content": "(Stub agent) Hi manu123, you asked: 'hello'. Replace this stub by installing the core agent package.",
+                "time": "20:24:18"
+            },
+            {
+                "role": "user",
+                "content": "hello",
+                "time": "20:26:29"
+            },
+            {
+                "role": "assistant",
+                "content": "(Stub agent) Hi manu123, you asked: 'hello'. Replace this stub by installing the core agent package.",
+                "time": "20:26:29"
+            },
+            {
+                "role": "user",
+                "content": "hello",
+                "time": "20:28:10"
+            },
+            {
+                "role": "assistant",
+                "content": "(Stub agent) Hi manu123, you asked: 'hello'. Replace this stub by installing the core agent package.",
+                "time": "20:28:10"
+            },
+            {
+                "role": "user",
+                "content": "hello",
+                "time": "20:29:49"
+            },
+            {
+                "role": "assistant",
+                "content": "(Stub agent) Hi manu123, you asked: 'hello'. Replace this stub by installing the core agent package.",
+                "time": "20:29:49"
+            },
+            {
+                "role": "user",
+                "content": "hello",
+                "time": "21:16:51"
+            },
+            {
+                "role": "assistant",
+                "content": "helloThe U.S. Department of Justice has filed a lawsuit against the company that owns the video game company, Electronic Arts, alleging that the company violated antitrust laws by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the",
+                "time": "21:17:20"
+            }
+        ],
+        "metrics": {
+            "total_sales": 234905,
+            "avg_price": 151.0,
+            "units_sold": 1586
+        }
     }
 }

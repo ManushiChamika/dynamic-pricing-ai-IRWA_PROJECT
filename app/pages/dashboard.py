@@ -19,7 +19,7 @@ try:
 except Exception:
     # Safe fallback so the app still runs if the import isn't available
     class UserInteractionAgent:
-        def _init_(self, user_name: str = "User", model_name: str = "stub"):
+        def __init__(self, user_name: str = "User", model_name: str = "stub"):
             self.user_name = user_name
             self.model_name = model_name
 
@@ -212,7 +212,7 @@ if st.sidebar.button("🚪 Logout"):
 
 # Make 'core' package importable (only if it exists)
 try:
-    HERE = pathlib.Path(_file_).resolve()
+    HERE = pathlib.Path(__file__).resolve()
 except NameError:
     # Fallback for some environments where _file_ may not be defined
     HERE = pathlib.Path.cwd()
