@@ -1,0 +1,41 @@
+{
+    "imasha@gmail.com": {
+        "chat_history": [
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "08:16:39"
+            },
+            {
+                "role": "assistant",
+                "content": "hiThe U.S. Department of Justice has filed a lawsuit against the company that owns the video game company, Electronic Arts, alleging that the company violated antitrust laws by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the",
+                "time": "08:16:52"
+            },
+            {
+                "role": "user",
+                "content": "Average sales",
+                "time": "08:18:32"
+            },
+            {
+                "role": "assistant",
+                "content": "Average salesThe first time I saw the new \"The Walking Dead\" trailer, I was so excited. I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for",
+                "time": "08:18:43"
+            },
+            {
+                "role": "user",
+                "content": "hello how are you",
+                "time": "08:42:59"
+            },
+            {
+                "role": "assistant",
+                "content": "hello how are youThe first time I saw the new \"The Walking Dead\" trailer, I was so excited. I was so excited to see the first trailer for the upcoming season of \"The Walking Dead.\" I was so excited to see the first trailer for the upcoming season of \"The Walking Dead.\"\n\nI was so excited to see the first trailer for the upcoming season of \"The Walking Dead.\" I was so excited to see the first trailer for the upcoming season of \"The Walking Dead.\"\n\nI was so excited to see the first trailer for the upcoming season of \"The Walking Dead.\" I was so excited to see the first trailer for the upcoming season of \"The Walking Dead.\"\n\nI was so excited to see the first trailer for the upcoming season of \"The Walking Dead.\" I was so excited to see the first trailer for the upcoming season of \"The Walking Dead.\"\n\nI was so excited to see the first trailer for the upcoming season of \"The",
+                "time": "08:43:13"
+            }
+        ],
+        "metrics": {
+            "total_sales": 598000,
+            "avg_price": 119.6,
+            "units_sold": 1384
+        }
+    }
+}
