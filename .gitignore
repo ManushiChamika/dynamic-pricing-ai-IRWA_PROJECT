@@ -36,11 +36,13 @@ Thumbs.db
 *.sqlite
 *.sqlite3
 *.db
+app/*.db
 .env
 .env.*
 *.log
 auth.db
 app/alert.db
+user_data.json
 
 # ---------- Archives & build artifacts ----------
 # Build outputs, distributions and cache directories can be large and
@@ -67,6 +69,9 @@ node_modules/
 project_code_dump.txt
 prompts.md
 scripts/collect_project_code.ps1
+
+# ---------- Notebooks / checkpoints ----------
+.ipynb_checkpoints/
 
 # ---------- Tracked exceptions ----------
 # Keep example env files tracked so new contributors know required vars.

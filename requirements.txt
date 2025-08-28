@@ -12,3 +12,11 @@ aiosqlite
 aiohttp
 aiosmtplib
 pydantic
+python-dotenv
+pandas
+langgraph
+mcp
+transformers
+# torch may require a platform-specific wheel; install separately if fails
+torch
+nats-py
