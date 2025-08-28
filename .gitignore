@@ -1,7 +1,6 @@
 ########################################################
 # Python
-__pycache__/
-**/__pycache__/
+_pycache_/
 *.py[cod]
 *.pyo
 *.pyd
@@ -21,7 +20,7 @@ Thumbs.db
 
 # Databases and logs
 *.sqlite
-*.sqlite*
+*.sqlite3
 *.db
 .env
 .env.*

@@ -1,0 +1,331 @@
+{
+    "imasha@gmail.com": {
+        "chat_history": [
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "16:18:07"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83d\udc4b Hello Imasha! I\u2019m your Dynamic Pricing Assistant. Ask me about price, demand, or sales.",
+                "time": "16:18:07"
+            },
+            {
+                "role": "user",
+                "content": "hello",
+                "time": "16:18:11"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83d\udc4b Hello Imasha! I\u2019m your Dynamic Pricing Assistant. Ask me about price, demand, or sales.",
+                "time": "16:18:11"
+            },
+            {
+                "role": "user",
+                "content": "price",
+                "time": "16:18:21"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83d\udca1 Hi Imasha, AI suggests adjusting prices dynamically using demand data.",
+                "time": "16:18:21"
+            },
+            {
+                "role": "user",
+                "content": "sales",
+                "time": "16:18:29"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83d\udcc8 Sales are expected to grow by 13% next month.",
+                "time": "16:18:29"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "16:36:46"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83d\udc4b Hello Imasha! I\u2019m your Dynamic Pricing Assistant. Ask me about price, demand, or sales.",
+                "time": "16:36:46"
+            },
+            {
+                "role": "user",
+                "content": "prices",
+                "time": "16:36:51"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83d\udca1 Hi Imasha, AI suggests adjusting prices dynamically using demand data.",
+                "time": "16:36:51"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "19:29:59"
+            },
+            {
+                "role": "assistant",
+                "content": "Error: \n\nYou tried to access openai.ChatCompletion, but this is no longer supported in openai>=1.0.0 - see the README at https://github.com/openai/openai-python for the API.\n\nYou can run `openai migrate` to automatically upgrade your codebase to use the 1.0.0 interface. \n\nAlternatively, you can pin your installation to the old version, e.g. `pip install openai==0.28`\n\nA detailed migration guide is available here: https://github.com/openai/openai-python/discussions/742\n",
+                "time": "19:29:59"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "19:37:35"
+            },
+            {
+                "role": "assistant",
+                "content": "Error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-or-v1*************************************************************4d68. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}",
+                "time": "19:37:37"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "19:40:16"
+            },
+            {
+                "role": "assistant",
+                "content": "Error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-or-v1*************************************************************4d68. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}",
+                "time": "19:40:18"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "19:42:28"
+            },
+            {
+                "role": "assistant",
+                "content": "Error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-or-v1*************************************************************4d68. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}",
+                "time": "19:42:30"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "19:47:41"
+            },
+            {
+                "role": "assistant",
+                "content": "Error: HTTPSConnectionPool(host='api.deepseek.ai', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by NameResolutionError(\"<urllib3.connection.HTTPSConnection object at 0x000002A6907C4590>: Failed to resolve 'api.deepseek.ai' ([Errno 11001] getaddrinfo failed)\"))",
+                "time": "19:47:41"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "20:21:52"
+            },
+            {
+                "role": "assistant",
+                "content": "Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/gpt2",
+                "time": "20:21:54"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "20:25:35"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83e\udd16 Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct",
+                "time": "20:25:36"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "20:29:17"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83e\udd16 Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct",
+                "time": "20:29:18"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "20:34:06"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83e\udd16 Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct",
+                "time": "20:34:07"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "20:38:48"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83e\udd16 Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/gpt2",
+                "time": "20:38:50"
+            },
+            {
+                "role": "user",
+                "content": "prices",
+                "time": "20:38:59"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83e\udd16 Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/gpt2",
+                "time": "20:39:00"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "20:45:04"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83e\udd16 Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/bigscience/bloom-560m",
+                "time": "20:45:06"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "20:58:22"
+            },
+            {
+                "role": "assistant",
+                "content": "Error: HTTPSConnectionPool(host='api.deepseek.ai', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by NameResolutionError(\"<urllib3.connection.HTTPSConnection object at 0x000002415C870830>: Failed to resolve 'api.deepseek.ai' ([Errno 11001] getaddrinfo failed)\"))",
+                "time": "20:58:22"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "21:09:42"
+            },
+            {
+                "role": "assistant",
+                "content": "Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/gpt2",
+                "time": "21:09:43"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "21:10:46"
+            },
+            {
+                "role": "assistant",
+                "content": "Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/gpt2",
+                "time": "21:10:47"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "21:16:00"
+            },
+            {
+                "role": "assistant",
+                "content": "Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill",
+                "time": "21:16:01"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "21:23:04"
+            },
+            {
+                "role": "assistant",
+                "content": "Model 'meta-llama/Llama-2-7b-chat-hf' is not available via the Hugging Face Inference API.",
+                "time": "21:23:04"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "21:35:02"
+            },
+            {
+                "role": "assistant",
+                "content": "Model 'meta-llama/Llama-2-7b-chat-hf' is not available via the Hugging Face Inference API.",
+                "time": "21:35:02"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "21:46:38"
+            },
+            {
+                "role": "assistant",
+                "content": "hiThe U.S. Department of Justice has filed a lawsuit against the company that owns the video game company, Electronic Arts, alleging that the company violated antitrust laws by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the",
+                "time": "21:46:46"
+            },
+            {
+                "role": "user",
+                "content": "I want price list of cars",
+                "time": "21:47:17"
+            },
+            {
+                "role": "assistant",
+                "content": "I want price list of carsThe following is a list of all the major automakers that have announced their plans to build a new fleet of autonomous vehicles.\n\nFord Motor Co.\n\nFord Motor Co. is planning to build a fleet of autonomous vehicles by 2020.\n\nThe automaker announced the plans on its website on Thursday.\n\nThe company said it will build a fleet of autonomous vehicles by 2020.\n\nThe automaker said it will build a fleet of autonomous vehicles by 2020.\n\nThe automaker said it will build a fleet of autonomous vehicles by 2020.\n\nThe automaker said it will build a fleet of autonomous vehicles by 2020.\n\nThe automaker said it will build a fleet of autonomous vehicles by 2020.\n\nThe automaker said it will build a fleet of autonomous vehicles by 2020.\n\nThe automaker said it will build a fleet of autonomous vehicles by 2020.\n\nThe automaker said it will build a fleet of autonomous",
+                "time": "21:47:24"
+            },
+            {
+                "role": "user",
+                "content": "what is the best cloth to buy",
+                "time": "21:48:10"
+            },
+            {
+                "role": "assistant",
+                "content": "what is the best cloth to buyThe first time I saw the new \"The Walking Dead\" trailer, I was so excited. I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to",
+                "time": "21:48:17"
+            },
+            {
+                "role": "user",
+                "content": "cars",
+                "time": "00:25:58"
+            },
+            {
+                "role": "assistant",
+                "content": "carsThe U.S. Department of Justice has filed a lawsuit against the company that owns the National Security Agency's (NSA) Tailored Access Operations (TAO) program, alleging that the program violates the Fourth Amendment.\n\nThe lawsuit, filed in U.S. District Court in Washington, D.C., alleges that the NSA's Tailored Access Operations (TAO) program violates the Fourth Amendment by requiring the NSA to obtain a warrant before it can access the user's private data.\n\nThe lawsuit, filed in U.S. District Court in Washington, D.C., alleges that the NSA's Tailored Access Operations (TAO) program violates the Fourth Amendment by requiring the NSA to obtain a warrant before it can access the user's private data.\n\nThe NSA's Tailored Access Operations (TAO) program is a program that collects and stores user data, including the user's name, email address, phone number, and other personal information. The",
+                "time": "00:26:09"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "00:44:28"
+            },
+            {
+                "role": "assistant",
+                "content": "hiThe U.S. Department of Justice has filed a lawsuit against the company that owns the video game company, Electronic Arts, alleging that the company violated antitrust laws by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the",
+                "time": "00:44:39"
+            },
+            {
+                "role": "user",
+                "content": "hello",
+                "time": "08:57:29"
+            },
+            {
+                "role": "assistant",
+                "content": "helloThe U.S. Department of Justice has filed a lawsuit against the company that owns the video game company, Electronic Arts, alleging that the company violated antitrust laws by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the",
+                "time": "08:57:47"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "09:44:51"
+            },
+            {
+                "role": "assistant",
+                "content": "hiThe U.S. Department of Justice has filed a lawsuit against the company that owns the video game company, Electronic Arts, alleging that the company violated antitrust laws by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the",
+                "time": "09:45:00"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "10:15:25"
+            },
+            {
+                "role": "assistant",
+                "content": "hiThe U.S. Department of Justice has filed a lawsuit against the company that owns the video game company, Electronic Arts, alleging that the company violated antitrust laws by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the",
+                "time": "10:15:36"
+            }
+        ],
+        "metrics": {
+            "total_sales": 847000,
+            "avg_price": 169.4,
+            "units_sold": 1720
+        }
+    }
+}
