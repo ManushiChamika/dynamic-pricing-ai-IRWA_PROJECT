@@ -4,24 +4,33 @@ import pandas as pd
 import random
 import os
 import json
-import pathlib
-import sys
-
-
-
+from datetime import datetime
 import asyncio
 import threading
 from concurrent.futures import TimeoutError as FuturesTimeout
+import sys
+import pathlib
 
-from datetime import datetime
+# =========================
+# Optional agent dependency
+# =========================
+try:
+    from core.agents.user_interact.user_interaction_agent import UserInteractionAgent
+except Exception:
+    # Safe fallback so the app still runs if the import isn't available
+    class UserInteractionAgent:
+        def _init_(self, user_name: str = "User", model_name: str = "stub"):
+            self.user_name = user_name
+            self.model_name = model_name
 
-from core.agents.user_interact.user_interaction_agent import UserInteractionAgent
-
+        def get_response(self, text: str) -> str:
+            return f"(Stub agent) Hi {self.user_name}, you asked: '{text}'. " \
+                   f"Replace this stub by installing the core agent package."
 
 # ---- Streamlit Page Config ----
 st.set_page_config(page_title="Dynamic Pricing Dashboard", page_icon="📊", layout="wide")
 
-# ---- Custom CSS ----
+# ---- Custom CSS (single copy) ----
 st.markdown("""
 <style>
 .stApp { background-color: #a6bdde; color: #000000; }
@@ -32,8 +41,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ---- Simulated Data ----
-def get_dynamic_pricing_data():
+# ====================
+# Simulated Data Layer
+# ====================
+def get_dynamic_pricing_data() -> pd.DataFrame:
     products = ["A", "B", "C", "D", "E"]
     data = []
     for p in products:
@@ -42,16 +53,18 @@ def get_dynamic_pricing_data():
         data.append({"Product": p, "Price": price, "Demand": demand})
     return pd.DataFrame(data)
 
-def get_demand_trend():
+def get_demand_trend() -> pd.DataFrame:
     return pd.DataFrame({
         "Date": pd.date_range(start="2025-01-01", periods=12, freq="M"),
         "Demand": [random.randint(200, 400) for _ in range(12)]
     })
 
-# ---- User Data Persistence ----
+# ==========================
+# Simple User Data Persistence
+# ==========================
 DATA_FILE = "user_data.json"
 
-def load_user_data(email):
+def load_user_data(email: str):
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, "r") as f:
@@ -61,7 +74,7 @@ def load_user_data(email):
             return {"chat_history": [], "metrics": None}
     return {"chat_history": [], "metrics": None}
 
-def save_user_data(email, data):
+def save_user_data(email: str, data: dict):
     all_data = {}
     if os.path.exists(DATA_FILE):
         try:
@@ -73,36 +86,39 @@ def save_user_data(email, data):
     with open(DATA_FILE, "w") as f:
         json.dump(all_data, f, indent=4)
 
-# ---- Session Check ----
+# =================
+# Session Gate/Init
+# =================
 if "session" not in st.session_state or st.session_state["session"] is None:
-    st.warning("⚠️ You must log in first!")
+    st.warning("⚠ You must log in first!")
     st.stop()
 
 user_session = st.session_state["session"]
 user_name = user_session.get("full_name", "User")
-user_email = user_session.get("email")
+user_email = user_session.get("email") or "anonymous@example.com"
 
-# ---- Load Previous Data ----
-user_data = load_user_data(user_email)
-if "chat_history" not in st.session_state:
-    st.session_state["chat_history"] = user_data.get("chat_history", [])
-if "metrics" not in st.session_state:
-    st.session_state["metrics"] = user_data.get("metrics", None)
+# Load persisted user data into session_state once
+if "chat_history" not in st.session_state or "metrics" not in st.session_state:
+    _loaded = load_user_data(user_email)
+    st.session_state.setdefault("chat_history", _loaded.get("chat_history", []))
+    st.session_state.setdefault("metrics", _loaded.get("metrics", None))
 
-# ---- Initialize Local Agent ----
-agent = UserInteractionAgent(user_name=user_name, model_name="gpt2")  # or smaller chat model
+# Initialize local agent
+agent = UserInteractionAgent(user_name=user_name, model_name="gpt2")  # or your smaller chat model
 
-# ---- Dashboard Header ----
+# ===================
+# Dashboard Header/UI
+# ===================
 st.markdown(f"<h2 style='color:#000000;'>👋 Welcome back, <b>{user_name}</b></h2>", unsafe_allow_html=True)
 
 # ---- Metrics ----
 st.subheader("📈 Key Business Metrics")
 df = get_dynamic_pricing_data()
-col1, col2, col3 = st.columns(3)
 
-total_sales = int(df['Price'].sum() * 1000)
-avg_price = float(df['Price'].mean())
-units_sold = int(df['Demand'].sum())
+# Example business metrics (revenue = sum of price*demand for this random snapshot)
+total_sales = int((df["Price"] * df["Demand"]).sum())
+avg_price = float(df["Price"].mean())
+units_sold = int(df["Demand"].sum())
 
 if st.session_state["metrics"] is None:
     st.session_state["metrics"] = {
@@ -111,11 +127,14 @@ if st.session_state["metrics"] is None:
         "units_sold": units_sold
     }
 
+col1, col2, col3 = st.columns(3)
 col1.metric(label="💰 Total Sales", value=f"${st.session_state['metrics']['total_sales']:,}", delta="+5%")
 col2.metric(label="💵 Avg. Price", value=f"${st.session_state['metrics']['avg_price']:.2f}", delta="-2%")
 col3.metric(label="📦 Units Sold", value=f"{st.session_state['metrics']['units_sold']:,}", delta="+8%")
+
 st.markdown("---")
 
+# Persist after metrics render
 save_user_data(user_email, {
     "chat_history": st.session_state["chat_history"],
     "metrics": st.session_state["metrics"]
@@ -137,10 +156,12 @@ fig2.update_traces(line=dict(color="#FFFFFF"))
 fig2.update_layout(plot_bgcolor="#5896ed", paper_bgcolor="#5896ed", font_color="#000000")
 st.plotly_chart(fig2, use_container_width=True)
 
-# ---- Sidebar ----
-st.sidebar.title("⚙️ Menu")
+# ===============
+# Sidebar / Chat
+# ===============
+st.sidebar.title("⚙ Menu")
 st.sidebar.subheader("👤 User Info")
-st.sidebar.info(f"**Name:** {user_name}\n**Email:** {user_email}")
+st.sidebar.info(f"Name: {user_name}\n*Email:* {user_email}")
 
 # Chat history
 st.sidebar.subheader("💬 Chat History")
@@ -148,14 +169,15 @@ chat_container = st.sidebar.container()
 for chat in st.session_state.chat_history:
     role = chat.get("role")
     message = chat.get("content")
-    time = chat.get("time", datetime.now().strftime("%H:%M:%S"))
+    time_str = chat.get("time", datetime.now().strftime("%H:%M:%S"))
     if role == "user":
-        chat_container.markdown(f"🧑 **[{time}] User:** {message}")
+        chat_container.markdown(f"🧑 [{time_str}] User: {message}")
     else:
-        chat_container.markdown(f"🤖 **[{time}] Bot:** {message}")
+        chat_container.markdown(f"🤖 [{time_str}] Bot: {message}")
 
-# Chat input
-if user_input := st.chat_input("Ask me about pricing, demand, or sales..."):
+# Chat input + response
+user_input = st.chat_input("Ask me about pricing, demand, or sales...")
+if user_input:
     st.session_state["chat_history"].append({
         "role": "user",
         "content": user_input,
@@ -189,13 +211,17 @@ if st.sidebar.button("🚪 Logout"):
 # ============================================================================ #
 
 # Make 'core' package importable (only if it exists)
-HERE = pathlib.Path(__file__).resolve()
+try:
+    HERE = pathlib.Path(_file_).resolve()
+except NameError:
+    # Fallback for some environments where _file_ may not be defined
+    HERE = pathlib.Path.cwd()
+
 ROOT = next((p for p in [HERE, *HERE.parents] if (p / "core").exists()), None)
 if ROOT and str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 # Background asyncio loop (to call alert APIs safely from Streamlit)
-
 def _ensure_bg_loop():
     if "_bg_loop" not in st.session_state:
         loop = asyncio.new_event_loop()
@@ -203,7 +229,6 @@ def _ensure_bg_loop():
         t.start()
         st.session_state["_bg_loop"] = loop
     return st.session_state["_bg_loop"]
-
 
 def run_async(coro, timeout: float | None = 10.0):
     loop = _ensure_bg_loop()
@@ -225,16 +250,22 @@ except Exception:
 
 if alerts:
     if "_alerts_started" not in st.session_state:
-        asyncio.run_coroutine_threadsafe(alerts.start(), _ensure_bg_loop())
-        st.session_state["_alerts_started"] = True
+        try:
+            asyncio.run_coroutine_threadsafe(alerts.start(), _ensure_bg_loop())
+            st.session_state["_alerts_started"] = True
+        except Exception:
+            st.session_state["_alerts_started"] = False
 
     with st.expander("🔔 Incidents (live — extras)", expanded=False):
-        rows = run_async(alerts.list_incidents(None)) or []
+        try:
+            rows = run_async(alerts.list_incidents(None)) or []
+        except Exception:
+            rows = []
         st.metric("Open incidents", sum(1 for r in rows if r.get("status") == "OPEN"))
         if rows:
             st.dataframe(pd.DataFrame(rows))
         else:
-            st.info("No incidents yet — go to **Alerts & Notifications** and trigger a Demo scenario.")
+            st.info("No incidents yet — go to Alerts & Notifications and trigger a Demo scenario.")
 else:
     with st.expander("🔔 Incidents (live — extras)", expanded=False):
-        st.info("Alerts service not available. Ensure `core/agents/alert_service` exists and dependencies are installed.")
+        st.info("Alerts service not available. Ensure core/agents/alert_service exists and dependencies are installed.")
