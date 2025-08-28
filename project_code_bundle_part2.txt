@@ -1,0 +1,789 @@
+=== File: core\agents\alert_service\rules.py ===
+# core/agents/alert_service/rules.py
+from __future__ import annotations
+
+import ast
+import logging
+import operator as op
+from typing import Any, Dict, Optional
+from datetime import datetime, timedelta
+
+from .schemas import RuleSpec
+from .detectors import DetectorRegistry
+
+log = logging.getLogger(__name__)
+
+ALLOWED: Dict[str, Any] = {
+    "min": min, "max": max, "abs": abs,
+    "True": True, "False": False, "None": None,
+}
+
+OPS = {
+    ast.Add: op.add, ast.Sub: op.sub, ast.Mult: op.mul, ast.Div: op.truediv,
+    ast.Mod: op.mod, ast.Pow: op.pow,
+    ast.Gt: op.gt, ast.Lt: op.lt, ast.GtE: op.ge, ast.LtE: op.le, ast.Eq: op.eq, ast.NotEq: op.ne,
+}
+
+def _get_attr(obj: Any, name: str, default: Any = None) -> Any:
+    if obj is None: return default
+    if isinstance(obj, dict): return obj.get(name, default)
+    return getattr(obj, name, default)
+
+def _get_key(obj: Any, name: str, default: Any = None) -> Any:
+    if isinstance(obj, dict): return obj.get(name, default)
+    return getattr(obj, name, default)
+
+def _eval(node: ast.AST, env: Dict[str, Any]) -> Any:
+    if isinstance(node, ast.Constant): return node.value
+    if isinstance(node, ast.Num): return node.n
+    if isinstance(node, ast.Name):
+        if node.id in env: return env[node.id]
+        if node.id in ALLOWED: return ALLOWED[node.id]
+        raise ValueError(f"name '{node.id}' not allowed")
+    if isinstance(node, ast.Attribute):
+        base = _eval(node.value, env)
+        return _get_attr(base, node.attr)
+    if isinstance(node, ast.Subscript):
+        container = _eval(node.value, env)
+        sl = node.slice.value if hasattr(node.slice, "value") else node.slice
+        key = _eval(sl, env)
+        try: return container[key]
+        except Exception: return None
+    if isinstance(node, ast.UnaryOp):
+        if isinstance(node.op, ast.USub): return -_eval(node.operand, env)
+        if isinstance(node.op, ast.UAdd): return +_eval(node.operand, env)
+        if isinstance(node.op, ast.Not): return not bool(_eval(node.operand, env))
+        raise ValueError("unsupported unary op")
+    if isinstance(node, ast.BinOp):
+        left = _eval(node.left, env); right = _eval(node.right, env)
+        fn = OPS.get(type(node.op)); 
+        if fn is None: raise ValueError("unsupported binary op")
+        return fn(left, right)
+    if isinstance(node, ast.Compare):
+        left = _eval(node.left, env)
+        for opnode, comparator in zip(node.ops, node.comparators):
+            right = _eval(comparator, env)
+            fn = OPS.get(type(opnode))
+            if fn is None or not fn(left, right): return False
+            left = right
+        return True
+    if isinstance(node, ast.BoolOp):
+        if isinstance(node.op, ast.And):
+            for v in node.values:
+                if not bool(_eval(v, env)): return False
+            return True
+        if isinstance(node.op, ast.Or):
+            for v in node.values:
+                if bool(_eval(v, env)): return True
+            return False
+        raise ValueError("unsupported bool op")
+    if isinstance(node, ast.Call):
+        func = _eval(node.func, env)
+        if func not in (min, max, abs):
+            raise ValueError("function not allowed")
+        args = [_eval(a, env) for a in node.args]
+        return func(*args)
+    raise ValueError(f"unsupported node: {type(node).__name__}")
+
+def compile_where(expr: str):
+    tree = ast.parse(expr, mode="eval")
+    def fn(env: Dict[str, Any]) -> bool:
+        return bool(_eval(tree.body, env))
+    return fn
+
+def parse_duration(s: Optional[str]) -> timedelta:
+    if not s: return timedelta(0)
+    s = s.strip().lower()
+    if len(s) < 2: raise ValueError(f"invalid duration '{s}'")
+    unit = s[-1]
+    n = int(s[:-1].strip())
+    table = {"s": timedelta(seconds=n), "m": timedelta(minutes=n),
+             "h": timedelta(hours=n), "d": timedelta(days=n)}
+    if unit not in table:
+        raise ValueError(f"unsupported duration unit '{unit}' in '{s}' (use s/m/h/d)")
+    return table[unit]
+
+class RuleRuntime:
+    """Compiled predicate + hold_for logic."""
+    def __init__(self, spec: RuleSpec):
+        self.spec = spec
+        self.where = compile_where(spec.where) if spec.where else None
+        self.hold = parse_duration(spec.hold_for) if spec.hold_for else None
+        self._last_true: Dict[str, datetime] = {}
+
+    async def evaluate(self, payload: Any, now: datetime,
+                       detectors: DetectorRegistry, alias: Optional[str] = None) -> bool:
+        if not self.spec.enabled: return False
+
+        env: Dict[str, Any] = {**ALLOWED, "tick": payload, "pp": payload}
+        if alias: env[alias] = payload
+
+        ok = False
+        if self.where:
+            try:
+                ok = bool(self.where(env))
+                log.debug("rule %s eval where=%s alias=%s sku=%s => %s",
+                          self.spec.id, self.spec.where, alias, _get_key(payload, "sku"), ok)
+            except Exception as e:
+                log.debug("rule %s evaluation error: %s", self.spec.id, e)
+                return False
+        elif self.spec.detector:
+            key = _get_key(payload, "sku", "GLOBAL")
+            val = _get_attr(payload, self.spec.field) if self.spec.field else None
+            ok = await detectors.eval(self.spec.detector, key=key, field=self.spec.field,
+                                      value=val, ts=now, params=self.spec.params)
+        else:
+            return False
+
+        sku = _get_key(payload, "sku", "")
+        if not ok:
+            self._last_true.pop(sku, None)
+            return False
+
+        if not self.hold or self.hold == timedelta(0):
+            return True
+
+        last = self._last_true.get(sku)
+        if not last:
+            self._last_true[sku] = now
+            return False
+
+        return (now - last) >= self.hold
+
+=== File: core\agents\alert_service\schemas.py ===
+from pydantic import BaseModel, Field, AwareDatetime, validator
+from typing import Literal, List, Optional, Dict, Any
+
+Severity = Literal["info", "warn", "crit"]
+IncidentStatus = Literal["OPEN", "ACKED", "RESOLVED"]
+
+class MarketTick(BaseModel):
+    sku: str
+    our_price: float
+    competitor_price: Optional[float] = None
+    demand_index: float = Field(ge=0, le=1)
+    ts: AwareDatetime
+
+class PriceProposal(BaseModel):
+    sku: str
+    proposed_price: float
+    margin: float
+    ts: AwareDatetime
+
+class NotifySpec(BaseModel):
+    channels: List[Literal["ui","slack","email","webhook"]] = ["ui"]
+    throttle: Optional[str] = None  # "15m", "1h"
+    webhook_url: Optional[str] = None
+    email_to: Optional[List[str]] = None
+
+class RuleSpec(BaseModel):
+    id: str
+    source: Literal["MARKET_TICK","PRICE_PROPOSAL"]
+    # either boolean expression or detector
+    where: Optional[str] = None
+    detector: Optional[str] = None
+    field: Optional[str] = None
+    params: Dict[str, Any] = {}
+    hold_for: Optional[str] = None  # "5m"
+    severity: Severity = "warn"
+    dedupe: str = "sku"
+    group_by: List[str] = []
+    notify: NotifySpec = NotifySpec()
+    enabled: bool = True
+
+    @validator("where", always=True)
+    def where_or_detector(cls, v, values):
+        if not v and not values.get("detector"):
+            raise ValueError("Provide either 'where' or 'detector'.")
+        return v
+
+class RuleRecord(BaseModel):
+    id: str
+    spec: RuleSpec
+    version: int
+
+class Alert(BaseModel):
+    id: str
+    rule_id: str
+    sku: str
+    title: str
+    payload: Dict[str, Any]
+    severity: Severity
+    ts: AwareDatetime
+    fingerprint: str
+
+class Incident(BaseModel):
+    id: str
+    rule_id: str
+    sku: str
+    status: IncidentStatus
+    first_seen: AwareDatetime
+    last_seen: AwareDatetime
+    severity: Severity
+    title: str
+    group_key: str
+
+=== File: core\agents\alert_service\tools.py ===
+from .repo import Repo
+from .schemas import RuleSpec
+from pydantic import ValidationError
+
+class Tools:
+    def __init__(self, repo: Repo): self.repo = repo
+
+    async def create_rule(self, spec_json: dict):
+        try:
+            spec = RuleSpec(**spec_json)
+        except ValidationError as e:
+            return {"ok": False, "error": e.errors()}
+        await self.repo.upsert_rule(spec)
+        return {"ok": True, "id": spec.id}
+
+    async def list_rules(self):
+        rules = await self.repo.list_rules()
+        return {"ok": True, "rules": [r.spec.dict() for r in rules]}
+
+    async def list_incidents(self, status: str|None = None):
+        rows = await self.repo.list_incidents(status)
+        return {"ok": True, "incidents": rows}
+
+    async def ack_incident(self, incident_id: str):
+        await self.repo.set_status(incident_id, "ACKED")
+        return {"ok": True}
+
+    async def resolve_incident(self, incident_id: str):
+        await self.repo.set_status(incident_id, "RESOLVED")
+        return {"ok": True}
+
+=== File: core\agents\alert_service\sinks\__init__.py ===
+from __future__ import annotations
+from typing import Dict, Any, Optional
+
+from .ui import UiSink
+
+def _maybe_add(sinks: Dict[str, Any], name: str, cls_name: str, repo):
+    try:
+        mod = __import__(f"core.agents.alert_service.sinks.{name}", fromlist=[cls_name])
+        cls = getattr(mod, cls_name)
+        try:
+            sinks[name] = cls(repo)  # some sinks accept repo
+        except TypeError:
+            sinks[name] = cls()      # others don't
+    except Exception:
+        # Missing / optional sink; ignore.
+        pass
+
+def get_sinks(repo: Optional[Any] = None) -> Dict[str, Any]:
+    """Return available sinks. `repo` is optional for callers that don't have it."""
+    sinks: Dict[str, Any] = {"ui": UiSink()}
+    _maybe_add(sinks, "email", "EmailSink", repo)
+    _maybe_add(sinks, "slack", "SlackSink", repo)
+    _maybe_add(sinks, "webhook", "WebhookSink", repo)
+    return sinks
+
+=== File: core\agents\alert_service\sinks\email.py ===
+# core/agents/alert_service/sinks/email.py
+import os, ssl, smtplib, asyncio
+from email.message import EmailMessage
+from typing import Any
+
+from ..config import load_runtime_defaults, merge_defaults_db
+from ..util.retry import retry
+
+class EmailSink:
+    def __init__(self, repo):
+        self.repo = repo
+
+    async def send(self, incident: Any, rule: Any):
+        # Merge env/secrets defaults with DB overrides (repo optional)
+        db_cfg = {}
+        if self.repo:
+            try:
+                db_cfg = await self.repo.get_channel_settings()
+            except Exception:
+                db_cfg = {}
+        cfg = merge_defaults_db(load_runtime_defaults(), db_cfg)
+
+        def _get(name: str, default=None):
+            if isinstance(cfg, dict):
+                return cfg.get(name, os.getenv(name.upper(), default))
+            return getattr(cfg, name, os.getenv(name.upper(), default))
+
+        EMAIL_FROM    = _get("email_from", "alerts@yourco.com")
+        EMAIL_TO      = _get("email_to", [])
+        if isinstance(EMAIL_TO, str):
+            EMAIL_TO = [e.strip() for e in EMAIL_TO.split(",") if e.strip()]
+        SMTP_HOST     = _get("smtp_host", "smtp.gmail.com")
+        SMTP_PORT     = int(_get("smtp_port", 587))
+        SMTP_USER     = _get("smtp_user", EMAIL_FROM)
+        SMTP_PASSWORD = _get("smtp_password", "")
+
+        if not EMAIL_TO:
+            return  # nowhere to send
+
+        # Normalize incident to dict
+        inc = incident if isinstance(incident, dict) else getattr(incident, "__dict__", {}) or {}
+
+        subj = f"[{str(inc.get('severity','INFO')).upper()}] {inc.get('title','Alert')} (rule={inc.get('rule_id')}, sku={inc.get('sku')})"
+
+        body_lines = [
+            f"Title:      {inc.get('title')}",
+            f"Severity:   {inc.get('severity')}",
+            f"Rule:       {inc.get('rule_id')}",
+            f"SKU:        {inc.get('sku')}",
+            f"Status:     {inc.get('status','OPEN')}",
+            f"Timestamp:  {inc.get('last_seen') or inc.get('ts')}",
+            "",
+            "Payload:",
+            f"{inc.get('payload')}",
+        ]
+        msg = EmailMessage()
+        msg["From"] = EMAIL_FROM
+        msg["To"] = ", ".join(EMAIL_TO)
+        msg["Subject"] = subj
+        msg.set_content("\n".join(body_lines))
+
+        ctx = ssl.create_default_context()
+
+        def _send_sync():
+            # Synchronous SMTP send (called via to_thread with retry)
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as s:
+                s.ehlo()
+                # Try STARTTLS if supported
+                try:
+                    s.starttls(context=ctx)
+                    s.ehlo()
+                except smtplib.SMTPException:
+                    # If STARTTLS not supported, proceed without it
+                    pass
+                if SMTP_USER and SMTP_PASSWORD:
+                    s.login(SMTP_USER, SMTP_PASSWORD)
+                s.send_message(msg)
+
+        delivery_id = f"deliv_{inc.get('id','')}_email"
+
+        async def _send_async():
+            await asyncio.to_thread(_send_sync)
+
+        try:
+            # Retry transient failures
+            await retry(_send_async, attempts=3)
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="email",
+                    status="OK",
+                    response_json={"to": EMAIL_TO, "subject": subj}
+                )
+        except Exception as e:
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="email",
+                    status="ERR",
+                    response_json={"error": str(e)}
+                )
+
+=== File: core\agents\alert_service\sinks\slack.py ===
+# core/agents/alert_service/sinks/slack.py
+import aiohttp
+from ..config import load_runtime_defaults, merge_defaults_db
+from ..util.retry import retry
+
+class SlackSink:
+    def __init__(self, repo):
+        self.repo = repo
+
+    async def send(self, incident, rule):
+        # Load config (DB overrides > runtime defaults)
+        db_cfg = {}
+        if self.repo:
+            try:
+                db_cfg = await self.repo.get_channel_settings()
+            except Exception:
+                db_cfg = {}
+        cfg = merge_defaults_db(load_runtime_defaults(), db_cfg)
+
+        # Resolve webhook URL from dataclass or dict
+        webhook = (getattr(cfg, "slack_webhook_url", None)
+                   if not isinstance(cfg, dict)
+                   else cfg.get("slack_webhook_url"))
+        if not webhook:
+            return  # No destination configured
+
+        # Normalize incident to dict for logging/formatting
+        inc = incident if isinstance(incident, dict) else getattr(incident, "__dict__", {}) or {}
+        sev = str(inc.get("severity", "INFO")).upper()
+        title = inc.get("title", "Alert")
+        rule_id = inc.get("rule_id")
+        sku = inc.get("sku")
+        text = f"[{sev}] {title} (rule={rule_id}, sku={sku})"
+
+        # POST with retries; log outcome to deliveries table if available
+        async def _post():
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with aiohttp.ClientSession(timeout=timeout) as sess:
+                async with sess.post(webhook, json={"text": text}) as r:
+                    body = await r.text()
+                    # Treat 3xx/4xx/5xx as failures so retry can kick in
+                    if r.status >= 300:
+                        # Raise a plain Exception to keep retry util simple and broker-agnostic
+                        raise Exception(f"Slack webhook HTTP {r.status}: {body[:200]}")
+
+        delivery_id = f"deliv_{inc.get('id','')}_slack"
+        try:
+            await retry(_post, attempts=3)
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="slack",
+                    status="OK",
+                    response_json={"text": text}
+                )
+        except Exception as e:
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="slack",
+                    status="ERR",
+                    response_json={"error": str(e)}
+                )
+
+=== File: core\agents\alert_service\sinks\ui.py ===
+from ...agent_sdk.bus_factory import get_bus
+# core/agents/alert_service/sinks/ui.py
+from core.agents.agent_sdk import Topic, get_bus
+
+_bus = get_bus()
+
+class UiSink:
+    async def send(self, incident, rule):
+        obj = incident if isinstance(incident, dict) else getattr(incident, "__dict__", incident)
+        await _bus.publish(Topic.ALERT.value, obj)
+
+=== File: core\agents\alert_service\sinks\webhook.py ===
+# core/agents/alert_service/sinks/webhook.py
+import aiohttp
+from ..config import load_runtime_defaults, merge_defaults_db
+from ..util.retry import retry
+
+class WebhookSink:
+    def __init__(self, repo):
+        self.repo = repo
+
+    async def send(self, incident, rule):
+        # Load config with DB overrides
+        db_cfg = {}
+        if self.repo:
+            try:
+                db_cfg = await self.repo.get_channel_settings()
+            except Exception:
+                db_cfg = {}
+        cfg = merge_defaults_db(load_runtime_defaults(), db_cfg)
+
+        # Resolve webhook URL from dataclass or dict
+        webhook = (getattr(cfg, "webhook_url", None)
+                   if not isinstance(cfg, dict)
+                   else cfg.get("webhook_url"))
+        if not webhook:
+            return  # not configured
+
+        # Normalize incident to dict
+        inc = incident if isinstance(incident, dict) else getattr(incident, "__dict__", {}) or {}
+
+        payload = {
+            "id": inc.get("id"),
+            "rule_id": inc.get("rule_id"),
+            "sku": inc.get("sku"),
+            "severity": inc.get("severity"),
+            "title": inc.get("title"),
+            "status": inc.get("status", "OPEN"),
+        }
+
+        async def _post():
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with aiohttp.ClientSession(timeout=timeout) as sess:
+                async with sess.post(webhook, json=payload) as r:
+                    body = await r.text()
+                    if r.status >= 300:
+                        raise Exception(f"Webhook HTTP {r.status}: {body[:200]}")
+
+        delivery_id = f"deliv_{inc.get('id','')}_webhook"
+        try:
+            await retry(_post, attempts=3)
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="webhook",
+                    status="OK",
+                    response_json={"payload": payload}
+                )
+        except Exception as e:
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="webhook",
+                    status="ERR",
+                    response_json={"error": str(e)}
+                )
+
+=== File: core\agents\simulators\__init__.py ===
+
+=== File: core\agents\simulators\demo_publishers.py ===
+# core/agents/simulators/demo_publishers.py
+import asyncio
+from dataclasses import dataclass, asdict, field
+from datetime import datetime as dt, timezone
+from typing import Optional
+
+# Correct imports: use the core.agent_sdk modules directly
+from core.agents.agent_sdk.bus_factory import get_bus
+from core.agents.agent_sdk.protocol import Topic
+
+# Initialize a shared bus instance
+bus = get_bus()
+
+# Minimal event shapes for the demo (engine uses getattr + dict conversion)
+@dataclass
+class MarketTick:
+    sku: str
+    our_price: float
+    competitor_price: Optional[float]
+    demand_index: float
+    ts: dt
+
+@dataclass
+class PriceProposal:
+    sku: str
+    proposed_price: float
+    cost: Optional[float] = None
+    margin: Optional[float] = None
+    # timezone-aware by default
+    ts: dt = field(default_factory=lambda: dt.now(timezone.utc))
+
+    def __post_init__(self):
+        if self.margin is None and self.cost is not None and self.proposed_price:
+            self.margin = (self.proposed_price - self.cost) / self.proposed_price
+        if self.margin is None:
+            self.margin = 0.0
+
+# Helpers to serialize if any consumer expects dict-like payloads
+def _to_dict(obj):
+    try:
+        return obj.model_dump()
+    except Exception:
+        pass
+    try:
+        return asdict(obj)
+    except Exception:
+        pass
+    return getattr(obj, "__dict__", {}) or {}
+
+async def simulate_undercut(
+    sku: str = "SKU-123",
+    our: float = 100.0,
+    comp: float = 98.0,
+    seconds: float = 30,
+    hz: float = 1.0,
+) -> None:
+    """
+    Competitor undercuts enough to satisfy rule:
+    tick.competitor_price * 1.02 < tick.our_price
+    98 * 1.02 = 99.96 < 100 -> True
+    """
+    loop = asyncio.get_running_loop()
+    end = loop.time() + float(seconds)
+    period = 1.0 / float(hz) if hz else 1.0
+    while loop.time() < end:
+        tick = MarketTick(
+            sku=sku,
+            our_price=our,
+            competitor_price=comp,
+            demand_index=0.50,
+            ts=dt.now(timezone.utc),
+        )
+        await bus.publish(Topic.MARKET_TICK.value, tick)
+        await asyncio.sleep(period)
+
+async def simulate_demand_spike(
+    sku: str = "SKU-123",
+    spike: float = 0.95,
+    seconds: float = 30,
+    hz: float = 1.0,
+) -> None:
+    """
+    Demand meets the seeded rule where="tick.demand_index >= 0.95".
+    """
+    loop = asyncio.get_running_loop()
+    end = loop.time() + float(seconds)
+    period = 1.0 / float(hz) if hz else 1.0
+    while loop.time() < end:
+        tick = MarketTick(
+            sku=sku,
+            our_price=100.0,
+            competitor_price=100.0,
+            demand_index=spike,
+            ts=dt.now(timezone.utc),
+        )
+        await bus.publish(Topic.MARKET_TICK.value, tick)
+        await asyncio.sleep(period)
+
+async def simulate_margin_breach(
+    sku: str = "SKU-123",
+    proposed: float = 90.0,
+    cost: float = 82.0,
+) -> None:
+    """
+    Violates where="pp.margin < 0.12".
+    margin = (90-82)/90 ≈ 0.089 < 0.12
+    """
+    pp = PriceProposal(sku=sku, proposed_price=proposed, cost=cost, ts=dt.now(timezone.utc))
+    await bus.publish(Topic.PRICE_PROPOSAL.value, pp)
+
+=== File: core\agents\user_interact\__init__.py ===
+
+=== File: core\agents\user_interact\user_interaction_agent.py ===
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import torch
+
+class UserInteractionAgent:
+    def __init__(self, user_name, model_name="gpt2"):
+        self.user_name = user_name
+        self.model_name = model_name
+
+        # Load tokenizer and model
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModelForCausalLM.from_pretrained(model_name)
+        # Use GPU if available
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device)
+
+    def get_response(self, message):
+        try:
+            # Encode input
+            inputs = self.tokenizer.encode(message + self.tokenizer.eos_token, return_tensors="pt").to(self.device)
+            # Generate output
+            outputs = self.model.generate(inputs, max_length=200, pad_token_id=self.tokenizer.eos_token_id)
+            # Decode
+            response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            return response
+        except Exception as e:
+            return f"Error: {e}"
+
+=== File: core\brokers\types.py ===
+# core/brokers/types.py
+import json
+from datetime import datetime, timezone
+from typing import Any
+
+def to_jsonable(obj: Any) -> Any:
+    """Make any pydantic/dataclass/obj JSON-serializable with ISO datetimes."""
+    if hasattr(obj, "model_dump"):
+        obj = obj.model_dump()
+    elif hasattr(obj, "dict"):
+        obj = obj.dict()
+    elif hasattr(obj, "__dict__"):
+        obj = obj.__dict__
+    def _conv(o):
+        if isinstance(o, datetime):
+            return o.astimezone(timezone.utc).isoformat()
+        raise TypeError(f"Not JSON serializable: {type(o)}")
+    return json.loads(json.dumps(obj, default=_conv))
+
+=== File: core\graphs\alert_authoring_graph.py ===
+from langgraph.graph import StateGraph, END
+from typing import Dict, Any
+from pydantic import BaseModel, ValidationError
+from core.agents.alert_service.schemas import RuleSpec
+from core.agents.alert_service.tools import Tools
+from core.agents.alert_service.repo import Repo
+
+class GState(BaseModel):
+    user_text: str
+    draft_rule: Dict[str, Any] | None = None
+    validated: bool = False
+    result: Dict[str, Any] | None = None
+
+tools = Tools(Repo())
+
+def nl_to_draft(state: GState) -> GState:
+    # very small deterministic parser; you can swap in an LLM with structured output
+    txt = state.user_text.lower()
+    spec = {
+        "id": "auto-undercut",
+        "source": "MARKET_TICK",
+        "where": "tick.competitor_price and tick.competitor_price * 1.02 < tick.our_price",
+        "hold_for": "5m",
+        "severity": "warn",
+        "notify": {"channels": ["ui"], "throttle": "15m"},
+        "enabled": True
+    }
+    state.draft_rule = spec
+    return state
+
+def validate_rule(state: GState) -> GState:
+    try:
+        RuleSpec(**state.draft_rule)
+        state.validated = True
+    except ValidationError as e:
+        state.result = {"ok": False, "error": e.errors()}
+    return state
+
+def persist_rule(state: GState) -> GState:
+    if not state.validated: return state
+    state.result = {"ok": True}
+    # call tool directly (synchronous here; wrap async in your app)
+    import asyncio
+    asyncio.get_event_loop().run_until_complete(tools.create_rule(state.draft_rule))
+    return state
+
+graph = StateGraph(GState)
+graph.add_node("parse", nl_to_draft)
+graph.add_node("validate", validate_rule)
+graph.add_node("persist", persist_rule)
+graph.add_edge("parse","validate")
+graph.add_edge("validate","persist")
+graph.set_entry_point("parse")
+graph.set_finish_point("persist")
+app = graph.compile()
+
+=== File: core\graphs\incident_triage_graph.py ===
+from langgraph.graph import StateGraph
+from pydantic import BaseModel
+from core.agents.alert_service.tools import Tools
+from core.agents.alert_service.repo import Repo
+
+class TriageState(BaseModel):
+    command: str
+    incident_id: str | None = None
+    action: str | None = None
+    result: dict | None = None
+
+tools = Tools(Repo())
+
+def parse_cmd(s: TriageState) -> TriageState:
+    t = s.command.lower()
+    if t.startswith("ack "): s.action, s.incident_id = "ACK", t.split()[1]
+    elif t.startswith("resolve "): s.action, s.incident_id = "RESOLVE", t.split()[1]
+    else: s.action = "LIST"
+    return s
+
+def act(s: TriageState) -> TriageState:
+    import asyncio
+    if s.action == "ACK": s.result = asyncio.get_event_loop().run_until_complete(tools.ack_incident(s.incident_id))
+    elif s.action == "RESOLVE": s.result = asyncio.get_event_loop().run_until_complete(tools.resolve_incident(s.incident_id))
+    else: s.result = asyncio.get_event_loop().run_until_complete(tools.list_incidents("OPEN"))
+    return s
+
+graph = StateGraph(TriageState)
+graph.add_node("parse", parse_cmd)
+graph.add_node("act", act)
+graph.add_edge("parse","act")
+graph.set_entry_point("parse")
+app = graph.compile()
