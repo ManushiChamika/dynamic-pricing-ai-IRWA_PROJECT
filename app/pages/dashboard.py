@@ -211,7 +211,7 @@ def run_async(coro, timeout: float | None = 10.0):
     except Exception:
         return None
 
-# Start alerts engine once (so incidents flow even on the dashboard)
+# Start alerts engine once  (so incidents flow even on the dashboard)
 alerts = None
 try:
     from core.agents.alert_service import api as _alerts
