@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE/editor
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Databases and logs
+*.sqlite
+*.sqlite*
+*.db
+.env
+.env.*
+*.log
+
+# Archives and builds
+*.zip
+*.tar.gz
+dist/
+build/
+.cache/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Ignore dump and script files
+project_code_dump.txt
+prompts.md
+scripts/collect_project_code.ps1

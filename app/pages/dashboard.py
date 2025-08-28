@@ -2,6 +2,11 @@ import streamlit as st
 import plotly.express as px
 import pandas as pd
 import random
+import asyncio
+import threading
+from concurrent.futures import TimeoutError as FuturesTimeout
+import sys
+import pathlib
 import os
 import json
 from datetime import datetime
@@ -32,10 +37,13 @@ def get_dynamic_pricing_data():
         data.append({"Product": p, "Price": price, "Demand": demand})
     return pd.DataFrame(data)
 
-def get_demand_trend():
+@st.cache_data(show_spinner=False)
+def get_demand_trend(seed: int | None = None) -> pd.DataFrame:
+    if seed is not None:
+        random.seed(seed + 42)
     return pd.DataFrame({
         "Date": pd.date_range(start="2025-01-01", periods=12, freq="M"),
-        "Demand": [random.randint(200, 400) for _ in range(12)]
+        "Demand": [random.randint(200, 400) for _ in range(12)],
     })
 
 # ---- User Data Persistence ----
