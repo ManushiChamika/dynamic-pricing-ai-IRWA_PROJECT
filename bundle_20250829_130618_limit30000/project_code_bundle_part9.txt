@@ -1,0 +1,3533 @@
+=== File: bundle_20250829_130344_limit25000\project_code_bundle_part8.txt ===
+=== File: project_code_bundle_part5.txt ===
+=== File: project_code_bundle_part2.txt ===
+=== File: core\agents\alert_service\rules.py ===
+# core/agents/alert_service/rules.py
+from __future__ import annotations
+
+import ast
+import logging
+import operator as op
+from typing import Any, Dict, Optional
+from datetime import datetime, timedelta
+
+from .schemas import RuleSpec
+from .detectors import DetectorRegistry
+
+log = logging.getLogger(__name__)
+
+ALLOWED: Dict[str, Any] = {
+    "min": min, "max": max, "abs": abs,
+    "True": True, "False": False, "None": None,
+}
+
+OPS = {
+    ast.Add: op.add, ast.Sub: op.sub, ast.Mult: op.mul, ast.Div: op.truediv,
+    ast.Mod: op.mod, ast.Pow: op.pow,
+    ast.Gt: op.gt, ast.Lt: op.lt, ast.GtE: op.ge, ast.LtE: op.le, ast.Eq: op.eq, ast.NotEq: op.ne,
+}
+
+def _get_attr(obj: Any, name: str, default: Any = None) -> Any:
+    if obj is None: return default
+    if isinstance(obj, dict): return obj.get(name, default)
+    return getattr(obj, name, default)
+
+def _get_key(obj: Any, name: str, default: Any = None) -> Any:
+    if isinstance(obj, dict): return obj.get(name, default)
+    return getattr(obj, name, default)
+
+def _eval(node: ast.AST, env: Dict[str, Any]) -> Any:
+    if isinstance(node, ast.Constant): return node.value
+    if isinstance(node, ast.Num): return node.n
+    if isinstance(node, ast.Name):
+        if node.id in env: return env[node.id]
+        if node.id in ALLOWED: return ALLOWED[node.id]
+        raise ValueError(f"name '{node.id}' not allowed")
+    if isinstance(node, ast.Attribute):
+        base = _eval(node.value, env)
+        return _get_attr(base, node.attr)
+    if isinstance(node, ast.Subscript):
+        container = _eval(node.value, env)
+        sl = node.slice.value if hasattr(node.slice, "value") else node.slice
+        key = _eval(sl, env)
+        try: return container[key]
+        except Exception: return None
+    if isinstance(node, ast.UnaryOp):
+        if isinstance(node.op, ast.USub): return -_eval(node.operand, env)
+        if isinstance(node.op, ast.UAdd): return +_eval(node.operand, env)
+        if isinstance(node.op, ast.Not): return not bool(_eval(node.operand, env))
+        raise ValueError("unsupported unary op")
+    if isinstance(node, ast.BinOp):
+        left = _eval(node.left, env); right = _eval(node.right, env)
+        fn = OPS.get(type(node.op)); 
+        if fn is None: raise ValueError("unsupported binary op")
+        return fn(left, right)
+    if isinstance(node, ast.Compare):
+        left = _eval(node.left, env)
+        for opnode, comparator in zip(node.ops, node.comparators):
+            right = _eval(comparator, env)
+            fn = OPS.get(type(opnode))
+            if fn is None or not fn(left, right): return False
+            left = right
+        return True
+    if isinstance(node, ast.BoolOp):
+        if isinstance(node.op, ast.And):
+            for v in node.values:
+                if not bool(_eval(v, env)): return False
+            return True
+        if isinstance(node.op, ast.Or):
+            for v in node.values:
+                if bool(_eval(v, env)): return True
+            return False
+        raise ValueError("unsupported bool op")
+    if isinstance(node, ast.Call):
+        func = _eval(node.func, env)
+        if func not in (min, max, abs):
+            raise ValueError("function not allowed")
+        args = [_eval(a, env) for a in node.args]
+        return func(*args)
+    raise ValueError(f"unsupported node: {type(node).__name__}")
+
+def compile_where(expr: str):
+    tree = ast.parse(expr, mode="eval")
+    def fn(env: Dict[str, Any]) -> bool:
+        return bool(_eval(tree.body, env))
+    return fn
+
+def parse_duration(s: Optional[str]) -> timedelta:
+    if not s: return timedelta(0)
+    s = s.strip().lower()
+    if len(s) < 2: raise ValueError(f"invalid duration '{s}'")
+    unit = s[-1]
+    n = int(s[:-1].strip())
+    table = {"s": timedelta(seconds=n), "m": timedelta(minutes=n),
+             "h": timedelta(hours=n), "d": timedelta(days=n)}
+    if unit not in table:
+        raise ValueError(f"unsupported duration unit '{unit}' in '{s}' (use s/m/h/d)")
+    return table[unit]
+
+class RuleRuntime:
+    """Compiled predicate + hold_for logic."""
+    def __init__(self, spec: RuleSpec):
+        self.spec = spec
+        self.where = compile_where(spec.where) if spec.where else None
+        self.hold = parse_duration(spec.hold_for) if spec.hold_for else None
+        self._last_true: Dict[str, datetime] = {}
+
+    async def evaluate(self, payload: Any, now: datetime,
+                       detectors: DetectorRegistry, alias: Optional[str] = None) -> bool:
+        if not self.spec.enabled: return False
+
+        env: Dict[str, Any] = {**ALLOWED, "tick": payload, "pp": payload}
+        if alias: env[alias] = payload
+
+        ok = False
+        if self.where:
+            try:
+                ok = bool(self.where(env))
+                log.debug("rule %s eval where=%s alias=%s sku=%s => %s",
+                          self.spec.id, self.spec.where, alias, _get_key(payload, "sku"), ok)
+            except Exception as e:
+                log.debug("rule %s evaluation error: %s", self.spec.id, e)
+                return False
+        elif self.spec.detector:
+            key = _get_key(payload, "sku", "GLOBAL")
+            val = _get_attr(payload, self.spec.field) if self.spec.field else None
+            ok = await detectors.eval(self.spec.detector, key=key, field=self.spec.field,
+                                      value=val, ts=now, params=self.spec.params)
+        else:
+            return False
+
+        sku = _get_key(payload, "sku", "")
+        if not ok:
+            self._last_true.pop(sku, None)
+            return False
+
+        if not self.hold or self.hold == timedelta(0):
+            return True
+
+        last = self._last_true.get(sku)
+        if not last:
+            self._last_true[sku] = now
+            return False
+
+        return (now - last) >= self.hold
+
+
+=== File: core\agents\alert_service\schemas.py ===
+from pydantic import BaseModel, Field, AwareDatetime, validator
+from typing import Literal, List, Optional, Dict, Any
+
+Severity = Literal["info", "warn", "crit"]
+IncidentStatus = Literal["OPEN", "ACKED", "RESOLVED"]
+
+class MarketTick(BaseModel):
+    sku: str
+    our_price: float
+    competitor_price: Optional[float] = None
+    demand_index: float = Field(ge=0, le=1)
+    ts: AwareDatetime
+
+class PriceProposal(BaseModel):
+    sku: str
+    proposed_price: float
+    margin: float
+    ts: AwareDatetime
+
+class NotifySpec(BaseModel):
+    channels: List[Literal["ui","slack","email","webhook"]] = ["ui"]
+    throttle: Optional[str] = None  # "15m", "1h"
+    webhook_url: Optional[str] = None
+    email_to: Optional[List[str]] = None
+
+class RuleSpec(BaseModel):
+    id: str
+    source: Literal["MARKET_TICK","PRICE_PROPOSAL"]
+    # either boolean expression or detector
+    where: Optional[str] = None
+    detector: Optional[str] = None
+    field: Optional[str] = None
+    params: Dict[str, Any] = {}
+    hold_for: Optional[str] = None  # "5m"
+    severity: Severity = "warn"
+    dedupe: str = "sku"
+    group_by: List[str] = []
+    notify: NotifySpec = NotifySpec()
+    enabled: bool = True
+
+    @validator("where", always=True)
+    def where_or_detector(cls, v, values):
+        if not v and not values.get("detector"):
+            raise ValueError("Provide either 'where' or 'detector'.")
+        return v
+
+class RuleRecord(BaseModel):
+    id: str
+    spec: RuleSpec
+    version: int
+
+class Alert(BaseModel):
+    id: str
+    rule_id: str
+    sku: str
+    title: str
+    payload: Dict[str, Any]
+    severity: Severity
+    ts: AwareDatetime
+    fingerprint: str
+
+class Incident(BaseModel):
+    id: str
+    rule_id: str
+    sku: str
+    status: IncidentStatus
+    first_seen: AwareDatetime
+    last_seen: AwareDatetime
+    severity: Severity
+    title: str
+    group_key: str
+
+
+=== File: core\agents\alert_service\sinks\__init__.py ===
+from __future__ import annotations
+from typing import Dict, Any, Optional
+
+from .ui import UiSink
+
+def _maybe_add(sinks: Dict[str, Any], name: str, cls_name: str, repo):
+    try:
+        mod = __import__(f"core.agents.alert_service.sinks.{name}", fromlist=[cls_name])
+        cls = getattr(mod, cls_name)
+        try:
+            sinks[name] = cls(repo)  # some sinks accept repo
+        except TypeError:
+            sinks[name] = cls()      # others don't
+    except Exception:
+        # Missing / optional sink; ignore.
+        pass
+
+def get_sinks(repo: Optional[Any] = None) -> Dict[str, Any]:
+    """Return available sinks. `repo` is optional for callers that don't have it."""
+    sinks: Dict[str, Any] = {"ui": UiSink()}
+    _maybe_add(sinks, "email", "EmailSink", repo)
+    _maybe_add(sinks, "slack", "SlackSink", repo)
+    _maybe_add(sinks, "webhook", "WebhookSink", repo)
+    return sinks
+
+
+=== File: core\agents\alert_service\sinks\email.py ===
+# core/agents/alert_service/sinks/email.py
+import os, ssl, smtplib, asyncio
+from email.message import EmailMessage
+from typing import Any
+
+from ..config import load_runtime_defaults, merge_defaults_db
+from ..util.retry import retry
+
+class EmailSink:
+    def __init__(self, repo):
+        self.repo = repo
+
+    async def send(self, incident: Any, rule: Any):
+        # Merge env/secrets defaults with DB overrides (repo optional)
+        db_cfg = {}
+        if self.repo:
+            try:
+                db_cfg = await self.repo.get_channel_settings()
+            except Exception:
+                db_cfg = {}
+        cfg = merge_defaults_db(load_runtime_defaults(), db_cfg)
+
+        def _get(name: str, default=None):
+            if isinstance(cfg, dict):
+                return cfg.get(name, os.getenv(name.upper(), default))
+            return getattr(cfg, name, os.getenv(name.upper(), default))
+
+        EMAIL_FROM    = _get("email_from", "alerts@yourco.com")
+        EMAIL_TO      = _get("email_to", [])
+        if isinstance(EMAIL_TO, str):
+            EMAIL_TO = [e.strip() for e in EMAIL_TO.split(",") if e.strip()]
+        SMTP_HOST     = _get("smtp_host", "smtp.gmail.com")
+        SMTP_PORT     = int(_get("smtp_port", 587))
+        SMTP_USER     = _get("smtp_user", EMAIL_FROM)
+        SMTP_PASSWORD = _get("smtp_password", "")
+
+        if not EMAIL_TO:
+            return  # nowhere to send
+
+        # Normalize incident to dict
+        inc = incident if isinstance(incident, dict) else getattr(incident, "__dict__", {}) or {}
+
+        subj = f"[{str(inc.get('severity','INFO')).upper()}] {inc.get('title','Alert')} (rule={inc.get('rule_id')}, sku={inc.get('sku')})"
+
+        body_lines = [
+            f"Title:      {inc.get('title')}",
+            f"Severity:   {inc.get('severity')}",
+            f"Rule:       {inc.get('rule_id')}",
+            f"SKU:        {inc.get('sku')}",
+            f"Status:     {inc.get('status','OPEN')}",
+            f"Timestamp:  {inc.get('last_seen') or inc.get('ts')}",
+            "",
+            "Payload:",
+            f"{inc.get('payload')}",
+        ]
+        msg = EmailMessage()
+        msg["From"] = EMAIL_FROM
+        msg["To"] = ", ".join(EMAIL_TO)
+        msg["Subject"] = subj
+        msg.set_content("\n".join(body_lines))
+
+        ctx = ssl.create_default_context()
+
+        def _send_sync():
+            # Synchronous SMTP send (called via to_thread with retry)
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as s:
+                s.ehlo()
+                # Try STARTTLS if supported
+                try:
+                    s.starttls(context=ctx)
+                    s.ehlo()
+                except smtplib.SMTPException:
+                    # If STARTTLS not supported, proceed without it
+                    pass
+                if SMTP_USER and SMTP_PASSWORD:
+                    s.login(SMTP_USER, SMTP_PASSWORD)
+                s.send_message(msg)
+
+        delivery_id = f"deliv_{inc.get('id','')}_email"
+
+        async def _send_async():
+            await asyncio.to_thread(_send_sync)
+
+        try:
+            # Retry transient failures
+            await retry(_send_async, attempts=3)
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="email",
+                    status="OK",
+                    response_json={"to": EMAIL_TO, "subject": subj}
+                )
+        except Exception as e:
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="email",
+                    status="ERR",
+                    response_json={"error": str(e)}
+                )
+
+
+=== File: core\agents\alert_service\sinks\slack.py ===
+# core/agents/alert_service/sinks/slack.py
+import aiohttp
+from ..config import load_runtime_defaults, merge_defaults_db
+from ..util.retry import retry
+
+class SlackSink:
+    def __init__(self, repo):
+        self.repo = repo
+
+    async def send(self, incident, rule):
+        # Load config (DB overrides > runtime defaults)
+        db_cfg = {}
+        if self.repo:
+            try:
+                db_cfg = await self.repo.get_channel_settings()
+            except Exception:
+                db_cfg = {}
+        cfg = merge_defaults_db(load_runtime_defaults(), db_cfg)
+
+        # Resolve webhook URL from dataclass or dict
+        webhook = (getattr(cfg, "slack_webhook_url", None)
+                   if not isinstance(cfg, dict)
+                   else cfg.get("slack_webhook_url"))
+        if not webhook:
+            return  # No destination configured
+
+        # Normalize incident to dict for logging/formatting
+        inc = incident if isinstance(incident, dict) else getattr(incident, "__dict__", {}) or {}
+        sev = str(inc.get("severity", "INFO")).upper()
+        title = inc.get("title", "Alert")
+        rule_id = inc.get("rule_id")
+        sku = inc.get("sku")
+        text = f"[{sev}] {title} (rule={rule_id}, sku={sku})"
+
+        # POST with retries; log outcome to deliveries table if available
+        async def _post():
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with aiohttp.ClientSession(timeout=timeout) as sess:
+                async with sess.post(webhook, json={"text": text}) as r:
+                    body = await r.text()
+                    # Treat 3xx/4xx/5xx as failures so retry can kick in
+                    if r.status >= 300:
+                        # Raise a plain Exception to keep retry util simple and broker-agnostic
+                        raise Exception(f"Slack webhook HTTP {r.status}: {body[:200]}")
+
+        delivery_id = f"deliv_{inc.get('id','')}_slack"
+        try:
+            await retry(_post, attempts=3)
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="slack",
+                    status="OK",
+                    response_json={"text": text}
+                )
+        except Exception as e:
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="slack",
+                    status="ERR",
+                    response_json={"error": str(e)}
+                )
+
+
+=== File: core\agents\alert_service\sinks\ui.py ===
+from ...agent_sdk.bus_factory import get_bus
+# core/agents/alert_service/sinks/ui.py
+from core.agents.agent_sdk import Topic, get_bus
+
+_bus = get_bus()
+
+class UiSink:
+    async def send(self, incident, rule):
+        obj = incident if isinstance(incident, dict) else getattr(incident, "__dict__", incident)
+        await _bus.publish(Topic.ALERT.value, obj)
+
+=== File: core\agents\alert_service\sinks\webhook.py ===
+# core/agents/alert_service/sinks/webhook.py
+import aiohttp
+from ..config import load_runtime_defaults, merge_defaults_db
+from ..util.retry import retry
+
+class WebhookSink:
+    def __init__(self, repo):
+        self.repo = repo
+
+    async def send(self, incident, rule):
+        # Load config with DB overrides
+        db_cfg = {}
+        if self.repo:
+            try:
+                db_cfg = await self.repo.get_channel_settings()
+            except Exception:
+                db_cfg = {}
+        cfg = merge_defaults_db(load_runtime_defaults(), db_cfg)
+
+        # Resolve webhook URL from dataclass or dict
+        webhook = (getattr(cfg, "webhook_url", None)
+                   if not isinstance(cfg, dict)
+                   else cfg.get("webhook_url"))
+        if not webhook:
+            return  # not configured
+
+        # Normalize incident to dict
+        inc = incident if isinstance(incident, dict) else getattr(incident, "__dict__", {}) or {}
+
+        payload = {
+            "id": inc.get("id"),
+            "rule_id": inc.get("rule_id"),
+            "sku": inc.get("sku"),
+            "severity": inc.get("severity"),
+            "title": inc.get("title"),
+            "status": inc.get("status", "OPEN"),
+        }
+
+        async def _post():
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with aiohttp.ClientSession(timeout=timeout) as sess:
+                async with sess.post(webhook, json=payload) as r:
+                    body = await r.text()
+                    if r.status >= 300:
+                        raise Exception(f"Webhook HTTP {r.status}: {body[:200]}")
+
+        delivery_id = f"deliv_{inc.get('id','')}_webhook"
+        try:
+            await retry(_post, attempts=3)
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="webhook",
+                    status="OK",
+                    response_json={"payload": payload}
+                )
+        except Exception as e:
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="webhook",
+                    status="ERR",
+                    response_json={"error": str(e)}
+                )
+
+
+=== File: core\agents\alert_service\tools.py ===
+from .repo import Repo
+from .schemas import RuleSpec
+from pydantic import ValidationError
+
+class Tools:
+    def __init__(self, repo: Repo): self.repo = repo
+
+    async def create_rule(self, spec_json: dict):
+        try:
+            spec = RuleSpec(**spec_json)
+        except ValidationError as e:
+            return {"ok": False, "error": e.errors()}
+        await self.repo.upsert_rule(spec)
+        return {"ok": True, "id": spec.id}
+
+    async def list_rules(self):
+        rules = await self.repo.list_rules()
+        return {"ok": True, "rules": [r.spec.dict() for r in rules]}
+
+    async def list_incidents(self, status: str|None = None):
+        rows = await self.repo.list_incidents(status)
+        return {"ok": True, "incidents": rows}
+
+    async def ack_incident(self, incident_id: str):
+        await self.repo.set_status(incident_id, "ACKED")
+        return {"ok": True}
+
+    async def resolve_incident(self, incident_id: str):
+        await self.repo.set_status(incident_id, "RESOLVED")
+        return {"ok": True}
+
+
+=== File: core\agents\data_collector\__init__.py ===
+# core/agents/data_collector/__init__.py
+"""
+Data Collector package for Dynamic Pricing project.
+
+Contains:
+- DataRepo: a small aiosqlite-backed repository for market ticks.
+- DataCollector: ingestion and publish logic.
+- Connectors: mock connector for development/demo.
+"""
+__all__ = ["repo", "collector", "connectors"]
+
+
+=== File: core\agents\data_collector\collector.py ===
+# core/agents/data_collector/collector.py
+from datetime import datetime, timezone
+from typing import Dict, Any, Iterable
+from core.agents.agent_sdk import get_bus, Topic
+from .repo import DataRepo
+
+bus = get_bus()
+
+class DataCollector:
+    def __init__(self, repo: DataRepo):
+        self.repo = repo
+
+    async def ingest_tick(self, d: Dict[str, Any]) -> None:
+        payload = {
+            "sku": d["sku"],
+            "market": d.get("market", "DEFAULT"),
+            "our_price": float(d["our_price"]),
+            "competitor_price": d.get("competitor_price"),
+            "demand_index": d.get("demand_index"),
+            "ts": d.get("ts") or datetime.now(timezone.utc).isoformat(),
+            "source": d.get("source", "mock"),
+        }
+        await self.repo.insert_tick(payload)
+        await bus.publish(Topic.MARKET_TICK.value, payload)
+
+    async def ingest_stream(self, it: Iterable[Dict[str, Any]], delay_s: float = 0.0):
+        import asyncio
+        for d in it:
+            await self.ingest_tick(d)
+            if delay_s:
+                await asyncio.sleep(delay_s)
+
+
+=== File: core\agents\data_collector\connectors\mock.py ===
+# core/agents/data_collector/connectors/mock.py
+from datetime import datetime, timezone
+from typing import Iterable, Dict, Any
+
+def mock_ticks(sku: str = "SKU-123", market: str = "LK", n: int = 5) -> Iterable[Dict[str, Any]]:
+    for i in range(n):
+        yield {
+            "sku": sku,
+            "market": market,
+            "our_price": 100.0 + float(i),
+            "competitor_price": 98.0 + float(i),
+            "demand_index": 0.45 + i * 0.05,
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "source": "mock",
+        }
+
+
+=== File: core\agents\data_collector\repo.py ===
+# core/agents/data_collector/repo.py
+import aiosqlite
+from datetime import datetime, timezone
+from typing import Dict, Any, List
+
+class DataRepo:
+    def __init__(self, path: str = "app/data.db"):
+        self.path = path
+
+    async def init(self) -> None:
+        async with aiosqlite.connect(self.path) as db:
+            await db.executescript("""
+            CREATE TABLE IF NOT EXISTS market_ticks (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              sku TEXT NOT NULL,
+              market TEXT NOT NULL,
+              our_price REAL NOT NULL,
+              competitor_price REAL,
+              demand_index REAL,
+              ts TEXT NOT NULL,
+              source TEXT,
+              ingested_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS ix_ticks_sku_market_ts
+                ON market_ticks (sku, market, ts);
+            """)
+            await db.commit()
+
+    async def insert_tick(self, d: Dict[str, Any]) -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        async with aiosqlite.connect(self.path) as db:
+            await db.execute(
+                """INSERT INTO market_ticks
+                 (sku, market, our_price, competitor_price, demand_index,
+                  ts, source, ingested_at)
+                 VALUES (?,?,?,?,?,?,?,?)""",
+                (
+                    d["sku"], d.get("market", "DEFAULT"),
+                    float(d["our_price"]), d.get("competitor_price"),
+                    d.get("demand_index"), d["ts"], d.get("source", "mock"),
+                    now
+                ),
+            )
+            await db.commit()
+
+    async def recent_ticks(self, sku: str, market: str, limit: int = 50) -> List[Dict[str, Any]]:
+        q = ("SELECT our_price, competitor_price, demand_index, ts "
+             "FROM market_ticks WHERE sku=? AND market=? "
+             "ORDER BY ts DESC LIMIT ?")
+        async with aiosqlite.connect(self.path) as db:
+            cur = await db.execute(q, (sku, market, limit))
+            rows = await cur.fetchall()
+        return [{"our_price": r[0], "competitor_price": r[1], "demand_index": r[2], "ts": r[3]} for r in rows]
+
+
+=== File: core\agents\price_optimizer\__init__.py ===
+"""
+Price Optimizer package for Dynamic Pricing project.
+Contains:
+- optimizer: heuristic optimizer with constraints and rationale.
+- mcp_server: MCP tool endpoint for optimize_price (optional if MCP installed).
+"""
+__all__ = ["optimizer"]
+
+
+
+
+=== File: core\agents\price_optimizer\mcp_server.py ===
+from __future__ import annotations
+
+import asyncio
+from typing import Dict, Any
+
+try:
+    from mcp.server.fastmcp import FastMCP
+except Exception as e:
+    # Allow file to exist even if MCP isn't installed; runtime will report
+    FastMCP = None  # type: ignore
+
+from .optimizer import Features, optimize
+
+
+async def main():
+    if FastMCP is None:
+        raise RuntimeError("MCP not available: install the MCP package to run this server.")
+
+    mcp = FastMCP("price-optimizer-service")
+
+    @mcp.tool()
+    async def optimize_price(payload: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        payload: {
+          "sku": "...",
+          "our_price": 100.0,
+          "competitor_price": 98.0,
+          "demand_index": 0.5,
+          "cost": 90.0,
+          "min_price": 80.0,
+          "max_price": 130.0,
+          "min_margin": 0.12
+        }
+        """
+        f = Features(
+            sku=str(payload["sku"]),
+            our_price=float(payload["our_price"]),
+            competitor_price=payload.get("competitor_price"),
+            demand_index=payload.get("demand_index"),
+            cost=payload.get("cost"),
+        )
+        res = optimize(
+            f=f,
+            min_price=float(payload.get("min_price", 0.0)),
+            max_price=float(payload.get("max_price", 1e9)),
+            min_margin=float(payload.get("min_margin", 0.12)),
+        )
+        return res
+
+    await mcp.run()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
+
+
+
+=== File: core\agents\price_optimizer\optimizer.py ===
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Optional, Dict, Any
+
+
+@dataclass
+class Features:
+    sku: str
+    our_price: float
+    competitor_price: Optional[float] = None
+    demand_index: Optional[float] = None
+    cost: Optional[float] = None
+
+
+def optimize(
+    f: Features,
+    min_price: float,
+    max_price: float,
+    min_margin: float = 0.12,
+) -> Dict[str, Any]:
+    """
+    Heuristic v0:
+    - Start from our_price.
+    - If competitor undercuts by >= ~2%, reduce slightly (to 99% of competitor) within bounds.
+    - Enforce margin floor if cost provided.
+    - Clamp to [min_price, max_price].
+    """
+    base = float(f.our_price)
+    rationale = []
+
+    # Competitor undercut heuristic
+    if f.competitor_price is not None:
+        try:
+            if f.competitor_price * 1.02 < f.our_price:
+                base = max(f.competitor_price * 0.99, min_price)
+                rationale.append("Competitor undercut → reduce slightly")
+        except Exception:
+            pass
+
+    # Enforce margin floor
+    if f.cost is not None:
+        try:
+            floor = f.cost / (1.0 - float(min_margin))
+            if base < floor:
+                base = floor
+                rationale.append("Margin floor enforced")
+        except Exception:
+            pass
+
+    # Clamp to bounds
+    base = min(max(base, min_price), max_price)
+
+    return {
+        "recommended_price": round(base, 2),
+        "confidence": 0.6,  # placeholder
+        "rationale": "; ".join(rationale) or "No change",
+        "constraints_evaluation": {
+            "min_price": min_price,
+            "max_price": max_price,
+            "min_margin": min_margin,
+        },
+    }
+
+
+
+
+=== File: core\agents\simulators\__init__.py ===
+
+
+=== File: core\agents\simulators\demo_publishers.py ===
+# core/agents/simulators/demo_publishers.py
+import asyncio
+from dataclasses import dataclass, asdict, field
+from datetime import datetime as dt, timezone
+from typing import Optional
+
+# Correct imports: use the core.agent_sdk modules directly
+from core.agents.agent_sdk.bus_factory import get_bus
+from core.agents.agent_sdk.protocol import Topic
+
+# Initialize a shared bus instance
+bus = get_bus()
+
+# Minimal event shapes for the demo (engine uses getattr + dict conversion)
+@dataclass
+class MarketTick:
+    sku: str
+    our_price: float
+    competitor_price: Optional[float]
+    demand_index: float
+    ts: dt
+
+@dataclass
+class PriceProposal:
+    sku: str
+    proposed_price: float
+    cost: Optional[float] = None
+    margin: Optional[float] = None
+    # timezone-aware by default
+    ts: dt = field(default_factory=lambda: dt.now(timezone.utc))
+
+    def __post_init__(self):
+        if self.margin is None and self.cost is not None and self.proposed_price:
+            self.margin = (self.proposed_price - self.cost) / self.proposed_price
+        if self.margin is None:
+            self.margin = 0.0
+
+# Helpers to serialize if any consumer expects dict-like payloads
+def _to_dict(obj):
+    try:
+        return obj.model_dump()
+    except Exception:
+        pass
+    try:
+        return asdict(obj)
+    except Exception:
+        pass
+    return getattr(obj, "__dict__", {}) or {}
+
+async def simulate_undercut(
+    sku: str = "SKU-123",
+    our: float = 100.0,
+    comp: float = 98.0,
+    seconds: float = 30,
+    hz: float = 1.0,
+) -> None:
+    """
+    Competitor undercuts enough to satisfy rule:
+    tick.competitor_price * 1.02 < tick.our_price
+    98 * 1.02 = 99.96 < 100 -> True
+    """
+    loop = asyncio.get_running_loop()
+    end = loop.time() + float(seconds)
+    period = 1.0 / float(hz) if hz else 1.0
+    while loop.time() < end:
+        tick = MarketTick(
+            sku=sku,
+            our_price=our,
+            competitor_price=comp,
+            demand_index=0.50,
+            ts=dt.now(timezone.utc),
+        )
+        await bus.publish(Topic.MARKET_TICK.value, tick)
+        await asyncio.sleep(period)
+
+async def simulate_demand_spike(
+    sku: str = "SKU-123",
+    spike: float = 0.95,
+    seconds: float = 30,
+    hz: float = 1.0,
+) -> None:
+    """
+    Demand meets the seeded rule where="tick.demand_index >= 0.95".
+    """
+    loop = asyncio.get_running_loop()
+    end = loop.time() + float(seconds)
+    period = 1.0 / float(hz) if hz else 1.0
+    while loop.time() < end:
+        tick = MarketTick(
+            sku=sku,
+            our_price=100.0,
+            competitor_price=100.0,
+            demand_index=spike,
+            ts=dt.now(timezone.utc),
+        )
+        await bus.publish(Topic.MARKET_TICK.value, tick)
+        await asyncio.sleep(period)
+
+async def simulate_margin_breach(
+    sku: str = "SKU-123",
+    proposed: float = 90.0,
+    cost: float = 82.0,
+) -> None:
+    """
+    Violates where="pp.margin < 0.12".
+    margin = (90-82)/90 ≈ 0.089 < 0.12
+    """
+    pp = PriceProposal(sku=sku, proposed_price=proposed, cost=cost, ts=dt.now(timezone.utc))
+    await bus.publish(Topic.PRICE_PROPOSAL.value, pp)
+
+
+=== File: core\agents\user_interact\__init__.py ===
+
+
+=== File: core\agents\user_interact\user_interaction_agent.py ===
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import torch
+
+class UserInteractionAgent:
+    def __init__(self, user_name, model_name="gpt2"):
+        self.user_name = user_name
+        self.model_name = model_name
+
+        # Load tokenizer and model
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModelForCausalLM.from_pretrained(model_name)
+        # Use GPU if available
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device)
+
+    def get_response(self, message):
+        try:
+            # Encode input
+            inputs = self.tokenizer.encode(message + self.tokenizer.eos_token, return_tensors="pt").to(self.device)
+            # Generate output
+            outputs = self.model.generate(inputs, max_length=200, pad_token_id=self.tokenizer.eos_token_id)
+            # Decode
+            response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            return response
+        except Exception as e:
+            return f"Error: {e}"
+
+
+=== File: core\auth_db.py ===
+from pathlib import Path
+from sqlalchemy import (
+    create_engine, Column, Integer, String, Boolean, DateTime, func,
+    UniqueConstraint, ForeignKey
+)
+from sqlalchemy.orm import sessionmaker, declarative_base, relationship
+
+# DB at project root (parent of 'core')
+BASE_DIR = Path(__file__).resolve().parents[1]
+DB_PATH = (BASE_DIR / "auth.db").resolve()
+
+engine = create_engine(f"sqlite:///{DB_PATH}", future=True, echo=True)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+Base = declarative_base()
+
+
+class User(Base):
+    __tablename__ = "users"
+    __table_args__ = (UniqueConstraint("email", name="uq_users_email"),)
+
+    id = Column(Integer, primary_key=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    full_name = Column(String(255))
+    hashed_password = Column(String(512), nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    two_factor_enabled = Column(Boolean, default=False, nullable=False)  # ✅ Fixed
+    totp_secret = Column(String(64))
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    sessions = relationship("SessionToken", back_populates="user", cascade="all, delete-orphan")
+
+
+class SessionToken(Base):
+    __tablename__ = "session_tokens"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    token = Column(String(255), unique=True, index=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    revoked = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    user = relationship("User", back_populates="sessions")
+
+
+def init_db():
+    """Create tables if they don’t exist."""
+    Base.metadata.create_all(bind=engine)
+    print(f"Database created at {DB_PATH}")
+
+
+if __name__ == "__main__":
+    init_db()
+
+
+=== File: core\auth_service.py ===
+from typing import Optional
+from datetime import datetime, timedelta
+import secrets
+
+from argon2 import PasswordHasher
+from email_validator import validate_email, EmailNotValidError
+from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
+
+from .auth_db import SessionLocal, User, SessionToken
+
+ph = PasswordHasher()
+SESSION_DAYS = 7  # persistent login duration
+
+
+class RegisterIn(BaseModel):
+    email: str
+    full_name: Optional[str] = None
+    password: str
+
+
+def _hash(pw: str) -> str:
+    return ph.hash(pw)
+
+
+def _verify(pw: str, h: str) -> bool:
+    try:
+        ph.verify(h, pw)
+        return True
+    except Exception:
+        return False
+
+
+# ---------- Register ----------
+def register_user(inp: RegisterIn) -> None:
+    email_norm = (inp.email or "").strip().lower()
+    pw = (inp.password or "").strip()
+
+    # validate email
+    try:
+        validate_email(email_norm)
+    except EmailNotValidError as e:
+        raise ValueError(str(e))
+
+    if len(pw) < 10:
+        raise ValueError("Password must be at least 10 characters")
+
+    with SessionLocal() as db:
+        if db.query(User).filter(User.email == email_norm).first():
+            raise ValueError("Email already registered")
+        u = User(
+            email=email_norm,
+            full_name=(inp.full_name or "").strip() or None,
+            hashed_password=_hash(pw),
+        )
+        db.add(u)
+        db.commit()
+
+
+# ---------- Login ----------
+def authenticate(email: str, password: str) -> dict:
+    email_norm = (email or "").strip().lower()
+    pw = (password or "").strip()
+
+    with SessionLocal() as db:
+        u = db.query(User).filter(User.email == email_norm).first()
+        if not u or not getattr(u, "is_active", True):
+            raise ValueError("Invalid email or password")
+        try:
+            ph.verify(u.hashed_password, pw)
+        except Exception:
+            raise ValueError("Invalid email or password")
+
+        return {"user_id": u.id, "email": u.email, "full_name": u.full_name}
+
+
+# ---------- Profile ----------
+def get_profile(user_id: int) -> dict:
+    with SessionLocal() as db:
+        u: Optional[User] = db.get(User, user_id)
+        if not u:
+            raise ValueError("User not found")
+        return {"id": u.id, "email": u.email, "full_name": u.full_name}
+
+
+# ---------- Persistent session tokens ----------
+def create_persistent_session(user_id: int) -> tuple[str, datetime]:
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.utcnow() + timedelta(days=SESSION_DAYS)
+    with SessionLocal() as db:
+        db.add(SessionToken(user_id=user_id, token=token, expires_at=expires_at))
+        db.commit()
+    return token, expires_at
+
+
+def validate_session_token(token: str) -> dict | None:
+    now = datetime.utcnow()
+    with SessionLocal() as db:
+        row: Optional[SessionToken] = db.query(SessionToken).filter_by(token=token, revoked=False).first()
+        if not row or row.expires_at <= now:
+            return None
+
+        u: Optional[User] = db.get(User, row.user_id)
+        if not u or not getattr(u, "is_active", True):
+            return None
+
+        return {"user_id": u.id, "email": u.email, "full_name": u.full_name}
+
+
+def revoke_session_token(token: str) -> None:
+    with SessionLocal() as db:
+        row: Optional[SessionToken] = db.query(SessionToken).filter_by(token=token).first()
+        if row:
+            row.revoked = True
+            db.add(row)
+            db.commit()
+
+
+=== File: core\brokers\types.py ===
+# core/brokers/types.py
+import json
+from datetime import datetime, timezone
+from typing import Any
+
+def to_jsonable(obj: Any) -> Any:
+    """Make any pydantic/dataclass/obj JSON-serializable with ISO datetimes."""
+    if hasattr(obj, "model_dump"):
+        obj = obj.model_dump()
+    elif hasattr(obj, "dict"):
+        obj = obj.dict()
+    elif hasattr(obj, "__dict__"):
+        obj = obj.__dict__
+    def _conv(o):
+        if isinstance(o, datetime):
+            return o.astimezone(timezone.utc).isoformat()
+        raise TypeError(f"Not JSON serializable: {type(o)}")
+    return json.loads(json.dumps(obj, default=_conv))
+
+
+=== File: core\graphs\alert_authoring_graph.py ===
+from langgraph.graph import StateGraph, END
+from typing import Dict, Any
+from pydantic import BaseModel, ValidationError
+from core.agents.alert_service.schemas import RuleSpec
+from core.agents.alert_service.tools import Tools
+from core.agents.alert_service.repo import Repo
+
+class GState(BaseModel):
+    user_text: str
+    draft_rule: Dict[str, Any] | None = None
+    validated: bool = False
+    result: Dict[str, Any] | None = None
+
+tools = Tools(Repo())
+
+def nl_to_draft(state: GState) -> GState:
+    # very small deterministic parser; you can swap in an LLM with structured output
+    txt = state.user_text.lower()
+    spec = {
+        "id": "auto-undercut",
+        "source": "MARKET_TICK",
+        "where": "tick.competitor_price and tick.competitor_price * 1.02 < tick.our_price",
+        "hold_for": "5m",
+        "severity": "warn",
+        "notify": {"channels": ["ui"], "throttle": "15m"},
+        "enabled": True
+    }
+    state.draft_rule = spec
+    return state
+
+def validate_rule(state: GState) -> GState:
+    try:
+        RuleSpec(**state.draft_rule)
+        state.validated = True
+    except ValidationError as e:
+        state.result = {"ok": False, "error": e.errors()}
+    return state
+
+def persist_rule(state: GState) -> GState:
+    if not state.validated: return state
+    state.result = {"ok": True}
+    # call tool directly (synchronous here; wrap async in your app)
+    import asyncio
+    asyncio.get_event_loop().run_until_complete(tools.create_rule(state.draft_rule))
+    return state
+
+graph = StateGraph(GState)
+graph.add_node("parse", nl_to_draft)
+graph.add_node("validate", validate_rule)
+graph.add_node("persist", persist_rule)
+graph.add_edge("parse","validate")
+graph.add_edge("validate","persist")
+graph.set_entry_point("parse")
+graph.set_finish_point("persist")
+app = graph.compile()
+
+
+=== File: core\graphs\incident_triage_graph.py ===
+from langgraph.graph import StateGraph
+from pydantic import BaseModel
+from core.agents.alert_service.tools import Tools
+from core.agents.alert_service.repo import Repo
+
+class TriageState(BaseModel):
+    command: str
+    incident_id: str | None = None
+    action: str | None = None
+    result: dict | None = None
+
+tools = Tools(Repo())
+
+def parse_cmd(s: TriageState) -> TriageState:
+    t = s.command.lower()
+    if t.startswith("ack "): s.action, s.incident_id = "ACK", t.split()[1]
+    elif t.startswith("resolve "): s.action, s.incident_id = "RESOLVE", t.split()[1]
+    else: s.action = "LIST"
+    return s
+
+def act(s: TriageState) -> TriageState:
+    import asyncio
+    if s.action == "ACK": s.result = asyncio.get_event_loop().run_until_complete(tools.ack_incident(s.incident_id))
+    elif s.action == "RESOLVE": s.result = asyncio.get_event_loop().run_until_complete(tools.resolve_incident(s.incident_id))
+    else: s.result = asyncio.get_event_loop().run_until_complete(tools.list_incidents("OPEN"))
+    return s
+
+graph = StateGraph(TriageState)
+graph.add_node("parse", parse_cmd)
+graph.add_node("act", act)
+graph.add_edge("parse","act")
+graph.set_entry_point("parse")
+app = graph.compile()
+
+
+=== File: docs\data_collector.md ===
+# Data Collector — Developer Notes
+
+Purpose:
+- Ingest market ticks (our_price, competitor_price, demand_index).
+- Persist ticks to app/data.db (aiosqlite).
+- Expose MCP tools (fetch_market_features, ingest_tick) and publish MARKET_TICK events.
+
+Key files:
+- core/agents/data_collector/repo.py
+- core/agents/data_collector/collector.py
+- core/agents/data_collector/connectors/mock.py
+- scripts/ingest_demo.py
+
+DB:
+- Use app/data.db for market ticks (do NOT commit DB file).
+- Add DATA_DB path to local .env in each worktree.
+
+I/O contract:
+- MarketTick: { sku, our_price, competitor_price?, demand_index, ts, source }
+- fetch_market_features(sku, market, time_window) => { snapshot_id, as_of, features, provenance }
+
+
+=== File: docs\price_optimizer.md ===
+
+
+=== File: project_bundle_manager.py ===
+#!/usr/bin/env python3
+"""
+Project Bundle Manager - Collect and Split Project Code
+
+Collects all relevant project files and splits them into parts under a token limit.
+
+Usage:
+    python project_bundle_manager.py --token-limit 30000
+
+Dependencies:
+    - tiktoken (optional, recommended): pip install tiktoken
+"""
+
+import argparse
+import math
+import os
+import re
+import sys
+from datetime import datetime
+from pathlib import Path
+from typing import List, Tuple
+
+
+def now():
+    """Get current timestamp for logging."""
+    return datetime.now().isoformat(sep=' ', timespec='seconds')
+
+
+def log(msg: str, log_path: str):
+    """Write a timestamped message to the log file."""
+    line = f"[{now()}] {msg}"
+    with open(log_path, 'a', encoding='utf-8') as f:
+        f.write(line + '\n')
+
+
+class Tokenizer:
+    """Token counter with tiktoken support and fallback."""
+    
+    def __init__(self, model='cl100k_base'):
+        self.backend = 'fallback'
+        try:
+            import tiktoken
+            try:
+                enc = tiktoken.encoding_for_model(model)
+            except Exception:
+                try:
+                    enc = tiktoken.get_encoding(model)
+                except Exception:
+                    enc = tiktoken.get_encoding('cl100k_base')
+            self.encoder = enc
+            self.backend = 'tiktoken'
+        except Exception:
+            self.encoder = None
+
+    def count(self, text: str) -> int:
+        """Count tokens in text."""
+        if self.backend == 'tiktoken' and self.encoder is not None:
+            try:
+                tokens = self.encoder.encode(text)
+                return len(tokens)
+            except Exception:
+                return math.ceil(len(text) / 4)
+        else:
+            return math.ceil(len(text) / 4)
+
+
+class ProjectBundleManager:
+    """Manages collection and splitting of project code bundles."""
+    
+    # File extensions to include
+    TEXT_EXTENSIONS = {
+        '.py', '.md', '.txt', '.json', '.yaml', '.yml', '.ini', '.cfg',
+        '.js', '.ts', '.html', '.css', '.java', '.c', '.cpp', '.h',
+        '.rb', '.go', '.rs', '.sh', '.ps1', '.sql'
+    }
+    
+    # Directories to exclude
+    EXCLUDE_DIRS = {
+        '.git', '__pycache__', 'build', 'dist', 'node_modules', 'venv',
+        '.venv', 'env', 'site-packages', '.egg-info', '.parcel-cache', 'vendor'
+    }
+    
+    # Special files to always include
+    SPECIAL_FILES = {'requirements.txt', 'README.md'}
+    
+    def __init__(self, log_file: str = 'project_bundle_manager.log'):
+        self.log_file = log_file
+        self.included = 0
+        self.skipped = 0
+        self.errors = 0
+        self.skipped_large = 0
+        self.skipped_binary = 0
+        self.skipped_extension = 0
+        self.excluded_dirs = {}  # dir_name -> file_count
+    
+    def is_text_file(self, file_path: Path) -> bool:
+        """Check if a file is a text file by looking for null bytes."""
+        try:
+            with open(file_path, 'rb') as f:
+                chunk = f.read(1024)
+                return b'\x00' not in chunk
+        except Exception:
+            return False
+    
+    def should_exclude_path(self, path: Path) -> bool:
+        """Check if a path should be excluded based on directory names."""
+        for part in path.parts:
+            if part in self.EXCLUDE_DIRS:
+                return True
+        return False
+    
+    def should_include_file(self, file_path: Path) -> Tuple[bool, str]:
+        """
+        Determine if a file should be included in the bundle.
+        Returns (should_include, reason).
+        """
+        # Check size (max 5MB)
+        try:
+            size_mb = file_path.stat().st_size / (1024 * 1024)
+            if size_mb > 5:
+                self.skipped_large += 1
+                return False, f"large ({size_mb:.1f}MB > 5MB)"
+        except Exception:
+            return False, "cannot read file stats"
+        
+        # Check if it's in an excluded directory
+        if self.should_exclude_path(file_path):
+            # Track which excluded directory this file is in
+            for part in file_path.parts:
+                if part in self.EXCLUDE_DIRS:
+                    self.excluded_dirs[part] = self.excluded_dirs.get(part, 0) + 1
+                    break
+            return False, "in excluded directory"
+        
+        # Check if it's a special file
+        if file_path.name in self.SPECIAL_FILES:
+            if self.is_text_file(file_path):
+                return True, "special file"
+            else:
+                self.skipped_binary += 1
+                return False, "special file but binary"
+        
+        # Check extension
+        if file_path.suffix.lower() in self.TEXT_EXTENSIONS:
+            if self.is_text_file(file_path):
+                return True, "text file"
+            else:
+                self.skipped_binary += 1
+                return False, "has text extension but is binary"
+        
+        self.skipped_extension += 1
+        return False, "not a recognized text file"
+    
+    def collect_and_split(self, token_limit: int = 30000, output_prefix: str = 'project_code_bundle_part'):
+        """Collect all files and split them into parts under token limit."""
+        root_dir = Path.cwd()
+        tokenizer = Tokenizer()
+        
+        print(f"Tokenizer backend: {tokenizer.backend}")
+        print(f"Collecting files from: {root_dir}")
+        
+        # Clear log file
+        with open(self.log_file, 'w', encoding='utf-8') as f:
+            f.write("")
+        log("Starting project bundle collection and split", self.log_file)
+        
+        # Find all files
+        try:
+            all_files = list(root_dir.rglob('*'))
+            all_files = [f for f in all_files if f.is_file()]
+        except Exception as e:
+            print(f"Error scanning directory: {e}")
+            return
+        
+        # Filter files
+        included_files = []
+        large_files = []
+        
+        for file_path in all_files:
+            should_include, reason = self.should_include_file(file_path)
+            
+            if should_include:
+                included_files.append(file_path)
+            else:
+                self.skipped += 1
+                # Track large files specifically for detailed reporting
+                if "large" in reason:
+                    rel_path = file_path.relative_to(root_dir)
+                    size_mb = file_path.stat().st_size / (1024 * 1024)
+                    large_files.append((rel_path, size_mb))
+        
+        # Print detailed statistics
+        print(f"\n=== SCAN RESULTS ===")
+        print(f"✅ Files to include: {len(included_files)}")
+        print(f"❌ Files skipped: {self.skipped}")
+        
+        if self.excluded_dirs:
+            print(f"\n📁 Excluded directories and file counts:")
+            for dir_name, count in sorted(self.excluded_dirs.items()):
+                print(f"   {dir_name}: {count} files")
+        
+        if large_files:
+            print(f"\n📏 Large files (>5MB) ignored:")
+            for file_path, size_mb in large_files:
+                print(f"   {file_path} ({size_mb:.1f}MB)")
+        
+        if self.skipped_binary > 0:
+            print(f"\n🔒 Binary files ignored: {self.skipped_binary}")
+        
+        if self.skipped_extension > 0:
+            print(f"\n📄 Files with unrecognized extensions ignored: {self.skipped_extension}")
+        
+        print(f"\n" + "="*50)
+        
+        if not included_files:
+            print("No files to process.")
+            return
+        
+        # Process files and split into parts
+        current_part = 1
+        current_blocks = []
+        current_tokens = 0
+        created = 0
+        
+        for file_path in sorted(included_files):
+            try:
+                rel_path = file_path.relative_to(root_dir)
+                
+                # Read file content
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read()
+                
+                # Create file block
+                header = f"=== File: {rel_path} ==="
+                block = f"{header}\n{content}"
+                block_tokens = tokenizer.count(block)
+                
+                # Check if we need to start a new part
+                if current_blocks and (current_tokens + block_tokens) > token_limit:
+                    # Write current part
+                    out_name = f"{output_prefix}{current_part}.txt"
+                    self._write_part(out_name, current_blocks)
+                    log(f"Wrote {out_name} (blocks={len(current_blocks)}, tokens~{current_tokens})", self.log_file)
+                    created += 1
+                    
+                    current_part += 1
+                    current_blocks = []
+                    current_tokens = 0
+                
+                # Add block to current part
+                current_blocks.append(block)
+                current_tokens += block_tokens
+                self.included += 1
+                
+                log(f"Added {rel_path} to part {current_part} (tokens: {block_tokens})", self.log_file)
+                
+            except Exception as e:
+                self.errors += 1
+                log(f"ERROR processing {rel_path}: {e}", self.log_file)
+        
+        # Write remaining blocks
+        if current_blocks:
+            out_name = f"{output_prefix}{current_part}.txt"
+            self._write_part(out_name, current_blocks)
+            log(f"Wrote {out_name} (blocks={len(current_blocks)}, tokens~{current_tokens})", self.log_file)
+            created += 1
+        
+        print(f"\nDone! Created {created} part(s).")
+        print(f"Included: {self.included}, Skipped: {self.skipped}, Errors: {self.errors}")
+        print(f"See {self.log_file} for details.")
+    
+    def _write_part(self, output_path: str, blocks: List[str]):
+        """Write blocks to a part file with proper line endings."""
+        text = '\n\n'.join(blocks)
+        text = text.replace('\n', '\r\n')
+        with open(output_path, 'w', encoding='utf-8', newline='') as f:
+            f.write(text)
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Project Bundle Manager - Collect and Split Project Code')
+    parser.add_argument('--token-limit', '-t', type=int, default=30000, 
+                       help='Token limit per part (default: 30000)')
+    parser.add_argument('--out-prefix', default='project_code_bundle_part', 
+                       help='Output prefix for split parts (default: project_code_bundle_part)')
+    parser.add_argument('--log-file', default='project_bundle_manager.log', 
+                       help='Log file (default: project_bundle_manager.log)')
+    
+    args = parser.parse_args()
+    
+    manager = ProjectBundleManager(args.log_file)
+    
+    try:
+        manager.collect_and_split(args.token_limit, args.out_prefix)
+    except KeyboardInterrupt:
+        print("\nOperation cancelled by user.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()
+
+
+=== File: README.md ===
+# dynamic-pricing-ai-IRWA_PROJECT
+.env
+app/alert.db
+
+
+=== File: requirements.txt ===
+streamlit==1.38.0
+sqlalchemy==2.0.36
+argon2-cffi==23.1.0
+pyotp==2.9.0
+email-validator==2.2.0
+pydantic==2.8.2
+extra-streamlit-components==0.1.71
+qrcode==7.4.2
+Pillow==10.4.0
+plotly
+aiosqlite
+aiohttp
+aiosmtplib
+python-dotenv
+pandas
+langgraph
+mcp
+transformers
+# torch may require a platform-specific wheel; install separately if fails
+torch
+nats-py
+
+
+=== File: scripts\ingest_demo.py ===
+# scripts/ingest_demo.py
+"""
+Run a small demo ingestion using the mock connector.
+Usage: python scripts/ingest_demo.py
+"""
+import asyncio
+import os, sys
+HERE = os.path.dirname(__file__)
+ROOT = os.path.abspath(os.path.join(HERE, ".."))
+sys.path.insert(0, ROOT)
+
+from core.agents.data_collector.repo import DataRepo
+from core.agents.data_collector.collector import DataCollector
+from core.agents.data_collector.connectors.mock import mock_ticks
+
+async def main():
+    repo = DataRepo(path="app/data.db")
+    await repo.init()
+    coll = DataCollector(repo)
+    for tick in mock_ticks(n=8):
+        await coll.ingest_tick(tick)
+    print("Ingest demo completed.")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
+
+=== File: scripts\smoke_price_optimizer.py ===
+
+
+=== File: README.md ===
+# dynamic-pricing-ai-IRWA_PROJECT
+.env
+app/alert.db
+
+
+=== File: requirements.txt ===
+streamlit==1.38.0
+sqlalchemy==2.0.36
+argon2-cffi==23.1.0
+pyotp==2.9.0
+email-validator==2.2.0
+pydantic==2.8.2
+extra-streamlit-components==0.1.71
+qrcode==7.4.2
+Pillow==10.4.0
+plotly
+aiosqlite
+aiohttp
+aiosmtplib
+python-dotenv
+pandas
+langgraph
+mcp
+transformers
+# torch may require a platform-specific wheel; install separately if fails
+torch
+nats-py
+
+
+=== File: scripts\ingest_demo.py ===
+# scripts/ingest_demo.py
+"""
+Run a small demo ingestion using the mock connector.
+Usage: python scripts/ingest_demo.py
+"""
+import asyncio
+import os, sys
+HERE = os.path.dirname(__file__)
+ROOT = os.path.abspath(os.path.join(HERE, ".."))
+sys.path.insert(0, ROOT)
+
+from core.agents.data_collector.repo import DataRepo
+from core.agents.data_collector.collector import DataCollector
+from core.agents.data_collector.connectors.mock import mock_ticks
+
+async def main():
+    repo = DataRepo(path="app/data.db")
+    await repo.init()
+    coll = DataCollector(repo)
+    for tick in mock_ticks(n=8):
+        await coll.ingest_tick(tick)
+    print("Ingest demo completed.")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
+
+=== File: scripts\smoke_price_optimizer.py ===
+
+
+=== File: core\__init__.py ===
+
+
+=== File: core\agents\agent_sdk\__init__.py ===
+# core/agent_sdk/__init__.py
+"""
+Shim so callers can do:
+    from core.agent_sdk import get_bus, Topic
+or:
+    from core.agent_sdk.bus_factory import get_bus
+    from core.agent_sdk.protocol import Topic
+"""
+
+# Prefer local bus_factory/protocol modules if present
+try:
+    from .bus_factory import get_bus        # noqa: F401
+except Exception as e:
+    raise ImportError("core.agent_sdk.bus_factory not found") from e
+
+try:
+    from .protocol import Topic             # noqa: F401
+except Exception as e:
+    raise ImportError("core.agent_sdk.protocol not found") from e
+
+
+=== File: core\agents\agent_sdk\bus_factory.py ===
+# core/agent_sdk/bus_factory.py
+import os
+from .bus_iface import BusIface
+from .local_bus import bus as local_bus  # in-process fallback
+
+_bus: BusIface | None = None
+
+def get_bus() -> BusIface:
+    """Return the selected bus implementation based on ALERT_BUS env var."""
+    global _bus
+    if _bus:
+        return _bus
+
+    impl = os.getenv("ALERT_BUS", "local").lower()
+
+    if impl == "local":
+        _bus = local_bus
+
+    elif impl == "nats":
+        # requires core/agent_sdk/transports/nats_bus.py
+        from .transports.nats_bus import NatsBus
+        _bus = NatsBus(os.getenv("NATS_URL", "nats://localhost:4222"))
+
+    elif impl == "kafka":
+        # if/when you add it at core/agent_sdk/transports/kafka_bus.py
+        from .transports.kafka_bus import KafkaBus  # type: ignore
+        _bus = KafkaBus(os.getenv("KAFKA_BOOTSTRAP", "localhost:9092"))
+
+    else:
+        raise RuntimeError(f"Unknown ALERT_BUS={impl}")
+
+    return _bus
+
+
+=== File: core\agents\agent_sdk\bus_iface.py ===
+# core/bus_iface.py
+from typing import Any, Callable
+
+Handler = Callable[[Any], Any]  # may be sync or async
+
+class BusIface:
+    def subscribe(self, topic: str, handler: Handler) -> None: ...
+    async def publish(self, topic: str, payload: Any) -> None: ...
+
+
+=== File: core\agents\agent_sdk\local_bus.py ===
+# core/bus.py
+from __future__ import annotations
+import asyncio
+import inspect
+import logging
+from collections import defaultdict
+from typing import Any, Callable, DefaultDict, List
+
+log = logging.getLogger(__name__)
+
+Handler = Callable[[Any], Any]  # may be sync or async
+
+class EventBus:
+    def __init__(self) -> None:
+        self._subs: DefaultDict[str, List[Handler]] = defaultdict(list)
+
+    def subscribe(self, topic: str, handler: Handler) -> None:
+        """Register a handler for a topic (idempotent)."""
+        if handler not in self._subs[topic]:
+            self._subs[topic].append(handler)
+
+    def unsubscribe(self, topic: str, handler: Handler) -> None:
+        try:
+            self._subs.get(topic, []).remove(handler)
+        except ValueError:
+            pass
+
+    # OPTIONAL: concurrent fan-out
+    async def publish(self, topic: str, payload: Any) -> None:
+        handlers = list(self._subs.get(topic, []))
+        coros = []
+        for h in handlers:
+            try:
+                if inspect.iscoroutinefunction(h):
+                    coros.append(h(payload))
+                else:
+                    res = h(payload)
+                    if inspect.isawaitable(res):
+                        coros.append(res)
+            except Exception as e:
+                log.warning("EventBus handler error on %s: %s", topic, e)
+        if coros:
+            await asyncio.gather(*coros, return_exceptions=True)
+
+
+# singleton
+bus = EventBus()
+
+
+=== File: core\agents\agent_sdk\protocol.py ===
+# core/protocol.py
+from enum import Enum
+
+class Topic(Enum):
+    MARKET_TICK = "MARKET_TICK"
+    PRICE_PROPOSAL = "PRICE_PROPOSAL"
+    ALERT = "ALERT" 
+
+
+=== File: core\agents\agent_sdk\transports\__init__.py ===
+
+
+=== File: core\agents\agent_sdk\transports\nats_bus.py ===
+# core/brokers/nats_bus.py
+import asyncio, json
+from typing import Any, Dict, List
+from nats.aio.client import Client as NATS  # pip install nats-py
+
+from ..bus_iface import BusIface, Handler
+from ....brokers.types import to_jsonable
+
+class NatsBus(BusIface):
+    def __init__(self, url: str):
+        self.url = url
+        self.nc: NATS | None = None
+        self._subs: Dict[str, List[Handler]] = {}
+
+    async def _ensure(self):
+        if self.nc:
+            return
+        self.nc = NATS()
+        await self.nc.connect(servers=[self.url])
+        # subscribe all pre-registered topics
+        for topic in list(self._subs.keys()):
+            await self.nc.subscribe(topic, cb=self._on_msg)
+
+    async def _on_msg(self, msg):
+        try:
+            payload = json.loads(msg.data.decode("utf-8"))
+        except Exception:
+            payload = None
+        handlers = list(self._subs.get(msg.subject, []))
+        coros = []
+        for h in handlers:
+            try:
+                res = h(payload)
+                if asyncio.iscoroutine(res):
+                    coros.append(res)
+            except Exception:
+                # swallow to avoid breaking the stream
+                pass
+        if coros:
+            await asyncio.gather(*coros, return_exceptions=True)
+
+    def subscribe(self, topic: str, handler: Handler) -> None:
+        self._subs.setdefault(topic, []).append(handler)
+
+    async def publish(self, topic: str, payload: Any) -> None:
+        await self._ensure()
+        assert self.nc
+        body = json.dumps(to_jsonable(payload)).encode("utf-8")
+        await self.nc.publish(topic, body)
+
+
+=== File: core\agents\agent_sdk\util\__init__.py ===
+
+
+=== File: core\agents\agent_sdk\util\retry.py ===
+# core/util/retry.py
+import asyncio, random
+from typing import Awaitable, Callable, Tuple, Type
+
+async def retry(
+    fn: Callable[[], Awaitable[None]],
+    attempts: int = 3,
+    base: float = 0.4,
+    cap: float = 3.0,
+    retry_on: Tuple[Type[BaseException], ...] = (Exception,),
+) -> None:
+    delay = base
+    for i in range(attempts):
+        try:
+            return await fn()
+        except retry_on:
+            if i == attempts - 1:
+                raise
+            await asyncio.sleep(delay)
+            # exponential backoff with small jitter
+            delay = min(cap, delay * (2 + random.random() * 0.2))
+
+
+=== File: core\agents\alert_service\__init__.py ===
+
+
+=== File: core\agents\alert_service\api.py ===
+from typing import Optional, Dict, Any, List
+
+from .repo import Repo
+from .engine import AlertEngine
+from .schemas import RuleSpec
+from .config import load_runtime_defaults, merge_defaults_db, for_ui
+
+# Singletons for this process
+_repo = Repo()
+_engine = AlertEngine(_repo)
+_started = False  # idempotent start guard
+
+def _dump(model):
+    fn = getattr(model, "model_dump", None)
+    if callable(fn):
+        return fn()
+    return model.dict()
+
+# ---------- Lifecycle ----------
+async def start() -> None:
+    global _started
+    if _started:
+        return
+    await _repo.init()
+    await _engine.start()
+    _started = True
+
+async def reload_rules() -> None:
+    """Hot-reload rules in the running engine."""
+    if hasattr(_engine, "reload_rules"):
+        await _engine.reload_rules()    # type: ignore[attr-defined]
+    elif hasattr(_engine, "_load_rules"):
+        await _engine._load_rules()     # type: ignore[attr-defined]
+
+# ---------- Incidents ----------
+async def list_incidents(status: Optional[str] = None) -> List[Dict[str, Any]]:
+    return await _repo.list_incidents(status)
+
+async def ack_incident(incident_id: str) -> Dict[str, Any]:
+    await _repo.set_status(incident_id, "ACKED")
+    return {"ok": True, "id": incident_id, "status": "ACKED"}
+
+async def resolve_incident(incident_id: str) -> Dict[str, Any]:
+    await _repo.set_status(incident_id, "RESOLVED")
+    return {"ok": True, "id": incident_id, "status": "RESOLVED"}
+
+# ---------- Rules ----------
+async def create_rule(spec: Dict[str, Any]) -> Dict[str, Any]:
+    rule = RuleSpec(**spec)             # validate
+    await _repo.upsert_rule(rule)
+    await reload_rules()
+    return {"ok": True, "id": rule.id}
+
+async def list_rules() -> List[Dict[str, Any]]:
+    rows = await _repo.list_rules()
+    return [_dump(r.spec) for r in rows]
+
+# ---------- Channel Settings ----------
+async def get_settings() -> Dict[str, Any]:
+    defaults = load_runtime_defaults()
+    db_cfg = await _repo.get_channel_settings()
+    merged = merge_defaults_db(defaults, db_cfg)
+    return for_ui(merged)               # redact smtp_password
+
+async def save_settings(d: Dict[str, Any]) -> bool:
+    await _repo.save_channel_settings(d)
+    return True
+
+
+=== File: core\agents\alert_service\auth.py ===
+import hmac, hashlib, time, os
+
+SECRET = os.getenv("ALERTS_CAP_SECRET", "dev-secret")
+
+SCOPES = {"read","write","create_rule"}
+
+def verify_capability(token: str, scope: str):
+    if scope not in SCOPES: raise PermissionError("unknown scope")
+    try:
+        payload, sig = token.rsplit(".", 1)
+        if not hmac.compare_digest(
+            hmac.new(SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest(), sig
+        ):
+            raise ValueError("bad signature")
+        ts_str, granted = payload.split(":")
+        if scope not in granted.split(","): raise PermissionError("scope denied")
+        if time.time() - int(ts_str) > 3600: raise PermissionError("token expired")
+    except Exception as e:
+        raise PermissionError("invalid capability") from e
+
+
+=== File: core\agents\alert_service\config.py ===
+from dataclasses import dataclass, field, asdict
+from typing import Optional, List, Dict, Any
+import os, json
+from urllib.parse import urlparse
+
+# If running on Streamlit Cloud, we can read st.secrets
+try:
+    import streamlit as st  # type: ignore
+    _SECRETS = dict(st.secrets)  # copy to plain dict
+except Exception:
+    _SECRETS = {}
+
+@dataclass
+class ChannelSettings:
+    # Slack
+    slack_webhook_url: Optional[str] = None
+    # Email (SMTP)
+    email_from: Optional[str] = None
+    email_to: List[str] = field(default_factory=list)
+    smtp_host: Optional[str] = None
+    smtp_port: int = 587
+    smtp_user: Optional[str] = None
+    smtp_password: Optional[str] = None
+    # Generic webhook
+    webhook_url: Optional[str] = None
+
+    def as_dict(self, *, redact: bool = False) -> Dict[str, Any]:
+        d = asdict(self)
+        if redact:
+            d["smtp_password"] = None  # never echo secret back to UI
+        return d
+
+def _get(key: str, default: Any = None) -> Any:
+    # Prefer Streamlit Secrets if present; fallback to env
+    if key in _SECRETS:
+        return _SECRETS.get(key, default)
+    return os.getenv(key, default)
+
+def _json_list(val: Optional[str]) -> list:
+    if val in (None, ""):
+        return []
+    # Accept JSON array or comma-separated string
+    try:
+        v = json.loads(val) if isinstance(val, str) else val
+        if isinstance(v, list):
+            return [str(x).strip() for x in v if str(x).strip()]
+    except Exception:
+        pass
+    return [s.strip() for s in str(val).split(",") if s.strip()]
+
+def load_runtime_defaults() -> ChannelSettings:
+    """Read defaults from st.secrets or env (loaded via .env)."""
+    return ChannelSettings(
+        slack_webhook_url=_get("ALERTS_SLACK_WEBHOOK"),
+        email_from=_get("ALERTS_EMAIL_FROM"),
+        email_to=_json_list(_get("ALERTS_EMAIL_TO")),
+        smtp_host=_get("ALERTS_SMTP_HOST"),
+        smtp_port=int(_get("ALERTS_SMTP_PORT", 587)),
+        smtp_user=_get("ALERTS_SMTP_USER"),
+        smtp_password=_get("ALERTS_SMTP_PASSWORD"),
+        webhook_url=_get("ALERTS_GENERIC_WEBHOOK"),
+    )
+
+def merge_defaults_db(defaults: ChannelSettings, db_cfg: dict | None) -> ChannelSettings:
+    """DB overrides > defaults (env/secrets)."""
+    if not db_cfg:
+        _validate(defaults)
+        return defaults
+    merged = asdict(defaults)
+    for k, v in db_cfg.items():
+        if v not in (None, "", [], {}):
+            merged[k] = v
+    cfg = ChannelSettings(**merged)
+    _validate(cfg)
+    return cfg
+
+def _validate(cfg: ChannelSettings) -> None:
+    def _ok_url(u: Optional[str]) -> bool:
+        if not u:
+            return True
+        try:
+            p = urlparse(u)
+            return p.scheme in ("http", "https")
+        except Exception:
+            return False
+
+    if not _ok_url(cfg.slack_webhook_url):
+        raise ValueError("Invalid Slack webhook URL")
+    if not _ok_url(cfg.webhook_url):
+        raise ValueError("Invalid generic webhook URL")
+    if cfg.smtp_port and (int(cfg.smtp_port) <= 0 or int(cfg.smtp_port) > 65535):
+        raise ValueError("Invalid SMTP port")
+
+def for_ui(cfg: ChannelSettings) -> Dict[str, Any]:
+    """Return a UI-safe dict (password redacted)."""
+    return cfg.as_dict(redact=True)
+
+
+=== File: core\agents\alert_service\correlate.py ===
+from datetime import datetime, timedelta
+from .schemas import Alert, Incident
+from .repo import Repo
+
+class Correlator:
+    def __init__(self, repo: Repo): self.repo = repo
+    async def upsert_incident(self, alert: Alert, throttle: str|None):
+        # throttle by fingerprint window
+        if throttle and await self.repo.is_throttled(alert.fingerprint, throttle):
+            await self.repo.touch_incident(alert.fingerprint)
+            return None
+        inc = await self.repo.find_or_create_incident(alert)
+        return inc
+
+
+=== File: core\agents\alert_service\detectors.py ===
+from typing import Dict
+from datetime import datetime
+from collections import defaultdict
+import math
+
+class EwmaZ:
+    def __init__(self, alpha=0.3):
+        self.mu = None
+        self.var = None
+        self.alpha = alpha
+    def update(self, x):
+        if self.mu is None:
+            self.mu, self.var = x, 1e-6
+        else:
+            self.mu = self.alpha*x + (1-self.alpha)*self.mu
+            self.var = self.alpha*(x-self.mu)**2 + (1-self.alpha)*self.var
+        z = 0 if self.var == 0 else (x - self.mu) / math.sqrt(self.var)
+        return z
+
+class DetectorRegistry:
+    def __init__(self):
+        self.series: Dict[str, Dict[str, EwmaZ]] = defaultdict(dict)
+    async def eval(self, name: str, key: str, field: str, value: float, ts: datetime, params: Dict):
+        if name != "ewma_zscore": raise ValueError("unknown detector")
+        s = self.series[key].setdefault(field, EwmaZ(alpha=params.get("alpha", 0.3)))
+        z = s.update(value)
+        return abs(z) >= params.get("z", 2.5)
+
+
+=== File: core\agents\alert_service\engine.py ===
+# core/agents/alert_service/engine.py
+import json
+from datetime import datetime, timezone
+from typing import Dict, Any
+from types import SimpleNamespace
+
+from .repo import Repo
+from .rules import RuleRuntime
+from .detectors import DetectorRegistry
+from .schemas import Alert
+from .sinks import get_sinks
+from core.agents.agent_sdk.protocol import Topic
+from core.agents.agent_sdk.bus_factory import get_bus
+
+bus = get_bus()
+
+class AlertEngine:
+    def __init__(self, repo: Repo):
+        self.repo = repo
+        self.detectors = DetectorRegistry()
+        self._rules: Dict[str, RuleRuntime] = {}
+        self.sinks = get_sinks(repo)  # preload once
+
+    async def start(self):
+        await self.repo.init()
+        await self._load_rules()
+
+        bus.subscribe(Topic.MARKET_TICK.value, self.on_tick)
+        bus.subscribe(Topic.PRICE_PROPOSAL.value, self.on_pp)
+
+        ready = SimpleNamespace(
+            ts=datetime.now(timezone.utc),
+            sku="SYS",
+            severity="info",
+            title=f"AlertEngine ready ({len(self._rules)} rules)",
+        )
+        await bus.publish(Topic.ALERT.value, ready)
+
+    async def reload_rules(self):
+        await self._load_rules()
+
+    async def _load_rules(self):
+        self._rules.clear()
+        for rr in await self.repo.list_rules():
+            self._rules[rr.id] = RuleRuntime(rr.spec)
+
+    async def on_tick(self, tick):
+        await self._evaluate("MARKET_TICK", tick, alias="tick")
+
+    async def on_pp(self, pp):
+        await self._evaluate("PRICE_PROPOSAL", pp, alias="pp")
+
+    @staticmethod
+    def _to_dict(obj: Any) -> Dict[str, Any]:
+        fn = getattr(obj, "model_dump", None)
+        if callable(fn):
+            try:
+                return fn()
+            except Exception:
+                pass
+        fn = getattr(obj, "dict", None)
+        if callable(fn):
+            try:
+                return fn()
+            except Exception:
+                pass
+        j = getattr(obj, "model_dump_json", None)
+        if callable(j):
+            try:
+                return json.loads(j())
+            except Exception:
+                pass
+        return getattr(obj, "__dict__", {}) or {}
+
+    async def _evaluate(self, source: str, payload: Any, alias: str):
+        now = datetime.now(timezone.utc)  # aware
+        for rid, rule in self._rules.items():
+            if (rule.spec.source or "").strip().upper() != source.strip().upper():
+                continue
+            fired = await rule.evaluate(payload, now, self.detectors, alias=alias)
+            if not fired:
+                continue
+
+            sku = getattr(payload, "sku", "UNKNOWN")
+            payload_dict = self._to_dict(payload)
+
+            alert = Alert(
+                id=f"a_{int(now.timestamp()*1000)}",
+                rule_id=rid,
+                sku=sku,
+                title=f"{rid} on {sku}",
+                payload=payload_dict,
+                severity=rule.spec.severity,
+                ts=now,
+                fingerprint=f"{rid}:{sku}",
+            )
+
+            inc = await self._correlate(alert, rule)
+            if not inc:
+                continue
+            await self._deliver(inc, rule)
+
+    async def _correlate(self, alert, rule):
+        from .correlate import Correlator
+        try:
+            return await Correlator(self.repo).upsert_incident(
+                alert, rule.spec.notify.throttle
+            )
+        except Exception:
+            return None
+
+    async def _deliver(self, incident, rule):
+        channels = getattr(rule.spec.notify, "channels", None) or []
+        for ch in channels:
+            sink = self.sinks.get(ch)
+            if not sink:
+                continue
+            await sink.send(incident, rule)
+
+
+=== File: core\agents\alert_service\mcp_server.py ===
+# Minimal MCP server exposing the tools above.
+# (Works with any MCP-compatible client / other agents.)
+import asyncio, os
+from mcp.server.fastmcp import FastMCP
+from .repo import Repo
+from .engine import AlertEngine
+from .tools import Tools
+from .auth import verify_capability
+
+mcp = FastMCP("alerts-service")
+
+repo = Repo()
+engine = AlertEngine(repo)
+tools = Tools(repo)
+
+@mcp.tool()
+async def create_rule(spec: dict, capability_token: str):
+    verify_capability(capability_token, "create_rule")
+    return await tools.create_rule(spec)
+
+@mcp.tool()
+async def list_rules(capability_token: str):
+    verify_capability(capability_token, "read")
+    return await tools.list_rules()
+
+@mcp.tool()
+async def list_incidents(status: str|None = None, capability_token: str = ""):
+    verify_capability(capability_token, "read")
+    return await tools.list_incidents(status)
+
+@mcp.tool()
+async def ack_incident(incident_id: str, capability_token: str):
+    verify_capability(capability_token, "write")
+    return await tools.ack_incident(incident_id)
+
+@mcp.tool()
+async def resolve_incident(incident_id: str, capability_token: str):
+    verify_capability(capability_token, "write")
+    return await tools.resolve_incident(incident_id)
+
+async def main():
+    await repo.init()
+    await engine.start()
+    await mcp.run()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
+
+=== File: core\agents\alert_service\repo.py ===
+# core/agents/alert_service/repo.py
+
+import aiosqlite, json
+from datetime import datetime, timedelta
+from typing import List, Optional, Dict, Any
+from .schemas import RuleSpec, RuleRecord, Alert, Incident
+
+class Repo:
+    def __init__(self, path: str = "app/alert.db") -> None:
+        self.path = path
+
+    async def init(self) -> None:
+        async with aiosqlite.connect(self.path) as db:
+            await db.executescript("""
+            CREATE TABLE IF NOT EXISTS rules (
+              id TEXT PRIMARY KEY,
+              version INTEGER,
+              spec_json TEXT,
+              enabled INTEGER
+            );
+            CREATE TABLE IF NOT EXISTS incidents (
+              id TEXT PRIMARY KEY,
+              rule_id TEXT,
+              sku TEXT,
+              status TEXT,
+              first_seen TEXT,
+              last_seen TEXT,
+              severity TEXT,
+              title TEXT,
+              group_key TEXT,
+              fingerprint TEXT UNIQUE
+            );
+            CREATE TABLE IF NOT EXISTS deliveries (
+              id TEXT PRIMARY KEY,
+              incident_id TEXT,
+              channel TEXT,
+              ts TEXT,
+              status TEXT,
+              response_json TEXT
+            );
+            CREATE TABLE IF NOT EXISTS settings (
+              key TEXT PRIMARY KEY,
+              value TEXT
+            );
+            """)
+            await db.commit()
+
+    # ---------- Rules ----------
+    async def list_rules(self) -> List[RuleRecord]:
+        async with aiosqlite.connect(self.path) as db:
+            cur = await db.execute("SELECT id, version, spec_json FROM rules WHERE enabled=1")
+            rows = await cur.fetchall()
+            return [
+                RuleRecord(id=r[0], version=r[1], spec=RuleSpec(**json.loads(r[2])))
+                for r in rows
+            ]
+
+    async def upsert_rule(self, spec: RuleSpec) -> None:
+        async with aiosqlite.connect(self.path) as db:
+            v = 1
+            # If RuleSpec is a pydantic/dataclass, adjust serializer as needed
+            spec_json = json.dumps(getattr(spec, "dict", lambda: spec.__dict__)())
+            await db.execute(
+                "INSERT OR REPLACE INTO rules (id, version, spec_json, enabled) VALUES (?,?,?,?)",
+                (spec.id, v, spec_json, 1 if getattr(spec, "enabled", True) else 0),
+            )
+            await db.commit()
+
+    # ---------- Incidents ----------
+    async def find_or_create_incident(self, alert: Alert) -> Incident:
+        """Correlate by fingerprint, update last_seen or create new incident."""
+        async with aiosqlite.connect(self.path) as db:
+            cur = await db.execute(
+                "SELECT id, status, first_seen, last_seen FROM incidents WHERE fingerprint=?",
+                (alert.fingerprint,),
+            )
+            row = await cur.fetchone()
+            ts_iso = alert.ts.isoformat()
+            if row:
+                await db.execute(
+                    "UPDATE incidents SET last_seen=?, severity=?, title=? WHERE id=?",
+                    (ts_iso, alert.severity, alert.title, row[0]),
+                )
+                await db.commit()
+                return Incident(
+                    id=row[0],
+                    rule_id=alert.rule_id,
+                    sku=alert.sku,
+                    status="OPEN",
+                    first_seen=datetime.fromisoformat(row[2]),
+                    last_seen=alert.ts,
+                    severity=alert.severity,
+                    title=alert.title,
+                    group_key=alert.sku,
+                )
+
+            inc_id = f"inc_{int(alert.ts.timestamp()*1000)}"
+            await db.execute(
+                """
+                INSERT INTO incidents
+                  (id, rule_id, sku, status, first_seen, last_seen, severity, title, group_key, fingerprint)
+                VALUES (?,?,?,?,?,?,?,?,?,?)
+                """,
+                (inc_id, alert.rule_id, alert.sku, "OPEN", ts_iso, ts_iso,
+                 alert.severity, alert.title, alert.sku, alert.fingerprint),
+            )
+            await db.commit()
+            return Incident(
+                id=inc_id,
+                rule_id=alert.rule_id,
+                sku=alert.sku,
+                status="OPEN",
+                first_seen=alert.ts,
+                last_seen=alert.ts,
+                severity=alert.severity,
+                title=alert.title,
+                group_key=alert.sku,
+            )
+
+    async def is_throttled(self, fingerprint: str, dur: str) -> bool:
+        """Return True if an incident with this fingerprint was seen within duration (e.g., '5m','1h','30s')."""
+        unit = dur[-1]
+        n = int(dur[:-1])
+        delta = {"m": timedelta(minutes=n), "h": timedelta(hours=n), "s": timedelta(seconds=n)}[unit]
+        async with aiosqlite.connect(self.path) as db:
+            cur = await db.execute("SELECT last_seen FROM incidents WHERE fingerprint=?", (fingerprint,))
+            row = await cur.fetchone()
+            if not row:
+                return False
+            last = datetime.fromisoformat(row[0])
+            return datetime.utcnow() - last < delta
+
+    async def list_incidents(self, status: Optional[str]) -> List[Dict[str, Any]]:
+        q = """
+        SELECT id, rule_id, sku, status, first_seen, last_seen, severity, title
+        FROM incidents
+        """
+        args: list[Any] = []
+        if status:
+            q += " WHERE status=?"
+            args.append(status)
+        q += " ORDER BY last_seen DESC"
+
+        async with aiosqlite.connect(self.path) as db:
+            cur = await db.execute(q, args)
+            rows = await cur.fetchall()
+            return [
+                dict(
+                    id=r[0],
+                    rule_id=r[1],
+                    sku=r[2],
+                    status=r[3],
+                    first_seen=r[4],
+                    last_seen=r[5],
+                    severity=r[6],
+                    title=r[7],
+                )
+                for r in rows
+            ]
+
+    async def set_status(self, inc_id: str, status: str) -> None:
+        async with aiosqlite.connect(self.path) as db:
+            await db.execute(
+                "UPDATE incidents SET status=?, last_seen=? WHERE id=?",
+                (status, datetime.utcnow().isoformat(), inc_id),
+            )
+            await db.commit()
+
+    # ---------- Deliveries (optional helpers) ----------
+    async def record_delivery(self, delivery_id: str, incident_id: str, channel: str,
+                              status: str, response_json: Dict[str, Any] | None = None) -> None:
+        async with aiosqlite.connect(self.path) as db:
+            await db.execute(
+                "INSERT OR REPLACE INTO deliveries (id, incident_id, channel, ts, status, response_json) "
+                "VALUES (?,?,?,?,?,?)",
+                (
+                    delivery_id,
+                    incident_id,
+                    channel,
+                    datetime.utcnow().isoformat(),
+                    status,
+                    json.dumps(response_json or {}),
+                ),
+            )
+            await db.commit()
+
+    # ---------- Channel settings ----------
+    async def get_channel_settings(self) -> Optional[dict]:
+        """
+        Returns a dict of channel overrides persisted by the UI, or None if not set.
+        This gets merged over secrets/env by merge_defaults_db().
+        """
+        async with aiosqlite.connect(self.path) as db:
+            cur = await db.execute("SELECT value FROM settings WHERE key='channels'")
+            row = await cur.fetchone()
+            return json.loads(row[0]) if row else None
+
+    async def save_channel_settings(self, cfg: dict) -> None:
+        async with aiosqlite.connect(self.path) as db:
+            val = json.dumps(cfg)
+            # upsert by primary key
+            await db.execute(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+                ("channels", val),
+            )
+            await db.commit()
+
+
+=== File: core\agents\alert_service\rules.py ===
+# core/agents/alert_service/rules.py
+from __future__ import annotations
+
+import ast
+import logging
+import operator as op
+from typing import Any, Dict, Optional
+from datetime import datetime, timedelta
+
+from .schemas import RuleSpec
+from .detectors import DetectorRegistry
+
+log = logging.getLogger(__name__)
+
+ALLOWED: Dict[str, Any] = {
+    "min": min, "max": max, "abs": abs,
+    "True": True, "False": False, "None": None,
+}
+
+OPS = {
+    ast.Add: op.add, ast.Sub: op.sub, ast.Mult: op.mul, ast.Div: op.truediv,
+    ast.Mod: op.mod, ast.Pow: op.pow,
+    ast.Gt: op.gt, ast.Lt: op.lt, ast.GtE: op.ge, ast.LtE: op.le, ast.Eq: op.eq, ast.NotEq: op.ne,
+}
+
+def _get_attr(obj: Any, name: str, default: Any = None) -> Any:
+    if obj is None: return default
+    if isinstance(obj, dict): return obj.get(name, default)
+    return getattr(obj, name, default)
+
+def _get_key(obj: Any, name: str, default: Any = None) -> Any:
+    if isinstance(obj, dict): return obj.get(name, default)
+    return getattr(obj, name, default)
+
+def _eval(node: ast.AST, env: Dict[str, Any]) -> Any:
+    if isinstance(node, ast.Constant): return node.value
+    if isinstance(node, ast.Num): return node.n
+    if isinstance(node, ast.Name):
+        if node.id in env: return env[node.id]
+        if node.id in ALLOWED: return ALLOWED[node.id]
+        raise ValueError(f"name '{node.id}' not allowed")
+    if isinstance(node, ast.Attribute):
+        base = _eval(node.value, env)
+        return _get_attr(base, node.attr)
+    if isinstance(node, ast.Subscript):
+        container = _eval(node.value, env)
+        sl = node.slice.value if hasattr(node.slice, "value") else node.slice
+        key = _eval(sl, env)
+        try: return container[key]
+        except Exception: return None
+    if isinstance(node, ast.UnaryOp):
+        if isinstance(node.op, ast.USub): return -_eval(node.operand, env)
+        if isinstance(node.op, ast.UAdd): return +_eval(node.operand, env)
+        if isinstance(node.op, ast.Not): return not bool(_eval(node.operand, env))
+        raise ValueError("unsupported unary op")
+    if isinstance(node, ast.BinOp):
+        left = _eval(node.left, env); right = _eval(node.right, env)
+        fn = OPS.get(type(node.op)); 
+        if fn is None: raise ValueError("unsupported binary op")
+        return fn(left, right)
+    if isinstance(node, ast.Compare):
+        left = _eval(node.left, env)
+        for opnode, comparator in zip(node.ops, node.comparators):
+            right = _eval(comparator, env)
+            fn = OPS.get(type(opnode))
+            if fn is None or not fn(left, right): return False
+            left = right
+        return True
+    if isinstance(node, ast.BoolOp):
+        if isinstance(node.op, ast.And):
+            for v in node.values:
+                if not bool(_eval(v, env)): return False
+            return True
+        if isinstance(node.op, ast.Or):
+            for v in node.values:
+                if bool(_eval(v, env)): return True
+            return False
+        raise ValueError("unsupported bool op")
+    if isinstance(node, ast.Call):
+        func = _eval(node.func, env)
+        if func not in (min, max, abs):
+            raise ValueError("function not allowed")
+        args = [_eval(a, env) for a in node.args]
+        return func(*args)
+    raise ValueError(f"unsupported node: {type(node).__name__}")
+
+def compile_where(expr: str):
+    tree = ast.parse(expr, mode="eval")
+    def fn(env: Dict[str, Any]) -> bool:
+        return bool(_eval(tree.body, env))
+    return fn
+
+def parse_duration(s: Optional[str]) -> timedelta:
+    if not s: return timedelta(0)
+    s = s.strip().lower()
+    if len(s) < 2: raise ValueError(f"invalid duration '{s}'")
+    unit = s[-1]
+    n = int(s[:-1].strip())
+    table = {"s": timedelta(seconds=n), "m": timedelta(minutes=n),
+             "h": timedelta(hours=n), "d": timedelta(days=n)}
+    if unit not in table:
+        raise ValueError(f"unsupported duration unit '{unit}' in '{s}' (use s/m/h/d)")
+    return table[unit]
+
+class RuleRuntime:
+    """Compiled predicate + hold_for logic."""
+    def __init__(self, spec: RuleSpec):
+        self.spec = spec
+        self.where = compile_where(spec.where) if spec.where else None
+        self.hold = parse_duration(spec.hold_for) if spec.hold_for else None
+        self._last_true: Dict[str, datetime] = {}
+
+    async def evaluate(self, payload: Any, now: datetime,
+                       detectors: DetectorRegistry, alias: Optional[str] = None) -> bool:
+        if not self.spec.enabled: return False
+
+        env: Dict[str, Any] = {**ALLOWED, "tick": payload, "pp": payload}
+        if alias: env[alias] = payload
+
+        ok = False
+        if self.where:
+            try:
+                ok = bool(self.where(env))
+                log.debug("rule %s eval where=%s alias=%s sku=%s => %s",
+                          self.spec.id, self.spec.where, alias, _get_key(payload, "sku"), ok)
+            except Exception as e:
+                log.debug("rule %s evaluation error: %s", self.spec.id, e)
+                return False
+        elif self.spec.detector:
+            key = _get_key(payload, "sku", "GLOBAL")
+            val = _get_attr(payload, self.spec.field) if self.spec.field else None
+            ok = await detectors.eval(self.spec.detector, key=key, field=self.spec.field,
+                                      value=val, ts=now, params=self.spec.params)
+        else:
+            return False
+
+        sku = _get_key(payload, "sku", "")
+        if not ok:
+            self._last_true.pop(sku, None)
+            return False
+
+        if not self.hold or self.hold == timedelta(0):
+            return True
+
+        last = self._last_true.get(sku)
+        if not last:
+            self._last_true[sku] = now
+            return False
+
+        return (now - last) >= self.hold
+
+
+=== File: core\agents\alert_service\schemas.py ===
+from pydantic import BaseModel, Field, AwareDatetime, validator
+from typing import Literal, List, Optional, Dict, Any
+
+Severity = Literal["info", "warn", "crit"]
+IncidentStatus = Literal["OPEN", "ACKED", "RESOLVED"]
+
+class MarketTick(BaseModel):
+    sku: str
+    our_price: float
+    competitor_price: Optional[float] = None
+    demand_index: float = Field(ge=0, le=1)
+    ts: AwareDatetime
+
+class PriceProposal(BaseModel):
+    sku: str
+    proposed_price: float
+    margin: float
+    ts: AwareDatetime
+
+class NotifySpec(BaseModel):
+    channels: List[Literal["ui","slack","email","webhook"]] = ["ui"]
+    throttle: Optional[str] = None  # "15m", "1h"
+    webhook_url: Optional[str] = None
+    email_to: Optional[List[str]] = None
+
+class RuleSpec(BaseModel):
+    id: str
+    source: Literal["MARKET_TICK","PRICE_PROPOSAL"]
+    # either boolean expression or detector
+    where: Optional[str] = None
+    detector: Optional[str] = None
+    field: Optional[str] = None
+    params: Dict[str, Any] = {}
+    hold_for: Optional[str] = None  # "5m"
+    severity: Severity = "warn"
+    dedupe: str = "sku"
+    group_by: List[str] = []
+    notify: NotifySpec = NotifySpec()
+    enabled: bool = True
+
+    @validator("where", always=True)
+    def where_or_detector(cls, v, values):
+        if not v and not values.get("detector"):
+            raise ValueError("Provide either 'where' or 'detector'.")
+        return v
+
+class RuleRecord(BaseModel):
+    id: str
+    spec: RuleSpec
+    version: int
+
+class Alert(BaseModel):
+    id: str
+    rule_id: str
+    sku: str
+    title: str
+    payload: Dict[str, Any]
+    severity: Severity
+    ts: AwareDatetime
+    fingerprint: str
+
+class Incident(BaseModel):
+    id: str
+    rule_id: str
+    sku: str
+    status: IncidentStatus
+    first_seen: AwareDatetime
+    last_seen: AwareDatetime
+    severity: Severity
+    title: str
+    group_key: str
+
+
+=== File: core\agents\alert_service\sinks\__init__.py ===
+from __future__ import annotations
+from typing import Dict, Any, Optional
+
+from .ui import UiSink
+
+def _maybe_add(sinks: Dict[str, Any], name: str, cls_name: str, repo):
+    try:
+        mod = __import__(f"core.agents.alert_service.sinks.{name}", fromlist=[cls_name])
+        cls = getattr(mod, cls_name)
+        try:
+            sinks[name] = cls(repo)  # some sinks accept repo
+        except TypeError:
+            sinks[name] = cls()      # others don't
+    except Exception:
+        # Missing / optional sink; ignore.
+        pass
+
+def get_sinks(repo: Optional[Any] = None) -> Dict[str, Any]:
+    """Return available sinks. `repo` is optional for callers that don't have it."""
+    sinks: Dict[str, Any] = {"ui": UiSink()}
+    _maybe_add(sinks, "email", "EmailSink", repo)
+    _maybe_add(sinks, "slack", "SlackSink", repo)
+    _maybe_add(sinks, "webhook", "WebhookSink", repo)
+    return sinks
+
+
+=== File: core\agents\alert_service\sinks\email.py ===
+# core/agents/alert_service/sinks/email.py
+import os, ssl, smtplib, asyncio
+from email.message import EmailMessage
+from typing import Any
+
+from ..config import load_runtime_defaults, merge_defaults_db
+from ..util.retry import retry
+
+class EmailSink:
+    def __init__(self, repo):
+        self.repo = repo
+
+    async def send(self, incident: Any, rule: Any):
+        # Merge env/secrets defaults with DB overrides (repo optional)
+        db_cfg = {}
+        if self.repo:
+            try:
+                db_cfg = await self.repo.get_channel_settings()
+            except Exception:
+                db_cfg = {}
+        cfg = merge_defaults_db(load_runtime_defaults(), db_cfg)
+
+        def _get(name: str, default=None):
+            if isinstance(cfg, dict):
+                return cfg.get(name, os.getenv(name.upper(), default))
+            return getattr(cfg, name, os.getenv(name.upper(), default))
+
+        EMAIL_FROM    = _get("email_from", "alerts@yourco.com")
+        EMAIL_TO      = _get("email_to", [])
+        if isinstance(EMAIL_TO, str):
+            EMAIL_TO = [e.strip() for e in EMAIL_TO.split(",") if e.strip()]
+        SMTP_HOST     = _get("smtp_host", "smtp.gmail.com")
+        SMTP_PORT     = int(_get("smtp_port", 587))
+        SMTP_USER     = _get("smtp_user", EMAIL_FROM)
+        SMTP_PASSWORD = _get("smtp_password", "")
+
+        if not EMAIL_TO:
+            return  # nowhere to send
+
+        # Normalize incident to dict
+        inc = incident if isinstance(incident, dict) else getattr(incident, "__dict__", {}) or {}
+
+        subj = f"[{str(inc.get('severity','INFO')).upper()}] {inc.get('title','Alert')} (rule={inc.get('rule_id')}, sku={inc.get('sku')})"
+
+        body_lines = [
+            f"Title:      {inc.get('title')}",
+            f"Severity:   {inc.get('severity')}",
+            f"Rule:       {inc.get('rule_id')}",
+            f"SKU:        {inc.get('sku')}",
+            f"Status:     {inc.get('status','OPEN')}",
+            f"Timestamp:  {inc.get('last_seen') or inc.get('ts')}",
+            "",
+            "Payload:",
+            f"{inc.get('payload')}",
+        ]
+        msg = EmailMessage()
+        msg["From"] = EMAIL_FROM
+        msg["To"] = ", ".join(EMAIL_TO)
+        msg["Subject"] = subj
+        msg.set_content("\n".join(body_lines))
+
+        ctx = ssl.create_default_context()
+
+        def _send_sync():
+            # Synchronous SMTP send (called via to_thread with retry)
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as s:
+                s.ehlo()
+                # Try STARTTLS if supported
+                try:
+                    s.starttls(context=ctx)
+                    s.ehlo()
+                except smtplib.SMTPException:
+                    # If STARTTLS not supported, proceed without it
+                    pass
+                if SMTP_USER and SMTP_PASSWORD:
+                    s.login(SMTP_USER, SMTP_PASSWORD)
+                s.send_message(msg)
+
+        delivery_id = f"deliv_{inc.get('id','')}_email"
+
+        async def _send_async():
+            await asyncio.to_thread(_send_sync)
+
+        try:
+            # Retry transient failures
+            await retry(_send_async, attempts=3)
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="email",
+                    status="OK",
+                    response_json={"to": EMAIL_TO, "subject": subj}
+                )
+        except Exception as e:
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="email",
+                    status="ERR",
+                    response_json={"error": str(e)}
+                )
+
+
+=== File: core\agents\alert_service\sinks\slack.py ===
+# core/agents/alert_service/sinks/slack.py
+import aiohttp
+from ..config import load_runtime_defaults, merge_defaults_db
+from ..util.retry import retry
+
+class SlackSink:
+    def __init__(self, repo):
+        self.repo = repo
+
+    async def send(self, incident, rule):
+        # Load config (DB overrides > runtime defaults)
+        db_cfg = {}
+        if self.repo:
+            try:
+                db_cfg = await self.repo.get_channel_settings()
+            except Exception:
+                db_cfg = {}
+        cfg = merge_defaults_db(load_runtime_defaults(), db_cfg)
+
+        # Resolve webhook URL from dataclass or dict
+        webhook = (getattr(cfg, "slack_webhook_url", None)
+                   if not isinstance(cfg, dict)
+                   else cfg.get("slack_webhook_url"))
+        if not webhook:
+            return  # No destination configured
+
+        # Normalize incident to dict for logging/formatting
+        inc = incident if isinstance(incident, dict) else getattr(incident, "__dict__", {}) or {}
+        sev = str(inc.get("severity", "INFO")).upper()
+        title = inc.get("title", "Alert")
+        rule_id = inc.get("rule_id")
+        sku = inc.get("sku")
+        text = f"[{sev}] {title} (rule={rule_id}, sku={sku})"
+
+        # POST with retries; log outcome to deliveries table if available
+        async def _post():
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with aiohttp.ClientSession(timeout=timeout) as sess:
+                async with sess.post(webhook, json={"text": text}) as r:
+                    body = await r.text()
+                    # Treat 3xx/4xx/5xx as failures so retry can kick in
+                    if r.status >= 300:
+                        # Raise a plain Exception to keep retry util simple and broker-agnostic
+                        raise Exception(f"Slack webhook HTTP {r.status}: {body[:200]}")
+
+        delivery_id = f"deliv_{inc.get('id','')}_slack"
+        try:
+            await retry(_post, attempts=3)
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="slack",
+                    status="OK",
+                    response_json={"text": text}
+                )
+        except Exception as e:
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="slack",
+                    status="ERR",
+                    response_json={"error": str(e)}
+                )
+
+
+=== File: core\agents\alert_service\sinks\ui.py ===
+from ...agent_sdk.bus_factory import get_bus
+# core/agents/alert_service/sinks/ui.py
+from core.agents.agent_sdk import Topic, get_bus
+
+_bus = get_bus()
+
+class UiSink:
+    async def send(self, incident, rule):
+        obj = incident if isinstance(incident, dict) else getattr(incident, "__dict__", incident)
+        await _bus.publish(Topic.ALERT.value, obj)
+
+=== File: core\agents\alert_service\sinks\webhook.py ===
+# core/agents/alert_service/sinks/webhook.py
+import aiohttp
+from ..config import load_runtime_defaults, merge_defaults_db
+from ..util.retry import retry
+
+class WebhookSink:
+    def __init__(self, repo):
+        self.repo = repo
+
+    async def send(self, incident, rule):
+        # Load config with DB overrides
+        db_cfg = {}
+        if self.repo:
+            try:
+                db_cfg = await self.repo.get_channel_settings()
+            except Exception:
+                db_cfg = {}
+        cfg = merge_defaults_db(load_runtime_defaults(), db_cfg)
+
+        # Resolve webhook URL from dataclass or dict
+        webhook = (getattr(cfg, "webhook_url", None)
+                   if not isinstance(cfg, dict)
+                   else cfg.get("webhook_url"))
+        if not webhook:
+            return  # not configured
+
+        # Normalize incident to dict
+        inc = incident if isinstance(incident, dict) else getattr(incident, "__dict__", {}) or {}
+
+        payload = {
+            "id": inc.get("id"),
+            "rule_id": inc.get("rule_id"),
+            "sku": inc.get("sku"),
+            "severity": inc.get("severity"),
+            "title": inc.get("title"),
+            "status": inc.get("status", "OPEN"),
+        }
+
+        async def _post():
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with aiohttp.ClientSession(timeout=timeout) as sess:
+                async with sess.post(webhook, json=payload) as r:
+                    body = await r.text()
+                    if r.status >= 300:
+                        raise Exception(f"Webhook HTTP {r.status}: {body[:200]}")
+
+        delivery_id = f"deliv_{inc.get('id','')}_webhook"
+        try:
+            await retry(_post, attempts=3)
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="webhook",
+                    status="OK",
+                    response_json={"payload": payload}
+                )
+        except Exception as e:
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="webhook",
+                    status="ERR",
+                    response_json={"error": str(e)}
+                )
+
+
+=== File: core\agents\alert_service\tools.py ===
+from .repo import Repo
+from .schemas import RuleSpec
+from pydantic import ValidationError
+
+class Tools:
+    def __init__(self, repo: Repo): self.repo = repo
+
+    async def create_rule(self, spec_json: dict):
+        try:
+            spec = RuleSpec(**spec_json)
+        except ValidationError as e:
+            return {"ok": False, "error": e.errors()}
+        await self.repo.upsert_rule(spec)
+        return {"ok": True, "id": spec.id}
+
+    async def list_rules(self):
+        rules = await self.repo.list_rules()
+        return {"ok": True, "rules": [r.spec.dict() for r in rules]}
+
+    async def list_incidents(self, status: str|None = None):
+        rows = await self.repo.list_incidents(status)
+        return {"ok": True, "incidents": rows}
+
+    async def ack_incident(self, incident_id: str):
+        await self.repo.set_status(incident_id, "ACKED")
+        return {"ok": True}
+
+    async def resolve_incident(self, incident_id: str):
+        await self.repo.set_status(incident_id, "RESOLVED")
+        return {"ok": True}
+
+
+=== File: core\agents\data_collector\__init__.py ===
+# core/agents/data_collector/__init__.py
+"""
+Data Collector package for Dynamic Pricing project.
+
+Contains:
+- DataRepo: a small aiosqlite-backed repository for market ticks.
+- DataCollector: ingestion and publish logic.
+- Connectors: mock connector for development/demo.
+"""
+__all__ = ["repo", "collector", "connectors"]
+
+
+=== File: core\agents\data_collector\collector.py ===
+# core/agents/data_collector/collector.py
+from datetime import datetime, timezone
+from typing import Dict, Any, Iterable
+from core.agents.agent_sdk import get_bus, Topic
+from .repo import DataRepo
+
+bus = get_bus()
+
+class DataCollector:
+    def __init__(self, repo: DataRepo):
+        self.repo = repo
+
+    async def ingest_tick(self, d: Dict[str, Any]) -> None:
+        payload = {
+            "sku": d["sku"],
+            "market": d.get("market", "DEFAULT"),
+            "our_price": float(d["our_price"]),
+            "competitor_price": d.get("competitor_price"),
+            "demand_index": d.get("demand_index"),
+            "ts": d.get("ts") or datetime.now(timezone.utc).isoformat(),
+            "source": d.get("source", "mock"),
+        }
+        await self.repo.insert_tick(payload)
+        await bus.publish(Topic.MARKET_TICK.value, payload)
+
+    async def ingest_stream(self, it: Iterable[Dict[str, Any]], delay_s: float = 0.0):
+        import asyncio
+        for d in it:
+            await self.ingest_tick(d)
+            if delay_s:
+                await asyncio.sleep(delay_s)
+
+
+=== File: core\agents\data_collector\connectors\mock.py ===
+# core/agents/data_collector/connectors/mock.py
+from datetime import datetime, timezone
+from typing import Iterable, Dict, Any
+
+def mock_ticks(sku: str = "SKU-123", market: str = "LK", n: int = 5) -> Iterable[Dict[str, Any]]:
+    for i in range(n):
+        yield {
+            "sku": sku,
+            "market": market,
+            "our_price": 100.0 + float(i),
+            "competitor_price": 98.0 + float(i),
+            "demand_index": 0.45 + i * 0.05,
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "source": "mock",
+        }
+
+
+=== File: core\agents\data_collector\repo.py ===
+# core/agents/data_collector/repo.py
+import aiosqlite
+from datetime import datetime, timezone
+from typing import Dict, Any, List
+
+class DataRepo:
+    def __init__(self, path: str = "app/data.db"):
+        self.path = path
+
+    async def init(self) -> None:
+        async with aiosqlite.connect(self.path) as db:
+            await db.executescript("""
+            CREATE TABLE IF NOT EXISTS market_ticks (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              sku TEXT NOT NULL,
+              market TEXT NOT NULL,
+              our_price REAL NOT NULL,
+              competitor_price REAL,
+              demand_index REAL,
+              ts TEXT NOT NULL,
+              source TEXT,
+              ingested_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS ix_ticks_sku_market_ts
+                ON market_ticks (sku, market, ts);
+            """)
+            await db.commit()
+
+    async def insert_tick(self, d: Dict[str, Any]) -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        async with aiosqlite.connect(self.path) as db:
+            await db.execute(
+                """INSERT INTO market_ticks
+                 (sku, market, our_price, competitor_price, demand_index,
+                  ts, source, ingested_at)
+                 VALUES (?,?,?,?,?,?,?,?)""",
+                (
+                    d["sku"], d.get("market", "DEFAULT"),
+                    float(d["our_price"]), d.get("competitor_price"),
+                    d.get("demand_index"), d["ts"], d.get("source", "mock"),
+                    now
+                ),
+            )
+            await db.commit()
+
+    async def recent_ticks(self, sku: str, market: str, limit: int = 50) -> List[Dict[str, Any]]:
+        q = ("SELECT our_price, competitor_price, demand_index, ts "
+             "FROM market_ticks WHERE sku=? AND market=? "
+             "ORDER BY ts DESC LIMIT ?")
+        async with aiosqlite.connect(self.path) as db:
+            cur = await db.execute(q, (sku, market, limit))
+            rows = await cur.fetchall()
+        return [{"our_price": r[0], "competitor_price": r[1], "demand_index": r[2], "ts": r[3]} for r in rows]
+
+
+=== File: core\agents\price_optimizer\__init__.py ===
+"""
+Price Optimizer package for Dynamic Pricing project.
+Contains:
+- optimizer: heuristic optimizer with constraints and rationale.
+- mcp_server: MCP tool endpoint for optimize_price (optional if MCP installed).
+"""
+__all__ = ["optimizer"]
+
+
+
+
+=== File: core\agents\price_optimizer\mcp_server.py ===
+from __future__ import annotations
+
+import asyncio
+from typing import Dict, Any
+
+try:
+    from mcp.server.fastmcp import FastMCP
+except Exception as e:
+    # Allow file to exist even if MCP isn't installed; runtime will report
+    FastMCP = None  # type: ignore
+
+from .optimizer import Features, optimize
+
+
+async def main():
+    if FastMCP is None:
+        raise RuntimeError("MCP not available: install the MCP package to run this server.")
+
+    mcp = FastMCP("price-optimizer-service")
+
+    @mcp.tool()
+    async def optimize_price(payload: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        payload: {
+          "sku": "...",
+          "our_price": 100.0,
+          "competitor_price": 98.0,
+          "demand_index": 0.5,
+          "cost": 90.0,
+          "min_price": 80.0,
+          "max_price": 130.0,
+          "min_margin": 0.12
+        }
+        """
+        f = Features(
+            sku=str(payload["sku"]),
+            our_price=float(payload["our_price"]),
+            competitor_price=payload.get("competitor_price"),
+            demand_index=payload.get("demand_index"),
+            cost=payload.get("cost"),
+        )
+        res = optimize(
+            f=f,
+            min_price=float(payload.get("min_price", 0.0)),
+            max_price=float(payload.get("max_price", 1e9)),
+            min_margin=float(payload.get("min_margin", 0.12)),
+        )
+        return res
+
+    await mcp.run()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
+
+
+
+=== File: core\agents\price_optimizer\optimizer.py ===
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Optional, Dict, Any
+
+
+@dataclass
+class Features:
+    sku: str
+    our_price: float
+    competitor_price: Optional[float] = None
+    demand_index: Optional[float] = None
+    cost: Optional[float] = None
+
+
+def optimize(
+    f: Features,
+    min_price: float,
+    max_price: float,
+    min_margin: float = 0.12,
+) -> Dict[str, Any]:
+    """
+    Heuristic v0:
+    - Start from our_price.
+    - If competitor undercuts by >= ~2%, reduce slightly (to 99% of competitor) within bounds.
+    - Enforce margin floor if cost provided.
+    - Clamp to [min_price, max_price].
+    """
+    base = float(f.our_price)
+    rationale = []
+
+    # Competitor undercut heuristic
+    if f.competitor_price is not None:
+        try:
+            if f.competitor_price * 1.02 < f.our_price:
+                base = max(f.competitor_price * 0.99, min_price)
+                rationale.append("Competitor undercut → reduce slightly")
+        except Exception:
+            pass
+
+    # Enforce margin floor
+    if f.cost is not None:
+        try:
+            floor = f.cost / (1.0 - float(min_margin))
+            if base < floor:
+                base = floor
+                rationale.append("Margin floor enforced")
+        except Exception:
+            pass
+
+    # Clamp to bounds
+    base = min(max(base, min_price), max_price)
+
+    return {
+        "recommended_price": round(base, 2),
+        "confidence": 0.6,  # placeholder
+        "rationale": "; ".join(rationale) or "No change",
+        "constraints_evaluation": {
+            "min_price": min_price,
+            "max_price": max_price,
+            "min_margin": min_margin,
+        },
+    }
+
+
+
+
+=== File: core\agents\simulators\__init__.py ===
+
+
+=== File: core\agents\simulators\demo_publishers.py ===
+# core/agents/simulators/demo_publishers.py
+import asyncio
+from dataclasses import dataclass, asdict, field
+from datetime import datetime as dt, timezone
+from typing import Optional
+
+# Correct imports: use the core.agent_sdk modules directly
+from core.agents.agent_sdk.bus_factory import get_bus
+from core.agents.agent_sdk.protocol import Topic
+
+# Initialize a shared bus instance
+bus = get_bus()
+
+# Minimal event shapes for the demo (engine uses getattr + dict conversion)
+@dataclass
+class MarketTick:
+    sku: str
+    our_price: float
+    competitor_price: Optional[float]
+    demand_index: float
+    ts: dt
+
+@dataclass
+class PriceProposal:
+    sku: str
+    proposed_price: float
+    cost: Optional[float] = None
+    margin: Optional[float] = None
+    # timezone-aware by default
+    ts: dt = field(default_factory=lambda: dt.now(timezone.utc))
+
+    def __post_init__(self):
+        if self.margin is None and self.cost is not None and self.proposed_price:
+            self.margin = (self.proposed_price - self.cost) / self.proposed_price
+        if self.margin is None:
+            self.margin = 0.0
+
+# Helpers to serialize if any consumer expects dict-like payloads
+def _to_dict(obj):
+    try:
+        return obj.model_dump()
+    except Exception:
+        pass
+    try:
+        return asdict(obj)
+    except Exception:
+        pass
+    return getattr(obj, "__dict__", {}) or {}
+
+async def simulate_undercut(
+    sku: str = "SKU-123",
+    our: float = 100.0,
+    comp: float = 98.0,
+    seconds: float = 30,
+    hz: float = 1.0,
+) -> None:
+    """
+    Competitor undercuts enough to satisfy rule:
+    tick.competitor_price * 1.02 < tick.our_price
+    98 * 1.02 = 99.96 < 100 -> True
+    """
+    loop = asyncio.get_running_loop()
+    end = loop.time() + float(seconds)
+    period = 1.0 / float(hz) if hz else 1.0
+    while loop.time() < end:
+        tick = MarketTick(
+            sku=sku,
+            our_price=our,
+            competitor_price=comp,
+            demand_index=0.50,
+            ts=dt.now(timezone.utc),
+        )
+        await bus.publish(Topic.MARKET_TICK.value, tick)
+        await asyncio.sleep(period)
+
+async def simulate_demand_spike(
+    sku: str = "SKU-123",
+    spike: float = 0.95,
+    seconds: float = 30,
+    hz: float = 1.0,
+) -> None:
+    """
+    Demand meets the seeded rule where="tick.demand_index >= 0.95".
+    """
+    loop = asyncio.get_running_loop()
+    end = loop.time() + float(seconds)
+    period = 1.0 / float(hz) if hz else 1.0
+    while loop.time() < end:
+        tick = MarketTick(
+            sku=sku,
+            our_price=100.0,
+            competitor_price=100.0,
+            demand_index=spike,
+            ts=dt.now(timezone.utc),
+        )
+        await bus.publish(Topic.MARKET_TICK.value, tick)
+        await asyncio.sleep(period)
+
+async def simulate_margin_breach(
+    sku: str = "SKU-123",
+    proposed: float = 90.0,
+    cost: float = 82.0,
+) -> None:
+    """
+    Violates where="pp.margin < 0.12".
+    margin = (90-82)/90 ≈ 0.089 < 0.12
+    """
+    pp = PriceProposal(sku=sku, proposed_price=proposed, cost=cost, ts=dt.now(timezone.utc))
+    await bus.publish(Topic.PRICE_PROPOSAL.value, pp)
+
+
+=== File: core\agents\user_interact\__init__.py ===
+
+
+=== File: core\agents\user_interact\user_interaction_agent.py ===
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import torch
+
+class UserInteractionAgent:
+    def __init__(self, user_name, model_name="gpt2"):
+        self.user_name = user_name
+        self.model_name = model_name
+
+        # Load tokenizer and model
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModelForCausalLM.from_pretrained(model_name)
+        # Use GPU if available
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device)
+
+    def get_response(self, message):
+        try:
+            # Encode input
+            inputs = self.tokenizer.encode(message + self.tokenizer.eos_token, return_tensors="pt").to(self.device)
+            # Generate output
+            outputs = self.model.generate(inputs, max_length=200, pad_token_id=self.tokenizer.eos_token_id)
+            # Decode
+            response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            return response
+        except Exception as e:
+            return f"Error: {e}"
+
+
+=== File: core\auth_db.py ===
+from pathlib import Path
+from sqlalchemy import (
+    create_engine, Column, Integer, String, Boolean, DateTime, func,
+    UniqueConstraint, ForeignKey
+)
+from sqlalchemy.orm import sessionmaker, declarative_base, relationship
+
+# DB at project root (parent of 'core')
+BASE_DIR = Path(__file__).resolve().parents[1]
+DB_PATH = (BASE_DIR / "auth.db").resolve()
+
+engine = create_engine(f"sqlite:///{DB_PATH}", future=True, echo=True)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+Base = declarative_base()
+
+
+class User(Base):
+    __tablename__ = "users"
+    __table_args__ = (UniqueConstraint("email", name="uq_users_email"),)
+
+    id = Column(Integer, primary_key=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    full_name = Column(String(255))
+    hashed_password = Column(String(512), nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    two_factor_enabled = Column(Boolean, default=False, nullable=False)  # ✅ Fixed
+    totp_secret = Column(String(64))
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    sessions = relationship("SessionToken", back_populates="user", cascade="all, delete-orphan")
+
+
+class SessionToken(Base):
+    __tablename__ = "session_tokens"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    token = Column(String(255), unique=True, index=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    revoked = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    user = relationship("User", back_populates="sessions")
+
+
+def init_db():
+    """Create tables if they don’t exist."""
+    Base.metadata.create_all(bind=engine)
+    print(f"Database created at {DB_PATH}")
+
+
+if __name__ == "__main__":
+    init_db()

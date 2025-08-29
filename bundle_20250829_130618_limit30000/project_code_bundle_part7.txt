@@ -1,0 +1,3944 @@
+=== File: bundle_20250829_130344_limit25000\project_code_bundle_part6.txt ===
+=== File: project_code_bundle_part3.txt ===
+=== File: project_code_bundle.txt ===
+
+=== File: collect_project_code.ps1 ===
+param(
+    [string]$OutputFile = "project_code_bundle.txt",
+    [string]$LogFile = "project_code_bundle.log",
+    [int]$MaxSizeMB = 5,
+    [switch]$DryRun
+)
+
+$ErrorActionPreference = "Stop"
+$MaxSizeBytes = $MaxSizeMB * 1MB
+$Included = 0
+$Skipped = 0
+$Errors = 0
+[int]$WordLimit = 25000
+[int]$LineLimit = 50000
+[int]$Part = 1
+[int]$CurrentWords = 0
+[int]$CurrentLines = 0
+[string]$CurrentOutputFile = $OutputFile
+
+# List of text file extensions
+$textExts = @(
+    ".py",".md",".txt",".json",".yaml",".yml",".ini",".cfg",".js",".ts",".html",".css",
+    ".java",".c",".cpp",".h",".rb",".go",".rs",".sh",".ps1",".sql"
+)
+
+# List of excluded folders
+$excludeDirs = @(
+    ".git","__pycache__","build","dist","node_modules","venv",".venv","env",
+    "site-packages",".egg-info",".parcel-cache","vendor"
+)
+
+function IsTextFile($path) {
+    try {
+        $bytes = Get-Content -Path $path -Encoding Byte -ReadCount 0
+        if ($bytes -contains 0) { return $false }
+        $null = [System.Text.Encoding]::UTF8.GetString($bytes)
+        return $true
+    } catch {
+        try {
+            $null = Get-Content -Path $path -Encoding Default -ErrorAction Stop
+            return $true
+        } catch {
+            return $false
+        }
+    }
+}
+
+function ShouldExclude($path) {
+    foreach ($dir in $excludeDirs) {
+        if ($path -match "(^|\\)$dir(\\|$)") { return $true }
+    }
+    return $false
+}
+
+function Log($msg) {
+    Add-Content -Path $LogFile -Value ("[{0}] {1}" -f (Get-Date), $msg)
+}
+
+# Find all files
+$files = Get-ChildItem -Path . -Recurse -File | Where-Object {
+    -not (ShouldExclude($_.FullName)) -and
+    ($textExts -contains $_.Extension.ToLower() -or $_.Name -eq "requirements.txt" -or $_.Name -eq "README.md")
+}
+
+if ($DryRun) {
+    foreach ($file in $files) {
+        if ($file.Length -gt $MaxSizeBytes) {
+            Write-Host "SKIP (large): $($file.FullName)"
+            continue
+        }
+        if (-not (IsTextFile($file.FullName))) {
+            Write-Host "SKIP (binary): $($file.FullName)"
+            continue
+        }
+        Write-Host "INCLUDE: $($file.FullName)"
+    }
+    Write-Host "Dry run complete."
+    exit
+}
+
+# Clear output files
+Set-Content -Path $OutputFile -Value ""
+Set-Content -Path $LogFile -Value ""
+
+foreach ($file in $files) {
+    $relPath = $file.FullName.Substring((Get-Location).Path.Length + 1)
+    if ($file.Length -gt $MaxSizeBytes) {
+        Log "SKIP (large > $MaxSizeMB MB): $relPath"
+        $Skipped++
+        continue
+    }
+    if (-not (IsTextFile($file.FullName))) {
+        Log "SKIP (binary/non-text): $relPath"
+        $Skipped++
+        continue
+    }
+    try {
+        $header = "=== File: $relPath ==="
+        $content = Get-Content -Path $file.FullName -Encoding UTF8
+        $fileWords = ($content -join ' ' -split '\s+').Count
+        $fileLines = $content.Count
+
+        # Check if adding this file would exceed the limits
+        if (($CurrentWords + $fileWords) -gt $WordLimit -or ($CurrentLines + $fileLines) -gt $LineLimit) {
+            $Part++
+            $CurrentOutputFile = [System.IO.Path]::ChangeExtension($OutputFile, "_part$Part.txt")
+            $CurrentWords = 0
+            $CurrentLines = 0
+        }
+
+        Add-Content -Path $CurrentOutputFile -Value $header
+        $content | Add-Content -Path $CurrentOutputFile
+        Add-Content -Path $CurrentOutputFile -Value ""
+        $Included++
+        $CurrentWords += $fileWords
+        $CurrentLines += $fileLines
+    } catch {
+        Log "ERROR: $relPath - $_"
+        $Errors++
+    }
+}
+
+Log "Summary: Included=$Included, Skipped=$Skipped, Errors=$Errors"
+Write-Host "Done. Included: $Included, Skipped: $Skipped, Errors: $Errors"
+Write-Host "See $LogFile for details."
+
+=== File: Get-ProjectTree.ps1 ===
+<#
+  Usage:
+    .\Get-ProjectTree.ps1 -Root "C:\path\to\repo" -MaxSizeMB 5 -DryRun
+
+  Outputs a list (one relative path per line). Use -DryRun to preview only.
+#>
+
+param(
+  [string]$Root = (Get-Location).Path,
+  [string[]]$ExcludeDirs = @(
+    'node_modules', '.git', 'venv', '.venv', 'env', '__pycache__',
+    'dist', 'build', 'site-packages', '.egg-info', 'vendor'
+  ),
+  [string[]]$AllowedExts = @(
+    '.py', '.md', '.txt', '.json', '.yml', '.yaml', '.ini', '.cfg', '.js',
+    '.ts', '.html', '.css', '.java', '.c', '.cpp', '.h', '.rb', '.go', '.rs',
+    '.sh', '.ps1', '.sql'
+  ),
+  [int]$MaxSizeMB = 5,
+  [switch]$DryRun
+)
+
+# --- helpers ---------------------------------------------------------------
+function Is-TextFile {
+  param([string]$Path)
+  try {
+    $bytes = Get-Content -Path $Path -Encoding Byte -TotalCount 1024 `
+      -ErrorAction Stop
+    # If any NUL (0) found in the first chunk, treat as binary
+    return -not ($bytes -contains 0)
+  } catch {
+    return $false
+  }
+}
+
+# Build exclusion regex for directories
+$esc = $ExcludeDirs | ForEach-Object { [regex]::Escape($_) }
+$dirPattern = ($esc -join '|')
+$dirRegex = "\\($dirPattern)\\"
+
+# special file names without extension we want to allow
+$allowedNames = @('README.md', 'requirements.txt', 'me.md')
+$maxBytes = $MaxSizeMB * 1MB
+$rootTrim = $Root.TrimEnd('\','/')
+
+Write-Verbose "Root: $Root"
+Write-Verbose "Excluding dirs: $($ExcludeDirs -join ', ')"
+
+# --- collect files --------------------------------------------------------
+$allFiles = Get-ChildItem -Path $Root -Recurse -File `
+  -ErrorAction SilentlyContinue
+
+$filtered = $allFiles | Where-Object {
+  $full = $_.FullName
+  # skip if inside excluded directory
+  if ($full -match $dirRegex) { return $false }
+
+  # skip very large files
+  if ($_.Length -gt $maxBytes) { return $false }
+
+  # allow if filename explicitly whitelisted
+  if ($allowedNames -contains $_.Name.ToLower()) { return $true }
+
+  # allow by extension
+  if ($AllowedExts -contains $_.Extension.ToLower()) {
+    # simple NUL-byte test for binary files
+    return (Is-TextFile -Path $full)
+  }
+  return $false
+}
+
+# produce relative paths and optional nice tree-like indenting
+$relList = @()
+foreach ($f in $filtered | Sort-Object FullName) {
+  $rel = $f.FullName.Substring($rootTrim.Length).TrimStart('\','/')
+  $relList += $rel
+}
+
+# --- output ---------------------------------------------------------------
+if ($DryRun) {
+  Write-Output "DRY-RUN: would include $($relList.Count) files:"
+  $relList | ForEach-Object { Write-Output $_ }
+} else {
+  # default to printing list to stdout; user can redirect to file
+  $relList | ForEach-Object { Write-Output $_ }
+}
+
+# Summary to stderr for scripts to capture
+[Console]::Error.WriteLine("Included: $($relList.Count)  " +
+  "Scanned: $($allFiles.Count)")
+
+=== File: project_code_bundle.txt ===
+
+=== File: collect_project_code.ps1 ===
+param(
+    [string]$OutputFile = "project_code_bundle.txt",
+    [string]$LogFile = "project_code_bundle.log",
+    [int]$MaxSizeMB = 5,
+    [switch]$DryRun
+)
+
+$ErrorActionPreference = "Stop"
+$MaxSizeBytes = $MaxSizeMB * 1MB
+$Included = 0
+$Skipped = 0
+$Errors = 0
+[int]$WordLimit = 25000
+[int]$LineLimit = 50000
+[int]$Part = 1
+[int]$CurrentWords = 0
+[int]$CurrentLines = 0
+[string]$CurrentOutputFile = $OutputFile
+
+# List of text file extensions
+$textExts = @(
+    ".py",".md",".txt",".json",".yaml",".yml",".ini",".cfg",".js",".ts",".html",".css",
+    ".java",".c",".cpp",".h",".rb",".go",".rs",".sh",".ps1",".sql"
+)
+
+# List of excluded folders
+$excludeDirs = @(
+    ".git","__pycache__","build","dist","node_modules","venv",".venv","env",
+    "site-packages",".egg-info",".parcel-cache","vendor"
+)
+
+function IsTextFile($path) {
+    try {
+        $bytes = Get-Content -Path $path -Encoding Byte -ReadCount 0
+        if ($bytes -contains 0) { return $false }
+        $null = [System.Text.Encoding]::UTF8.GetString($bytes)
+        return $true
+    } catch {
+        try {
+            $null = Get-Content -Path $path -Encoding Default -ErrorAction Stop
+            return $true
+        } catch {
+            return $false
+        }
+    }
+}
+
+function ShouldExclude($path) {
+    foreach ($dir in $excludeDirs) {
+        if ($path -match "(^|\\)$dir(\\|$)") { return $true }
+    }
+    return $false
+}
+
+function Log($msg) {
+    Add-Content -Path $LogFile -Value ("[{0}] {1}" -f (Get-Date), $msg)
+}
+
+# Find all files
+$files = Get-ChildItem -Path . -Recurse -File | Where-Object {
+    -not (ShouldExclude($_.FullName)) -and
+    ($textExts -contains $_.Extension.ToLower() -or $_.Name -eq "requirements.txt" -or $_.Name -eq "README.md")
+}
+
+if ($DryRun) {
+    foreach ($file in $files) {
+        if ($file.Length -gt $MaxSizeBytes) {
+            Write-Host "SKIP (large): $($file.FullName)"
+            continue
+        }
+        if (-not (IsTextFile($file.FullName))) {
+            Write-Host "SKIP (binary): $($file.FullName)"
+            continue
+        }
+        Write-Host "INCLUDE: $($file.FullName)"
+    }
+    Write-Host "Dry run complete."
+    exit
+}
+
+# Clear output files
+Set-Content -Path $OutputFile -Value ""
+Set-Content -Path $LogFile -Value ""
+
+foreach ($file in $files) {
+    $relPath = $file.FullName.Substring((Get-Location).Path.Length + 1)
+    if ($file.Length -gt $MaxSizeBytes) {
+        Log "SKIP (large > $MaxSizeMB MB): $relPath"
+        $Skipped++
+        continue
+    }
+    if (-not (IsTextFile($file.FullName))) {
+        Log "SKIP (binary/non-text): $relPath"
+        $Skipped++
+        continue
+    }
+    try {
+        $header = "=== File: $relPath ==="
+        $content = Get-Content -Path $file.FullName -Encoding UTF8
+        $fileWords = ($content -join ' ' -split '\s+').Count
+        $fileLines = $content.Count
+
+        # Check if adding this file would exceed the limits
+        if (($CurrentWords + $fileWords) -gt $WordLimit -or ($CurrentLines + $fileLines) -gt $LineLimit) {
+            $Part++
+            $CurrentOutputFile = [System.IO.Path]::ChangeExtension($OutputFile, "_part$Part.txt")
+            $CurrentWords = 0
+            $CurrentLines = 0
+        }
+
+        Add-Content -Path $CurrentOutputFile -Value $header
+        $content | Add-Content -Path $CurrentOutputFile
+        Add-Content -Path $CurrentOutputFile -Value ""
+        $Included++
+        $CurrentWords += $fileWords
+        $CurrentLines += $fileLines
+    } catch {
+        Log "ERROR: $relPath - $_"
+        $Errors++
+    }
+}
+
+Log "Summary: Included=$Included, Skipped=$Skipped, Errors=$Errors"
+Write-Host "Done. Included: $Included, Skipped: $Skipped, Errors: $Errors"
+Write-Host "See $LogFile for details."
+
+=== File: Get-ProjectTree.ps1 ===
+<#
+  Usage:
+    .\Get-ProjectTree.ps1 -Root "C:\path\to\repo" -MaxSizeMB 5 -DryRun
+
+  Outputs a list (one relative path per line). Use -DryRun to preview only.
+#>
+
+param(
+  [string]$Root = (Get-Location).Path,
+  [string[]]$ExcludeDirs = @(
+    'node_modules', '.git', 'venv', '.venv', 'env', '__pycache__',
+    'dist', 'build', 'site-packages', '.egg-info', 'vendor'
+  ),
+  [string[]]$AllowedExts = @(
+    '.py', '.md', '.txt', '.json', '.yml', '.yaml', '.ini', '.cfg', '.js',
+    '.ts', '.html', '.css', '.java', '.c', '.cpp', '.h', '.rb', '.go', '.rs',
+    '.sh', '.ps1', '.sql'
+  ),
+  [int]$MaxSizeMB = 5,
+  [switch]$DryRun
+)
+
+# --- helpers ---------------------------------------------------------------
+function Is-TextFile {
+  param([string]$Path)
+  try {
+    $bytes = Get-Content -Path $Path -Encoding Byte -TotalCount 1024 `
+      -ErrorAction Stop
+    # If any NUL (0) found in the first chunk, treat as binary
+    return -not ($bytes -contains 0)
+  } catch {
+    return $false
+  }
+}
+
+# Build exclusion regex for directories
+$esc = $ExcludeDirs | ForEach-Object { [regex]::Escape($_) }
+$dirPattern = ($esc -join '|')
+$dirRegex = "\\($dirPattern)\\"
+
+# special file names without extension we want to allow
+$allowedNames = @('README.md', 'requirements.txt', 'me.md')
+$maxBytes = $MaxSizeMB * 1MB
+$rootTrim = $Root.TrimEnd('\','/')
+
+Write-Verbose "Root: $Root"
+Write-Verbose "Excluding dirs: $($ExcludeDirs -join ', ')"
+
+# --- collect files --------------------------------------------------------
+$allFiles = Get-ChildItem -Path $Root -Recurse -File `
+  -ErrorAction SilentlyContinue
+
+$filtered = $allFiles | Where-Object {
+  $full = $_.FullName
+  # skip if inside excluded directory
+  if ($full -match $dirRegex) { return $false }
+
+  # skip very large files
+  if ($_.Length -gt $maxBytes) { return $false }
+
+  # allow if filename explicitly whitelisted
+  if ($allowedNames -contains $_.Name.ToLower()) { return $true }
+
+  # allow by extension
+  if ($AllowedExts -contains $_.Extension.ToLower()) {
+    # simple NUL-byte test for binary files
+    return (Is-TextFile -Path $full)
+  }
+  return $false
+}
+
+# produce relative paths and optional nice tree-like indenting
+$relList = @()
+foreach ($f in $filtered | Sort-Object FullName) {
+  $rel = $f.FullName.Substring($rootTrim.Length).TrimStart('\','/')
+  $relList += $rel
+}
+
+# --- output ---------------------------------------------------------------
+if ($DryRun) {
+  Write-Output "DRY-RUN: would include $($relList.Count) files:"
+  $relList | ForEach-Object { Write-Output $_ }
+} else {
+  # default to printing list to stdout; user can redirect to file
+  $relList | ForEach-Object { Write-Output $_ }
+}
+
+# Summary to stderr for scripts to capture
+[Console]::Error.WriteLine("Included: $($relList.Count)  " +
+  "Scanned: $($allFiles.Count)")
+
+
+=== File: README.md ===
+# dynamic-pricing-ai-IRWA_PROJECT
+.env
+app/alert.db
+
+=== File: requirements.txt ===
+streamlit==1.38.0
+sqlalchemy==2.0.36
+argon2-cffi==23.1.0
+pyotp==2.9.0
+email-validator==2.2.0
+pydantic==2.8.2
+extra-streamlit-components==0.1.71
+qrcode==7.4.2
+Pillow==10.4.0
+plotly
+aiosqlite
+aiohttp
+aiosmtplib
+pydantic
+
+=== File: user_data.json ===
+{
+    "imasha@gmail.com": {
+        "chat_history": [
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "16:18:07"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83d\udc4b Hello Imasha! I\u2019m your Dynamic Pricing Assistant. Ask me about price, demand, or sales.",
+                "time": "16:18:07"
+            },
+            {
+                "role": "user",
+                "content": "hello",
+                "time": "16:18:11"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83d\udc4b Hello Imasha! I\u2019m your Dynamic Pricing Assistant. Ask me about price, demand, or sales.",
+                "time": "16:18:11"
+            },
+            {
+                "role": "user",
+                "content": "price",
+                "time": "16:18:21"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83d\udca1 Hi Imasha, AI suggests adjusting prices dynamically using demand data.",
+                "time": "16:18:21"
+            },
+            {
+                "role": "user",
+                "content": "sales",
+                "time": "16:18:29"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83d\udcc8 Sales are expected to grow by 13% next month.",
+                "time": "16:18:29"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "16:36:46"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83d\udc4b Hello Imasha! I\u2019m your Dynamic Pricing Assistant. Ask me about price, demand, or sales.",
+                "time": "16:36:46"
+            },
+            {
+                "role": "user",
+                "content": "prices",
+                "time": "16:36:51"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83d\udca1 Hi Imasha, AI suggests adjusting prices dynamically using demand data.",
+                "time": "16:36:51"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "19:29:59"
+            },
+            {
+                "role": "assistant",
+                "content": "Error: \n\nYou tried to access openai.ChatCompletion, but this is no longer supported in openai>=1.0.0 - see the README at https://github.com/openai/openai-python for the API.\n\nYou can run `openai migrate` to automatically upgrade your codebase to use the 1.0.0 interface. \n\nAlternatively, you can pin your installation to the old version, e.g. `pip install openai==0.28`\n\nA detailed migration guide is available here: https://github.com/openai/openai-python/discussions/742\n",
+                "time": "19:29:59"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "19:37:35"
+            },
+            {
+                "role": "assistant",
+                "content": "Error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-or-v1*************************************************************4d68. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}",
+                "time": "19:37:37"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "19:40:16"
+            },
+            {
+                "role": "assistant",
+                "content": "Error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-or-v1*************************************************************4d68. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}",
+                "time": "19:40:18"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "19:42:28"
+            },
+            {
+                "role": "assistant",
+                "content": "Error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-or-v1*************************************************************4d68. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}",
+                "time": "19:42:30"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "19:47:41"
+            },
+            {
+                "role": "assistant",
+                "content": "Error: HTTPSConnectionPool(host='api.deepseek.ai', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by NameResolutionError(\"<urllib3.connection.HTTPSConnection object at 0x000002A6907C4590>: Failed to resolve 'api.deepseek.ai' ([Errno 11001] getaddrinfo failed)\"))",
+                "time": "19:47:41"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "20:21:52"
+            },
+            {
+                "role": "assistant",
+                "content": "Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/gpt2",
+                "time": "20:21:54"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "20:25:35"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83e\udd16 Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct",
+                "time": "20:25:36"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "20:29:17"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83e\udd16 Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct",
+                "time": "20:29:18"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "20:34:06"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83e\udd16 Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct",
+                "time": "20:34:07"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "20:38:48"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83e\udd16 Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/gpt2",
+                "time": "20:38:50"
+            },
+            {
+                "role": "user",
+                "content": "prices",
+                "time": "20:38:59"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83e\udd16 Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/gpt2",
+                "time": "20:39:00"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "20:45:04"
+            },
+            {
+                "role": "assistant",
+                "content": "\ud83e\udd16 Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/bigscience/bloom-560m",
+                "time": "20:45:06"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "20:58:22"
+            },
+            {
+                "role": "assistant",
+                "content": "Error: HTTPSConnectionPool(host='api.deepseek.ai', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by NameResolutionError(\"<urllib3.connection.HTTPSConnection object at 0x000002415C870830>: Failed to resolve 'api.deepseek.ai' ([Errno 11001] getaddrinfo failed)\"))",
+                "time": "20:58:22"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "21:09:42"
+            },
+            {
+                "role": "assistant",
+                "content": "Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/gpt2",
+                "time": "21:09:43"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "21:10:46"
+            },
+            {
+                "role": "assistant",
+                "content": "Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/gpt2",
+                "time": "21:10:47"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "21:16:00"
+            },
+            {
+                "role": "assistant",
+                "content": "Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill",
+                "time": "21:16:01"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "21:23:04"
+            },
+            {
+                "role": "assistant",
+                "content": "Model 'meta-llama/Llama-2-7b-chat-hf' is not available via the Hugging Face Inference API.",
+                "time": "21:23:04"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "21:35:02"
+            },
+            {
+                "role": "assistant",
+                "content": "Model 'meta-llama/Llama-2-7b-chat-hf' is not available via the Hugging Face Inference API.",
+                "time": "21:35:02"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "21:46:38"
+            },
+            {
+                "role": "assistant",
+                "content": "hiThe U.S. Department of Justice has filed a lawsuit against the company that owns the video game company, Electronic Arts, alleging that the company violated antitrust laws by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the",
+                "time": "21:46:46"
+            },
+            {
+                "role": "user",
+                "content": "I want price list of cars",
+                "time": "21:47:17"
+            },
+            {
+                "role": "assistant",
+                "content": "I want price list of carsThe following is a list of all the major automakers that have announced their plans to build a new fleet of autonomous vehicles.\n\nFord Motor Co.\n\nFord Motor Co. is planning to build a fleet of autonomous vehicles by 2020.\n\nThe automaker announced the plans on its website on Thursday.\n\nThe company said it will build a fleet of autonomous vehicles by 2020.\n\nThe automaker said it will build a fleet of autonomous vehicles by 2020.\n\nThe automaker said it will build a fleet of autonomous vehicles by 2020.\n\nThe automaker said it will build a fleet of autonomous vehicles by 2020.\n\nThe automaker said it will build a fleet of autonomous vehicles by 2020.\n\nThe automaker said it will build a fleet of autonomous vehicles by 2020.\n\nThe automaker said it will build a fleet of autonomous vehicles by 2020.\n\nThe automaker said it will build a fleet of autonomous",
+                "time": "21:47:24"
+            },
+            {
+                "role": "user",
+                "content": "what is the best cloth to buy",
+                "time": "21:48:10"
+            },
+            {
+                "role": "assistant",
+                "content": "what is the best cloth to buyThe first time I saw the new \"The Walking Dead\" trailer, I was so excited. I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to",
+                "time": "21:48:17"
+            },
+            {
+                "role": "user",
+                "content": "cars",
+                "time": "00:25:58"
+            },
+            {
+                "role": "assistant",
+                "content": "carsThe U.S. Department of Justice has filed a lawsuit against the company that owns the National Security Agency's (NSA) Tailored Access Operations (TAO) program, alleging that the program violates the Fourth Amendment.\n\nThe lawsuit, filed in U.S. District Court in Washington, D.C., alleges that the NSA's Tailored Access Operations (TAO) program violates the Fourth Amendment by requiring the NSA to obtain a warrant before it can access the user's private data.\n\nThe lawsuit, filed in U.S. District Court in Washington, D.C., alleges that the NSA's Tailored Access Operations (TAO) program violates the Fourth Amendment by requiring the NSA to obtain a warrant before it can access the user's private data.\n\nThe NSA's Tailored Access Operations (TAO) program is a program that collects and stores user data, including the user's name, email address, phone number, and other personal information. The",
+                "time": "00:26:09"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "00:44:28"
+            },
+            {
+                "role": "assistant",
+                "content": "hiThe U.S. Department of Justice has filed a lawsuit against the company that owns the video game company, Electronic Arts, alleging that the company violated antitrust laws by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the",
+                "time": "00:44:39"
+            },
+            {
+                "role": "user",
+                "content": "hello",
+                "time": "08:57:29"
+            },
+            {
+                "role": "assistant",
+                "content": "helloThe U.S. Department of Justice has filed a lawsuit against the company that owns the video game company, Electronic Arts, alleging that the company violated antitrust laws by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the",
+                "time": "08:57:47"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "09:44:51"
+            },
+            {
+                "role": "assistant",
+                "content": "hiThe U.S. Department of Justice has filed a lawsuit against the company that owns the video game company, Electronic Arts, alleging that the company violated antitrust laws by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the",
+                "time": "09:45:00"
+            },
+            {
+                "role": "user",
+                "content": "hi",
+                "time": "10:15:25"
+            },
+            {
+                "role": "assistant",
+                "content": "hiThe U.S. Department of Justice has filed a lawsuit against the company that owns the video game company, Electronic Arts, alleging that the company violated antitrust laws by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the",
+                "time": "10:15:36"
+            }
+        ],
+        "metrics": {
+            "total_sales": 847000,
+            "avg_price": 169.4,
+            "units_sold": 1720
+        }
+    }
+}
+
+=== File: app\__init__.py ===
+
+=== File: app\_cookies.py ===
+# app/_cookies.py
+import streamlit as st
+import extra_streamlit_components as stx
+
+COOKIE_NAME = "fp_session"
+
+def get_cookie_manager():
+    if "cookie_manager" not in st.session_state:
+        # Create ONE component instance and reuse it
+        st.session_state["cookie_manager"] = stx.CookieManager(key="cookie-manager")
+    return st.session_state["cookie_manager"]
+
+=== File: app\env_bootstrap.py ===
+# app/env_bootstrap.py
+from dotenv import load_dotenv, find_dotenv
+load_dotenv(find_dotenv(), override=False)  # loads .env if present
+
+=== File: app\session_utils.py ===
+# app/session_utils.py
+import streamlit as st
+import extra_streamlit_components as stx
+from datetime import datetime, timedelta, timezone
+from core.auth_service import validate_session_token
+
+COOKIE_NAME = "fp_session"
+
+# Must match how the cookie is created (your row shows Lax, secure False, no domain, path "/")
+COOKIE_ATTRS = {
+    "path": "/",          # required
+    "samesite": "Lax",    # exactly as created
+    "secure": False,      # exactly as created (True only on HTTPS prod if you used it)
+    # DO NOT set "domain" for localhost (browsers ignore/forbid it)
+}
+
+def cookie_mgr() -> stx.CookieManager:
+    if "_cookie_mgr" not in st.session_state:
+        # one instance per Streamlit session; reuse everywhere
+        st.session_state["_cookie_mgr"] = stx.CookieManager(key="cookie-manager")
+    return st.session_state["_cookie_mgr"]
+
+def set_session_cookie(token: str) -> None:
+    cm = cookie_mgr()
+    cm.set(COOKIE_NAME, token, key="set_session_cookie", **COOKIE_ATTRS)
+
+def clear_session_cookie() -> None:
+    """
+    Clear fp_session using the same attributes it was created with.
+    We do: expires_at in the past, max_age=0, and delete — all three,
+    plus a hostOnly 'no-attrs' pass for older browsers.
+    """
+    cm = cookie_mgr()
+
+    # 1) expire in the past (UTC)
+    past = datetime.now(timezone.utc) - timedelta(days=1)
+    try:
+        cm.set(COOKIE_NAME, "", expires_at=past, key="expire_cookie", **COOKIE_ATTRS)
+    except TypeError:
+        cm.set(COOKIE_NAME, "", expires_at=past, key="expire_cookie")
+
+    # 2) set max_age=0
+    try:
+        cm.set(COOKIE_NAME, "", max_age=0, key="maxage_cookie", **COOKIE_ATTRS)
+    except TypeError:
+        cm.set(COOKIE_NAME, "", max_age=0, key="maxage_cookie")
+
+    # 3) explicit delete with matching attrs
+    try:
+        cm.delete(COOKIE_NAME, key="delete_cookie", **COOKIE_ATTRS)
+    except TypeError:
+        cm.delete(COOKIE_NAME)
+
+    # 4) (defensive) hostOnly delete with *no attrs* — useful on localhost
+    try:
+        cm.delete(COOKIE_NAME, key="delete_cookie_hostonly")
+    except Exception:
+        pass
+
+def ensure_session_from_cookie(page_key: str = "root") -> None:
+    if st.session_state.pop("_skip_cookie_restore_once", False):
+        return
+    if st.session_state.get("session"):
+        return
+
+    cm = cookie_mgr()
+    cookies = cm.get_all(key=f"get_all_{page_key}")
+    if cookies is None:
+        st.stop()
+
+    token = cookies.get(COOKIE_NAME)
+    if not token:
+        return
+
+    try:
+        sess = validate_session_token(token)
+    except Exception:
+        sess = None
+
+    if sess:
+        st.session_state["session"] = sess
+
+=== File: app\streamlit_app.py ===
+# app/streamlit_app.py  (router/bootstrap)
+from queue import SimpleQueue
+ALERT_QUEUE = SimpleQueue()
+
+# 0) Make the repo root importable BEFORE any project imports or Streamlit calls
+import sys, pathlib
+HERE = pathlib.Path(__file__).resolve()
+ROOT = HERE.parents[1]  # points to <project-root>
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+# 0.1) Load environment variables from .env (root first, then app/.env)
+from dotenv import load_dotenv
+load_dotenv(dotenv_path=ROOT / ".env", override=False)
+load_dotenv(dotenv_path=HERE.parent / ".env", override=False)  # if you also keep app/.env
+
+# 1) First Streamlit call
+import streamlit as st
+st.set_page_config(page_title="FluxPricer AI", page_icon="💹", layout="wide")
+
+# 1.1) Async background loop helper (needed for Python 3.13 in Streamlit)
+import asyncio, threading
+def _ensure_bg_loop():
+    """Create (once) a background asyncio loop and return it."""
+    if "_bg_loop" not in st.session_state:
+        loop = asyncio.new_event_loop()
+        t = threading.Thread(target=loop.run_forever, daemon=True)
+        t.start()
+        st.session_state["_bg_loop"] = loop
+    return st.session_state["_bg_loop"]
+
+# 2) Style tweaks / sidebar branding
+st.markdown("""
+    <style>
+        [data-testid="stSidebarNav"] > div:first-child { display: none; }
+    </style>
+""", unsafe_allow_html=True)
+with st.sidebar:
+    st.markdown("### FluxPricer AI")
+
+# 3) Project imports that rely on the repo root being on sys.path
+from app.session_utils import ensure_session_from_cookie
+from core.agents.alert_service import api as alerts  # <-- safe now
+
+# 4) Session setup
+ensure_session_from_cookie()
+st.session_state.setdefault("session", None)
+
+# 5) Start the alert service once (schedule onto background loop)
+if "_alerts_started" not in st.session_state:
+    loop = _ensure_bg_loop()
+    asyncio.run_coroutine_threadsafe(alerts.start(), loop)
+    st.session_state["_alerts_started"] = True
+
+# 6) Route to Home
+st.switch_page("pages/0_Home.py")
+
+=== File: app\pages\_logout.py ===
+# app/pages/_logout.py
+import streamlit as st
+from app.session_utils import ensure_session_from_cookie, cookie_mgr, clear_session_cookie
+from core.auth_service import revoke_session_token
+
+st.set_page_config(page_title="Logout — FluxPricer AI", page_icon="👋", layout="centered")
+
+# Restore from cookie if present
+ensure_session_from_cookie("logout")
+
+# Mount CookieManager so its JS can clear cookies on this page
+cm = cookie_mgr()
+
+st.header("Log out")
+st.write("Are you sure you want to log out?")
+
+col1, col2 = st.columns([1, 1])
+
+with col1:
+    if st.button("✅ Yes, log out", key="logout_yes"):
+        session = st.session_state.get("session")
+
+        if session:
+            # Revoke server-side (best effort)
+            tok = session.get("token")
+            if tok:
+                try:
+                    revoke_session_token(tok)
+                except Exception:
+                    pass
+
+            # Prevent immediate cookie-based restore and drop in-memory session
+            st.session_state.pop("session", None)
+            st.session_state["_skip_cookie_restore_once"] = True
+
+            # Clear the browser cookie (expires_at + max_age=0 + delete with exact attrs)
+            clear_session_cookie()
+
+            st.success("You’ve been logged out.")
+            st.caption("Cookie cleared. Redirecting…")
+            st.markdown('<meta http-equiv="refresh" content="1.2;url=/">', unsafe_allow_html=True)
+        else:
+            # Not logged in → send user to Login with a message
+            st.session_state["flash_info"] = "Please log in first."
+            st.switch_page("pages/1_Login.py")
+
+with col2:
+    if st.button("❌ Cancel", key="logout_cancel"):
+        # If logged in, go home; else go to Login
+        if st.session_state.get("session"):
+            st.switch_page("pages/0_Home.py")
+        else:
+            st.switch_page("pages/1_Login.py")
+
+=== File: app\pages\0_Home.py ===
+from app.session_utils import COOKIE_NAME, cookie_mgr, ensure_session_from_cookie
+from core.auth_service import revoke_session_token
+import streamlit as st, pathlib
+
+# ————————————————————————————————————————————————————————————————
+# Page config
+# ————————————————————————————————————————————————————————————————
+st.set_page_config(
+    page_title="FluxPricer AI — Home",
+    page_icon="💹",
+    layout="wide",
+    menu_items={
+        "Get help": None,
+        "Report a bug": None,
+        "About": "FluxPricer AI — demo for coursework. Not for production use."
+    },
+)
+
+# ————————————————————————————————————————————————————————————————
+# Global Styles (Professional, Modern, Accessible)
+# ————————————————————————————————————————————————————————————————
+st.markdown(
+    """
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=Montserrat:wght@300;400;600;700&display=swap');
+
+  :root {
+    --primary: #4f46e5;      /* Indigo 600 */
+    --secondary: #7c3aed;    /* Violet 600 */
+    --accent1: #a78bfa;      /* Violet 400 */
+    --accent2: #e0e7ff;      /* Indigo 100 */
+    --dark: #111827;         /* Gray 900 */
+    --muted: #6b7280;        /* Gray 500 */
+    --light: #f9fafb;        /* Slate 50 */
+    --success: #16a34a;      /* Green 600 */
+    --warning: #f59e0b;      /* Amber 500 */
+    --danger: #ef4444;       /* Red 500 */
+    --info: #0ea5e9;         /* Sky 500 */
+    --card: #fff;
+    --border: #e5e7eb;
+    --shadow: 0 8px 24px rgba(0,0,0,0.08);
+  }
+
+  /* Base */
+  html, body, [class^="block-container"] {
+    font-family: 'Inter', 'Montserrat', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial;
+    background: linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);
+    color: var(--dark);
+  }
+
+  /* Container width */
+  section.main > div {
+    max-width: 1200px;
+    margin: auto;
+    padding-top: 1.5rem;
+  }
+
+  /* Hide default Streamlit header */
+  header[data-testid="stHeader"] { background: transparent; }
+
+  /* Smooth hover lift */
+  .lift { transition: transform .25s ease, box-shadow .25s ease; }
+  .lift:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
+
+  /* Hero */
+  .hero {
+    position: relative;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    border-radius: 24px;
+    padding: 3rem 2rem;
+    color: white;
+    text-align: center;
+    max-width: 1100px;
+    margin: auto;
+    box-shadow: 0 12px 40px rgba(79,70,229,0.25);
+  }
+  .hero h1{ font-size: 2.5rem; font-weight: 800; margin-bottom: .5rem; }
+  .hero p{ font-size: 1.125rem; opacity: .9; margin: 0 auto; max-width: 800px; }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+    transition: transform .25s ease, box-shadow .25s ease;
+  }
+  .card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+  .agent-card .icon{ font-size: 2rem; line-height: 1; color: white; background: linear-gradient(135deg, var(--primary), var(--secondary)); border-radius: 12px; width: 52px; height: 52px; display:flex; align-items:center; justify-content:center; margin-bottom: .75rem; }
+  .agent-card h4{ margin:.5rem 0; font-weight: 700; }
+  .agent-card p{ margin: 0; color: var(--muted); font-size: .925rem; }
+
+  /* Metrics */
+  .metric { text-align: center; }
+  .metric h3{ margin:.25rem 0 0; font-size: 1.75rem; font-weight:700; }
+  .kicker{ text-transform: uppercase; letter-spacing: .12em; font-size: .75rem; color: var(--muted); margin-bottom:.25rem; }
+
+  /* Buttons */
+  .stButton>button {
+    width: 100%; font-weight: 600; border-radius: 10px; border: 0; padding: .75rem 1rem;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: #fff; box-shadow: 0 8px 24px rgba(79,70,229,0.28);
+    transition: transform .2s ease, box-shadow .2s ease, opacity .2s ease;
+  }
+  .stButton>button:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(79,70,229,0.38); }
+  .stButton>button:active { transform: translateY(0); }
+
+  .btn-secondary>button { background: #fff; color: var(--primary); border: 2px solid var(--accent1); box-shadow: none; }
+  .btn-secondary>button:hover { background: #f5f3ff; }
+
+  .btn-danger>button { background: linear-gradient(135deg, var(--danger), #fb7185); box-shadow: 0 8px 24px rgba(239,68,68,.25); }
+
+  /* Modal */
+  .overlay { position: fixed; inset: 0; background: rgba(17,24,39,.55); z-index: 999; }
+  .modal { position: fixed; inset: 50% auto auto 50%; transform: translate(-50%, -50%); z-index: 1000; width: 420px; max-width: 92vw; }
+  .modal .content{ background: #fff; border-radius: 16px; padding: 1.5rem; box-shadow: 0 20px 50px rgba(0,0,0,.2); }
+
+  /* Footer */
+  .footer { text-align: center; color: var(--muted); border-top: 1px solid #e5e7eb; padding: 1.25rem 0 .5rem; font-size: .875rem; margin-top: 2rem; }
+
+  /* Utility */
+  .center { display:flex; align-items:center; justify-content:center; }
+  .mb-0{ margin-bottom:0; } .mb-2{ margin-bottom:.5rem; } .mb-3{ margin-bottom:1rem; } .mb-4{ margin-bottom:1.25rem; }
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+# ————————————————————————————————————————————————————————————————
+# Session bootstrap
+# ————————————————————————————————————————————————————————————————
+ensure_session_from_cookie("home")
+
+# ————————————————————————————————————————————————————————————————
+# HERO
+# ————————————————————————————————————————————————————————————————
+st.markdown('<div class="hero">', unsafe_allow_html=True)
+
+logo_path = pathlib.Path("assets/logo.svg")
+if logo_path.exists():
+    st.markdown('<div class="center mb-2">' + logo_path.read_text() + '</div>', unsafe_allow_html=True)
+else:
+    st.markdown('<h1 class="center mb-0">FluxPricer AI</h1>', unsafe_allow_html=True)
+
+# Main title
+st.markdown('<h1>Real-time Dynamic Pricing for Fashion & Accessories</h1>', unsafe_allow_html=True)
+
+# ✅ Show robot image (center + larger)
+robot_path = pathlib.Path("assets/robo.png")
+if robot_path.exists():
+    st.image(str(robot_path), width=560)
+
+
+# Subtitle
+st.markdown(
+    '<p style="margin-top:0.5rem; opacity:.9;">Multi-agent system delivering intelligent pricing decisions with real-time market adaptation</p>',
+    unsafe_allow_html=True
+)
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+
+# ————————————————————————————————————————————————————————————————
+# Agents Grid
+# ————————————————————————————————————————————————————————————————
+st.markdown("## 🤖 Our Intelligent Agent System")
+st.caption("Four specialized AI agents working in harmony to optimize your pricing strategy")
+
+c1, c2, c3, c4 = st.columns(4, gap="large")
+with c1:
+    st.markdown('<div class="card lift agent-card"><div class="icon">📊</div><h4>Market Data Collector</h4><p>Gathers and preprocesses competitor pricing, sales history, and external market signals in real time.</p></div>', unsafe_allow_html=True)
+with c2:
+    st.markdown('<div class="card lift agent-card"><div class="icon">🤖</div><h4>Price Optimizer</h4><p>ML models and constrained optimization converge on ideal prices across products and regions.</p></div>', unsafe_allow_html=True)
+with c3:
+    st.markdown('<div class="card lift agent-card"><div class="icon">🔔</div><h4>Alert Agent</h4><p>Monitors market shocks and notifies you of opportunities or risks instantly.</p></div>', unsafe_allow_html=True)
+with c4:
+    st.markdown('<div class="card lift agent-card"><div class="icon">👤</div><h4>User Interaction</h4><p>Intuitive dashboards, clear explanations of model decisions, and safe manual overrides.</p></div>', unsafe_allow_html=True)
+
+# ————————————————————————————————————————————————————————————————
+# Primary Actions
+# ————————————————————————————————————————————————————————————————
+st.markdown("##Get Started")
+a1, a2, a3 = st.columns(3, gap="large")
+
+if st.session_state.get("session"):
+    with a1:
+        st.markdown('<div class="card lift"><div class="kicker">Navigation</div>', unsafe_allow_html=True)
+        if st.button("Alerts & Notifications", key="btn_alerts"):
+            st.switch_page("pages/5_Alerts_and_Notifications.py")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with a2:
+        st.markdown('<div class="card lift"><div class="kicker">Account</div>', unsafe_allow_html=True)
+        if st.button("Profile", key="btn_profile"):
+            st.switch_page("pages/4_Profile.py")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with a3:
+        st.markdown('<div class="card lift"><div class="kicker">Session</div>', unsafe_allow_html=True)
+        st.markdown('<div class="stButton btn-danger">', unsafe_allow_html=True)
+        logout_clicked = st.button("Logout", key="logout_btn")
+        st.markdown('</div></div>', unsafe_allow_html=True)
+        if logout_clicked:
+            st.session_state["confirm_logout"] = True
+
+    # Logout confirmation modal
+    if st.session_state.get("confirm_logout"):
+        st.markdown('<div class="overlay"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="modal"><div class="content">', unsafe_allow_html=True)
+        st.warning("Are you sure you want to log out?")
+        mc1, mc2 = st.columns(2)
+        with mc1:
+            if st.button("✅ Yes, log out", key="logout_yes", use_container_width=True):
+                tok = st.session_state.get("session", {}).get("token")
+                if tok:
+                    try: revoke_session_token(tok)
+                    except Exception: pass
+                st.session_state.pop("session", None)
+                st.session_state["_skip_cookie_restore_once"] = True
+                st.session_state.pop("confirm_logout", None)
+                st.switch_page("pages/_logout.py")
+        with mc2:
+            st.markdown('<div class="stButton btn-secondary">', unsafe_allow_html=True)
+            if st.button("❌ Cancel", key="logout_cancel", use_container_width=True):
+                st.session_state.pop("confirm_logout", None)
+            st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div></div>', unsafe_allow_html=True)
+else:
+    with a1:
+        st.markdown('<div class="card lift"><div class="kicker">Welcome back</div>', unsafe_allow_html=True)
+        if st.button("🔑 Login", key="btn_login"):
+            st.switch_page("pages/1_Login.py")
+        st.markdown('</div>', unsafe_allow_html=True)
+    with a2:
+        st.markdown('<div class="card lift"><div class="kicker">New here?</div>', unsafe_allow_html=True)
+        st.markdown('<div class="stButton btn-secondary">', unsafe_allow_html=True)
+        if st.button("✨ Create Account", key="btn_register"):
+            st.switch_page("pages/2_Register.py")
+        st.markdown('</div></div>', unsafe_allow_html=True)
+    a3.write("")
+
+# ————————————————————————————————————————————————————————————————
+# Status Summary
+# ————————————————————————————————————————————————————————————————
+st.divider()
+
+s1, s2, s3 = st.columns(3, gap="large")
+
+auth_state = "Logged in" if st.session_state.get("session") else "Guest"
+status_color = "var(--success)" if st.session_state.get("session") else "var(--warning)"
+
+with s1:
+    st.markdown(f'<div class="card metric lift"><div class="kicker">Auth Status</div><h3 style="color:{status_color}">{auth_state}</h3></div>', unsafe_allow_html=True)
+with s2:
+    st.markdown('<div class="card metric lift"><div class="kicker">Active Agents</div><h3 style="color: var(--info)">4</h3></div>', unsafe_allow_html=True)
+with s3:
+    st.markdown('<div class="card metric lift"><div class="kicker">Monitoring</div><h3 style="color: var(--primary)">24/7</h3></div>', unsafe_allow_html=True)
+
+# ————————————————————————————————————————————————————————————————
+# Footer
+# ————————————————————————————————————————————————————————————————
+st.markdown('<div class="footer">FluxPricer AI © — demo for coursework. Not for production use.</div>', unsafe_allow_html=True)
+
+=== File: app\pages\1_Login.py ===
+# app/pages/1_Login.py
+# --- path bootstrap ---
+import sys, pathlib
+HERE = pathlib.Path(__file__).resolve()
+ROOT = next(p for p in [HERE, *HERE.parents] if (p / "core").exists())
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+# ----------------------
+
+import streamlit as st
+from datetime import datetime, timedelta, timezone
+
+from core.auth_db import init_db
+from core.auth_service import authenticate, create_persistent_session
+from app.session_utils import ensure_session_from_cookie, COOKIE_NAME, cookie_mgr
+
+
+
+# 1) FIRST Streamlit call
+st.set_page_config(page_title="Login — FluxPricer AI", page_icon="🔐", layout="centered")
+
+# 2) Init DB and let ensure_session_from_cookie() be the ONLY place that mounts CookieManager
+init_db()
+ensure_session_from_cookie()  # mounts component, handles first-pass None/{} and sets session if cookie valid
+
+# 3) If we were waiting for cookie commit from the previous submit:
+if st.session_state.get("_await_cookie_commit"):
+    if st.session_state.get("session"):
+        # cookie was read & validated by ensure_session_from_cookie()
+        st.session_state.pop("_await_cookie_commit", None)
+        st.session_state["_post_login_redirect_ready"] = True
+        st.rerun()
+    else:
+        st.info("Still finalizing sign-in…")
+        st.stop()
+
+# 4) Redirects
+if st.session_state.get("_post_login_redirect_ready"):
+    st.session_state.pop("_post_login_redirect_ready", None)
+    st.switch_page("pages/dashboard.py")
+
+if st.session_state.get("session"):
+    st.switch_page("pages/dashboard.py")
+
+
+# 5) UI
+st.title("🔐 Login")
+with st.form("login_form", clear_on_submit=False):
+    email = st.text_input("Email", placeholder="you@example.com")
+    password = st.text_input("Password", type="password")
+    submitted = st.form_submit_button("Login")
+
+# 6) Handle submit
+if submitted:
+    email_norm = (email or "").strip().lower()
+    pw = (password or "").strip()
+
+    if not email_norm or not pw:
+        st.error("Email and password are required.")
+    else:
+        try:
+            # 2FA removed: only email & password
+            session = authenticate(email=email_norm, password=pw)
+            st.session_state["session"] = session
+
+            # Create server-side token
+            token, _ = create_persistent_session(session["user_id"])
+
+            # Set the cookie using the ONE CookieManager instance
+            cm = cookie_mgr()  # singleton
+            expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+            cm.set(
+                COOKIE_NAME,
+                token,
+                expires_at=expires_at,   # if your stx version doesn't support expires_at, switch to expires=expires_at
+                max_age=7*24*60*60,
+                path="/",
+                same_site="Lax",
+                # secure=True,  # enable on HTTPS in prod
+            )
+
+            # Allow this render to complete so browser commits the cookie.
+            st.session_state["_await_cookie_commit"] = True
+            st.success("Welcome! Finalizing sign-in…")
+            st.stop()
+        except Exception as e:
+            st.error(str(e))
+
+=== File: app\pages\2_Register.py ===
+# --- path bootstrap ---
+import sys, pathlib
+HERE = pathlib.Path(__file__).resolve()
+ROOT = next(p for p in [HERE, *HERE.parents] if (p / "core").exists())
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+# ----------------------
+
+import streamlit as st
+from datetime import timedelta  # (not required, just here if you later add auto-login)
+st.set_page_config(page_title="Register — FluxPricer AI", page_icon="🪪", layout="centered")
+
+from core.auth_db import init_db
+from core.auth_service import RegisterIn, register_user
+from app.session_utils import ensure_session_from_cookie
+
+# Init + cookie-based session restore
+init_db()
+ensure_session_from_cookie()
+
+# Already logged in? Go home.
+if st.session_state.get("session"):
+    st.switch_page("pages/0_Home.py")
+    st.stop()
+
+st.title("🪪 Create Account")
+with st.form("register_form", clear_on_submit=False):
+    email = st.text_input("Email", placeholder="you@example.com")
+    full_name = st.text_input("Full name (optional)")
+    password = st.text_input("Password (≥10 chars)", type="password")
+    submitted = st.form_submit_button("Register")
+
+if submitted:
+    email_norm = (email or "").strip().lower()
+    full_name_norm = (full_name or "").strip() or None
+    pw = (password or "").strip()
+
+    # Quick client-side checks (server will re-validate anyway)
+    if not email_norm:
+        st.error("Email is required.")
+    elif len(pw) < 10:
+        st.error("Password must be at least 10 characters.")
+    else:
+        try:
+            register_user(RegisterIn(
+                email=email_norm,
+                full_name=full_name_norm,
+                password=pw,
+            ))
+            st.success("Account created. Please log in.")
+            st.switch_page("pages/1_Login.py")
+            st.stop()
+        except Exception as e:
+            # Pass through the nice messages from register_user (email exists, invalid email, etc.)
+            st.error(str(e))
+
+=== File: app\pages\4_Profile.py ===
+# --- path bootstrap ---
+import sys, pathlib
+HERE = pathlib.Path(__file__).resolve()
+ROOT = next(p for p in [HERE, *HERE.parents] if (p / "core").exists())
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+# ----------------------
+
+import streamlit as st
+st.set_page_config(page_title="Profile — FluxPricer AI", page_icon="👤", layout="centered")
+
+from core.auth_service import get_profile
+from app.session_utils import ensure_session_from_cookie
+
+# Restore session from cookie on refresh
+ensure_session_from_cookie()
+
+# ---- auth guard ----
+session = st.session_state.get("session")
+if not session:
+    st.warning("Please login first.")
+    st.stop()
+
+# ---- simple CSS ----
+st.markdown("""
+<style>
+.page-wrap {max-width: 820px; margin: 0 auto;}
+.card {
+  background:#111827; border:1px solid #1f2937; border-radius:16px; padding:18px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.25);
+}
+.kv {display:flex; gap:8px; align-items:center; margin:6px 0;}
+.kv label {width:140px; color:#9ca3af;}
+</style>
+""", unsafe_allow_html=True)
+
+# ---- load profile ----
+try:
+    prof = get_profile(session["user_id"])
+except Exception as e:
+    st.error(f"Could not load profile: {e}")
+    st.stop()
+
+st.markdown("<div class='page-wrap'>", unsafe_allow_html=True)
+
+st.markdown(f"""
+<div class="card">
+  <div class="kv"><label>User ID</label><div>{prof.get("id","-")}</div></div>
+  <div class="kv"><label>Email</label><div>{prof.get("email","-")}</div></div>
+  <div class="kv"><label>Name</label><div>{prof.get("full_name") or "-"}</div></div>
+</div>
+""", unsafe_allow_html=True)
+
+# Actions row
+c1, c2 = st.columns([1, 1])
+
+with c2:
+    if st.button("Back to Home", key="btn_back_home"):
+        st.switch_page("pages/0_Home.py")
+
+=== File: app\pages\5_Alerts_and_Notifications.py ===
+# pages/5_Alerts_and_Notifications.py
+import os, sys, pathlib, asyncio, threading, time
+from queue import SimpleQueue
+from types import SimpleNamespace
+from datetime import datetime, timezone
+
+import streamlit as st
+
+# Ensure repo root on path
+HERE = pathlib.Path(__file__).resolve()
+ROOT = next(p for p in [HERE, *HERE.parents] if (p / "core").exists())
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+# Globals
+ALERT_QUEUE = SimpleQueue()
+
+# Streamlit page config
+st.set_page_config(page_title="Alerts — FluxPricer AI", page_icon="🔔", layout="wide")
+st.title("🔔 Alerts & Notifications")
+
+# Sidebar badge
+st.session_state.setdefault("alert_unseen", 0)
+def render_sidebar_badge():
+    unseen = st.session_state.get("alert_unseen", 0)
+    st.sidebar.markdown(
+        """
+<style>
+.badge { background:#e11d48; color:#fff; border-radius:999px; padding:2px 8px; font-weight:700; font-size:12px; line-height:1.2; display:inline-block; }
+.sidebar-row { display:flex; align-items:center; gap:8px; }
+.badge.hidden { display:none; }
+</style>""",
+        unsafe_allow_html=True,
+    )
+    cls = "badge" if unseen else "badge hidden"
+    st.sidebar.markdown(f"<div class='sidebar-row'>🔔 Alerts <span class='{cls}'>{unseen}</span></div>", unsafe_allow_html=True)
+
+render_sidebar_badge()
+
+# Background loop helpers
+def _ensure_bg_loop():
+    if "_bg_loop" not in st.session_state:
+        loop = asyncio.new_event_loop()
+        t = threading.Thread(target=loop.run_forever, daemon=True)
+        t.start()
+        st.session_state["_bg_loop"] = loop
+    return st.session_state["_bg_loop"]
+
+def run_bg(coro):
+    loop = _ensure_bg_loop()
+    fut = asyncio.run_coroutine_threadsafe(coro, loop)
+    def _done(f):
+        exc = f.exception()
+        if exc:
+            try: st.toast(f"Task error: {exc}")
+            except Exception: pass
+    fut.add_done_callback(_done)
+    return fut
+
+def run_async(coro, timeout: float | None = 15.0):
+    fut = asyncio.run_coroutine_threadsafe(coro, _ensure_bg_loop())
+    return fut.result(timeout=timeout)
+
+# --- Raw SMTP test helper (STRICT) -------------------------------------------
+import smtplib, ssl
+from email.message import EmailMessage
+def _send_test_email_raw():
+    EMAIL_FROM    = os.getenv("EMAIL_FROM", "alerts@yourco.com")
+    EMAIL_TO      = [e.strip() for e in os.getenv("EMAIL_TO", "").split(",") if e.strip()]
+    SMTP_HOST     = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    SMTP_PORT     = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USER     = os.getenv("SMTP_USER", EMAIL_FROM)
+    SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+
+    if not EMAIL_TO:
+        raise RuntimeError("EMAIL_TO is empty")
+    if not SMTP_USER or not SMTP_PASSWORD:
+        raise RuntimeError("SMTP_USER / SMTP_PASSWORD missing")
+
+    msg = EmailMessage()
+    msg["From"] = EMAIL_FROM
+    msg["To"] = ", ".join(EMAIL_TO)
+    msg["Subject"] = "[TEST] SMTP connectivity"
+    msg.set_content("If you see this, SMTP works (raw test).")
+
+    ctx = ssl.create_default_context()
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as s:
+        code, banner = s.ehlo()
+        if not s.has_extn("starttls"):
+            raise RuntimeError(f"Server does not advertise STARTTLS: {banner!r}")
+        code, _ = s.starttls(context=ctx)
+        if code != 220:
+            raise RuntimeError(f"STARTTLS failed with code {code}")
+        code, _ = s.ehlo()
+        if code != 250:
+            raise RuntimeError(f"EHLO after STARTTLS failed with code {code}")
+        code, resp = s.login(SMTP_USER, SMTP_PASSWORD)
+        if code != 235:
+            raise RuntimeError(f"AUTH failed: {code} {resp}")
+        s.send_message(msg)
+
+# App imports
+from app.session_utils import ensure_session_from_cookie
+from core.agents.alert_service import api as alerts
+from core.agents.alert_service.schemas import RuleSpec
+from core.agents.agent_sdk import get_bus, Topic
+bus = get_bus()
+
+from core.agents.alert_service.sinks import get_sinks
+
+# Session/auth
+ensure_session_from_cookie()
+if "session" not in st.session_state or st.session_state["session"] is None:
+    st.warning("⚠️ You must log in first!")
+    st.stop()
+
+# Start alert engine once
+if "_alerts_started" not in st.session_state:
+    run_bg(alerts.start())
+    st.session_state["_alerts_started"] = True
+
+# Demo rules (margin breach includes email)
+DEMO_RULES = [
+    RuleSpec(
+        id="undercut_demo",
+        source="MARKET_TICK",
+        where="tick.competitor_price and tick.competitor_price * 1.02 < tick.our_price",
+        hold_for="10s",
+        severity="warn",
+        notify={"channels": ["ui"], "throttle": "0s"},
+        enabled=True,
+    ).dict(),
+    RuleSpec(
+        id="margin_breach_demo",
+        source="PRICE_PROPOSAL",
+        where="pp.margin < 0.12",
+        severity="crit",
+        notify={"channels": ["ui", "email"], "throttle": "0s"},
+        enabled=True,
+    ).dict(),
+    RuleSpec(
+        id="demand_spike_demo",
+        source="MARKET_TICK",
+        where="tick.demand_index >= 0.95",
+        severity="info",
+        notify={"channels": ["ui"], "throttle": "0s"},
+        enabled=True,
+    ).dict(),
+]
+
+def _ensure_demo_rules():
+    """Create any missing demo rules every run (idempotent)."""
+    try:
+        existing = run_async(alerts.list_rules()) or []
+        existing_ids = {
+            (r.get("id") if isinstance(r, dict) else getattr(r, "id", None))
+            for r in existing
+        }
+        to_create = [spec for spec in DEMO_RULES if spec["id"] not in existing_ids]
+        for spec in to_create:
+            run_async(alerts.create_rule(spec))
+        if to_create:
+            try: run_async(alerts.reload_rules())
+            except Exception: pass
+            st.success(f"Installed {len(to_create)} demo rule(s) ✅")
+    except Exception as e:
+        st.warning(f"Couldn’t ensure demo rules: {e}")
+
+# Ensure rules are present (not only when empty)
+_ensure_demo_rules()
+
+# Show rules + whether margin rule exists
+_rules_now = run_async(alerts.list_rules()) or []
+_has_margin = any(
+    (r.get("id") if isinstance(r, dict) else getattr(r, "id", None)) == "margin_breach_demo"
+    for r in _rules_now
+)
+st.caption(f"Rules loaded: {len(_rules_now)} • margin_breach_demo: {'✅' if _has_margin else '❌'}")
+
+# Button to force reinstall demos
+if st.sidebar.button("🧰 Reinstall demo rules"):
+    try:
+        # Try to create all; ignore duplicates
+        for spec in DEMO_RULES:
+            try: run_async(alerts.create_rule(spec))
+            except Exception: pass
+        try: run_async(alerts.reload_rules())
+        except Exception: pass
+        st.sidebar.success("Demo rules reinstalled.")
+        st.rerun()
+    except Exception as e:
+        st.sidebar.error(f"Reinstall failed: {e}")
+
+# --- Publisher that matches margin_breach_demo -------------------------------
+# Evaluator binds the PRICE_PROPOSAL payload to variable 'pp', so publish the
+# PROPOSAL as the *top-level* object with 'margin' attribute.
+async def _fire_margin_breach_proposal(sku: str, proposed: float, cost: float):
+    margin = ((proposed - cost) / proposed) if proposed else 0.0
+    await bus.publish(
+        Topic.PRICE_PROPOSAL.value,
+        SimpleNamespace(
+            ts=datetime.now(timezone.utc),
+            sku=sku,
+            margin=margin,          # the rule checks this
+            proposed=proposed,
+            cost=cost,
+            title=f"Proposed price {proposed:.2f} on cost {cost:.2f} (margin {margin:.3f})",
+        ),
+    )
+
+# Live sink subscription
+async def _ui_sink_consumer(obj):
+    try:
+        if isinstance(obj, dict):
+            ts = obj.get("last_seen") or obj.get("ts") or datetime.now(timezone.utc)
+            sku = obj.get("sku", "N/A")
+            sev = obj.get("severity", "info")
+            title = obj.get("title") or obj.get("kind", "ALERT")
+        else:
+            ts = getattr(obj, "last_seen", None) or getattr(obj, "ts", None) or datetime.now(timezone.utc)
+            sku = getattr(obj, "sku", "N/A")
+            sev = getattr(obj, "severity", "info")
+            title = getattr(obj, "title", getattr(obj, "kind", "ALERT"))
+        ALERT_QUEUE.put(f"[{ts:%H:%M:%S}] {sev.upper()} {sku} — {title}")
+    except Exception as e:
+        ALERT_QUEUE.put(f"[{datetime.now(timezone.utc):%H:%M:%S}] ERROR N/A — Live sink error: {e}")
+
+if not st.session_state.get("_alert_ui_sink_subscribed"):
+    bus.subscribe(Topic.ALERT.value, _ui_sink_consumer)
+    st.session_state["_alert_ui_sink_subscribed"] = True
+
+# Drain queue, update badge
+buf = st.session_state.setdefault("alert_lines", [])
+new_count = 0
+while not ALERT_QUEUE.empty():
+    try:
+        buf.append(ALERT_QUEUE.get_nowait()); new_count += 1
+    except Exception:
+        break
+st.session_state["alert_lines"] = buf[-300:]
+if new_count:
+    st.session_state["alert_unseen"] = st.session_state.get("alert_unseen", 0) + new_count
+    render_sidebar_badge()
+
+# Email debug tools
+SINKS = get_sinks()  # repo optional
+with st.sidebar.expander("✉️ Email debug"):
+    st.write(f"Sinks loaded: `{list(SINKS.keys())}`")
+
+    show_cfg = st.checkbox("Show SMTP config (resolved)")
+    if show_cfg:
+        st.caption("Raw SMTP (EMAIL_*)")
+        st.write({
+            "EMAIL_FROM": os.getenv("EMAIL_FROM"),
+            "EMAIL_TO": os.getenv("EMAIL_TO"),
+            "SMTP_HOST": os.getenv("SMTP_HOST"),
+            "SMTP_PORT": os.getenv("SMTP_PORT"),
+            "SMTP_USER": os.getenv("SMTP_USER"),
+            "SMTP_PASSWORD_set": bool(os.getenv("SMTP_PASSWORD")),
+        })
+        st.caption("Sinks (ALERTS_*)")
+        st.write({
+            "ALERTS_EMAIL_FROM": os.getenv("ALERTS_EMAIL_FROM"),
+            "ALERTS_EMAIL_TO": os.getenv("ALERTS_EMAIL_TO"),
+            "ALERTS_SMTP_HOST": os.getenv("ALERTS_SMTP_HOST"),
+            "ALERTS_SMTP_PORT": os.getenv("ALERTS_SMTP_PORT"),
+            "ALERTS_SMTP_USER": os.getenv("ALERTS_SMTP_USER"),
+            "ALERTS_SMTP_PASSWORD_set": bool(os.getenv("ALERTS_SMTP_PASSWORD")),
+        })
+
+    if st.button("Raw SMTP test"):
+        try:
+            _send_test_email_raw()
+            st.success("Raw SMTP test sent. Check your inbox.")
+        except Exception as e:
+            st.error(f"SMTP failed: {e}")
+
+    if st.button("Sink test (bypass rules)"):
+        email_sink = SINKS.get("email")
+        if not email_sink:
+            st.error("Email sink not loaded.")
+        else:
+            fake_incident = {
+                "id": "inc_test_email",
+                "ts": datetime.now(timezone.utc),
+                "last_seen": datetime.now(timezone.utc),
+                "sku": "TEST-SINK",
+                "severity": "warn",
+                "rule_id": "email_sink_test",
+                "title": "Sink test alert",
+                "status": "OPEN",
+                "payload": {"description": "This is a sink-only test."},
+            }
+            class _RuleSpecLike:
+                def __init__(self):
+                    self.notify = SimpleNamespace(channels=["email"])
+                    self.severity = "warn"
+            fake_rule = SimpleNamespace(spec=_RuleSpecLike())
+
+            fut = asyncio.run_coroutine_threadsafe(email_sink.send(fake_incident, fake_rule), _ensure_bg_loop())
+            try:
+                fut.result(10)
+                st.success("Sink sent. Check inbox.")
+            except Exception as e:
+                st.error(f"Sink failed: {e}")
+
+    if st.button("Pipeline test (bus → sinks)"):
+        test_alert = SimpleNamespace(
+            ts=datetime.now(timezone.utc),
+            sku="TEST-PIPE",
+            severity="warn",
+            rule_id="pipeline_test",
+            title="Pipeline test alert",
+            description="End-to-end bus → sinks.",
+            channels=["email", "ui"],
+        )
+        asyncio.run_coroutine_threadsafe(bus.publish(Topic.ALERT.value, test_alert), _ensure_bg_loop())
+        st.success("Published test alert to bus. If sinks are wired, email should arrive.")
+
+# Live / Incidents UI
+tab_live, tab_inc = st.tabs(["📡 Live stream", "🗂️ Incidents"])
+
+with tab_live:
+    st.caption("Real-time messages from the alert UI sink (plus Slack/Email/Webhook if configured).")
+    log = st.empty()
+    st.toggle("Auto-refresh live log", value=True, key="auto_live")
+
+    if st.button("Mark all as read"):
+        st.session_state["alert_unseen"] = 0
+        render_sidebar_badge()
+        st.toast("Alerts marked as read")
+
+    c1, c2 = st.columns(2)
+
+    if c1.button("🔔 Ping UI stream"):
+        ts = datetime.now(timezone.utc).strftime("%H:%M:%S")
+        buf = st.session_state.setdefault("alert_lines", [])
+        buf.append(f"[{ts}] INFO TEST — Ping from UI (local)")
+        st.session_state["alert_lines"] = buf[-300:]
+        obj = SimpleNamespace(ts=datetime.now(timezone.utc), sku="TEST", severity="info", title="Ping from UI (bus)")
+        asyncio.run_coroutine_threadsafe(bus.publish(Topic.ALERT.value, obj), _ensure_bg_loop())
+        st.toast("Ping sent")
+
+    if c2.button("🧪 Force test proposal"):
+        dyn_sku = f"SKU-{int(time.time())}"
+        run_bg(_fire_margin_breach_proposal(dyn_sku, proposed=100.0, cost=95.0))  # ~0.05 margin => guaranteed breach
+        st.toast(f"Published a margin-breach proposal for {dyn_sku}")
+
+    log.code("\n".join(st.session_state.get("alert_lines", [])) or "# Alerts will appear here…")
+
+    if st.session_state.get("auto_live", True):
+        time.sleep(1)
+        st.rerun()
+
+with tab_inc:
+    st.caption("Search, filter, and manage alert incidents (OPEN / ACKED / RESOLVED).")
+    cols = st.columns([1.2, 1, 1, 2])
+    with cols[0]:
+        status = st.selectbox("Status", ["All", "OPEN", "ACKED", "RESOLVED"], index=1)
+
+    # CHANGED: don't use on_click; call st.rerun() directly when button returns True
+    with cols[1]:
+        if st.button("🔄 Refresh"):
+            st.rerun()
+
+    with cols[2]:
+        do_ack = st.checkbox("Instant-ack buttons", value=True)
+
+    # Query incidents based on current filter
+    rows = run_async(alerts.list_incidents(None if status == "All" else status)) or []
+
+    # CHANGED: compute open count reliably
+    open_count = len(rows) if status == "OPEN" else sum(1 for r in rows if r.get("status") == "OPEN")
+    st.metric("Open incidents", open_count)
+
+    # OPTIONAL (NEW): auto-refresh the Incidents tab itself
+    auto_inc = st.toggle("Auto-refresh incidents", value=False, key="auto_inc")
+    if auto_inc:
+        time.sleep(1.5)
+        st.rerun()
+
+    if rows:
+        for r in rows:
+            with st.container(border=True):
+                c1, c2, c3, c4, c5 = st.columns([4, 1.2, 1.2, 1.6, 1.6])
+                c1.markdown(f"**{r['title']}**  \n`{r['sku']}` • **{r['severity'].upper()}** • rule=`{r['rule_id']}`")
+                c2.markdown(f"Status: **{r['status']}**")
+                c3.markdown(f"Last: `{r['last_seen']}`")
+                if do_ack and r["status"] == "OPEN":
+                    if c4.button("✅ Ack", key=f"ack_{r['id']}"):
+                        run_async(alerts.ack_incident(r["id"]))
+                        st.toast(f"Acked {r['id']}")
+                        st.rerun()  # OK here (not a callback)
+
+                if r["status"] in ("OPEN", "ACKED"):
+                    if c5.button("🟢 Resolve", key=f"res_{r['id']}"):
+                        run_async(alerts.resolve_incident(r["id"]))
+                        st.toast(f"Resolved {r['id']}")
+                        st.rerun()  # OK here (not a callback)
+    else:
+        st.info("No incidents for this filter.")
+
+
+with st.expander("Debug: active rules"):
+    st.json(run_async(alerts.list_rules()) or [])
+
+=== File: app\pages\dashboard.py ===
+import streamlit as st
+import plotly.express as px
+import pandas as pd
+import random
+import os
+import json
+from datetime import datetime
+import asyncio
+import threading
+from concurrent.futures import TimeoutError as FuturesTimeout
+import sys
+import pathlib
+
+# =========================
+# Optional agent dependency
+# =========================
+try:
+    from core.agents.user_interact.user_interaction_agent import UserInteractionAgent
+except Exception:
+    # Safe fallback so the app still runs if the import isn't available
+    class UserInteractionAgent:
+        def _init_(self, user_name: str = "User", model_name: str = "stub"):
+            self.user_name = user_name
+            self.model_name = model_name
+
+        def get_response(self, text: str) -> str:
+            return f"(Stub agent) Hi {self.user_name}, you asked: '{text}'. " \
+                   f"Replace this stub by installing the core agent package."
+
+# ---- Streamlit Page Config ----
+st.set_page_config(page_title="Dynamic Pricing Dashboard", page_icon="📊", layout="wide")
+
+# ---- Custom CSS (single copy) ----
+st.markdown("""
+<style>
+.stApp { background-color: #a6bdde; color: #000000; }
+.stMetric { background-color: #7da3c3; border-radius: 10px; padding: 10px; color: #000000; }
+.stSidebar { background-color: #7da3c3; color: #000000; }
+.stChatMessage { background-color: #6b92b1; color: #000000; border-radius: 10px; padding: 5px; }
+.stTextInput > div > div > input { background-color: #a6bdde; color: #000000; border: 1px solid #000000; }
+</style>
+""", unsafe_allow_html=True)
+
+# ====================
+# Simulated Data Layer
+# ====================
+def get_dynamic_pricing_data() -> pd.DataFrame:
+    products = ["A", "B", "C", "D", "E"]
+    data = []
+    for p in products:
+        price = random.randint(100, 200)
+        demand = random.randint(150, 500)
+        data.append({"Product": p, "Price": price, "Demand": demand})
+    return pd.DataFrame(data)
+
+def get_demand_trend() -> pd.DataFrame:
+    return pd.DataFrame({
+        "Date": pd.date_range(start="2025-01-01", periods=12, freq="M"),
+        "Demand": [random.randint(200, 400) for _ in range(12)]
+    })
+
+# ==========================
+# Simple User Data Persistence
+# ==========================
+DATA_FILE = "user_data.json"
+
+def load_user_data(email: str):
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, "r") as f:
+                all_data = json.load(f)
+            return all_data.get(email, {"chat_history": [], "metrics": None})
+        except json.JSONDecodeError:
+            return {"chat_history": [], "metrics": None}
+    return {"chat_history": [], "metrics": None}
+
+def save_user_data(email: str, data: dict):
+    all_data = {}
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, "r") as f:
+                all_data = json.load(f)
+        except json.JSONDecodeError:
+            all_data = {}
+    all_data[email] = data
+    with open(DATA_FILE, "w") as f:
+        json.dump(all_data, f, indent=4)
+
+# =================
+# Session Gate/Init
+# =================
+if "session" not in st.session_state or st.session_state["session"] is None:
+    st.warning("⚠ You must log in first!")
+    st.stop()
+
+user_session = st.session_state["session"]
+user_name = user_session.get("full_name", "User")
+user_email = user_session.get("email") or "anonymous@example.com"
+
+# Load persisted user data into session_state once
+if "chat_history" not in st.session_state or "metrics" not in st.session_state:
+    _loaded = load_user_data(user_email)
+    st.session_state.setdefault("chat_history", _loaded.get("chat_history", []))
+    st.session_state.setdefault("metrics", _loaded.get("metrics", None))
+
+# Initialize local agent
+agent = UserInteractionAgent(user_name=user_name, model_name="gpt2")  # or your smaller chat model
+
+# ===================
+# Dashboard Header/UI
+# ===================
+st.markdown(f"<h2 style='color:#000000;'>👋 Welcome back, <b>{user_name}</b></h2>", unsafe_allow_html=True)
+
+# ---- Metrics ----
+st.subheader("📈 Key Business Metrics")
+df = get_dynamic_pricing_data()
+
+# Example business metrics (revenue = sum of price*demand for this random snapshot)
+total_sales = int((df["Price"] * df["Demand"]).sum())
+avg_price = float(df["Price"].mean())
+units_sold = int(df["Demand"].sum())
+
+if st.session_state["metrics"] is None:
+    st.session_state["metrics"] = {
+        "total_sales": total_sales,
+        "avg_price": avg_price,
+        "units_sold": units_sold
+    }
+
+col1, col2, col3 = st.columns(3)
+col1.metric(label="💰 Total Sales", value=f"${st.session_state['metrics']['total_sales']:,}", delta="+5%")
+col2.metric(label="💵 Avg. Price", value=f"${st.session_state['metrics']['avg_price']:.2f}", delta="-2%")
+col3.metric(label="📦 Units Sold", value=f"{st.session_state['metrics']['units_sold']:,}", delta="+8%")
+
+st.markdown("---")
+
+# Persist after metrics render
+save_user_data(user_email, {
+    "chat_history": st.session_state["chat_history"],
+    "metrics": st.session_state["metrics"]
+})
+
+# ---- Charts ----
+st.subheader("📊 AI Prediction: Price vs Demand")
+fig = px.scatter(
+    df, x="Price", y="Demand", size="Demand", color="Product",
+    hover_name="Product", template="plotly_white", width=900, height=500
+)
+fig.update_layout(plot_bgcolor="#5896ed", paper_bgcolor="#5896ed", font_color="#000000")
+st.plotly_chart(fig, use_container_width=True)
+
+st.subheader("📈 AI Forecast: Demand Over Time")
+trend_df = get_demand_trend()
+fig2 = px.line(trend_df, x="Date", y="Demand", markers=True, template="plotly_white", width=900, height=400)
+fig2.update_traces(line=dict(color="#FFFFFF"))
+fig2.update_layout(plot_bgcolor="#5896ed", paper_bgcolor="#5896ed", font_color="#000000")
+st.plotly_chart(fig2, use_container_width=True)
+
+# ===============
+# Sidebar / Chat
+# ===============
+st.sidebar.title("⚙ Menu")
+st.sidebar.subheader("👤 User Info")
+st.sidebar.info(f"Name: {user_name}\n*Email:* {user_email}")
+
+# Chat history
+st.sidebar.subheader("💬 Chat History")
+chat_container = st.sidebar.container()
+for chat in st.session_state.chat_history:
+    role = chat.get("role")
+    message = chat.get("content")
+    time_str = chat.get("time", datetime.now().strftime("%H:%M:%S"))
+    if role == "user":
+        chat_container.markdown(f"🧑 [{time_str}] User: {message}")
+    else:
+        chat_container.markdown(f"🤖 [{time_str}] Bot: {message}")
+
+# Chat input + response
+user_input = st.chat_input("Ask me about pricing, demand, or sales...")
+if user_input:
+    st.session_state["chat_history"].append({
+        "role": "user",
+        "content": user_input,
+        "time": datetime.now().strftime("%H:%M:%S")
+    })
+    with st.chat_message("user"):
+        st.markdown(user_input)
+
+    response = agent.get_response(user_input)
+    st.session_state["chat_history"].append({
+        "role": "assistant",
+        "content": response,
+        "time": datetime.now().strftime("%H:%M:%S")
+    })
+    with st.chat_message("assistant"):
+        st.markdown(response)
+
+    save_user_data(user_email, {
+        "chat_history": st.session_state["chat_history"],
+        "metrics": st.session_state["metrics"]
+    })
+
+# Logout
+if st.sidebar.button("🚪 Logout"):
+    st.session_state["session"] = None
+    st.success("You have been logged out. Please refresh or go back to login.")
+    st.stop()
+
+# ============================================================================ #
+# ==================  🔧 EXTRAS: Alerts Engine & Incidents  ================== #
+# ============================================================================ #
+
+# Make 'core' package importable (only if it exists)
+try:
+    HERE = pathlib.Path(_file_).resolve()
+except NameError:
+    # Fallback for some environments where _file_ may not be defined
+    HERE = pathlib.Path.cwd()
+
+ROOT = next((p for p in [HERE, *HERE.parents] if (p / "core").exists()), None)
+if ROOT and str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+# Background asyncio loop (to call alert APIs safely from Streamlit)
+def _ensure_bg_loop():
+    if "_bg_loop" not in st.session_state:
+        loop = asyncio.new_event_loop()
+        t = threading.Thread(target=loop.run_forever, daemon=True)
+        t.start()
+        st.session_state["_bg_loop"] = loop
+    return st.session_state["_bg_loop"]
+
+def run_async(coro, timeout: float | None = 10.0):
+    loop = _ensure_bg_loop()
+    fut = asyncio.run_coroutine_threadsafe(coro, loop)
+    try:
+        return fut.result(timeout=timeout)
+    except FuturesTimeout:
+        return None
+    except Exception:
+        return None
+
+# Start alerts engine once (so incidents flow even on the dashboard)
+alerts = None
+try:
+    from core.agents.alert_service import api as _alerts
+    alerts = _alerts
+except Exception:
+    alerts = None
+
+if alerts:
+    if "_alerts_started" not in st.session_state:
+        try:
+            asyncio.run_coroutine_threadsafe(alerts.start(), _ensure_bg_loop())
+            st.session_state["_alerts_started"] = True
+        except Exception:
+            st.session_state["_alerts_started"] = False
+
+    with st.expander("🔔 Incidents (live — extras)", expanded=False):
+        try:
+            rows = run_async(alerts.list_incidents(None)) or []
+        except Exception:
+            rows = []
+        st.metric("Open incidents", sum(1 for r in rows if r.get("status") == "OPEN"))
+        if rows:
+            st.dataframe(pd.DataFrame(rows))
+        else:
+            st.info("No incidents yet — go to Alerts & Notifications and trigger a Demo scenario.")
+else:
+    with st.expander("🔔 Incidents (live — extras)", expanded=False):
+        st.info("Alerts service not available. Ensure core/agents/alert_service exists and dependencies are installed.")
+
+=== File: core\__init__.py ===
+
+=== File: core\auth_db.py ===
+from pathlib import Path
+from sqlalchemy import (
+    create_engine, Column, Integer, String, Boolean, DateTime, func,
+    UniqueConstraint, ForeignKey
+)
+from sqlalchemy.orm import sessionmaker, declarative_base, relationship
+
+# DB at project root (parent of 'core')
+BASE_DIR = Path(__file__).resolve().parents[1]
+DB_PATH = (BASE_DIR / "auth.db").resolve()
+
+engine = create_engine(f"sqlite:///{DB_PATH}", future=True, echo=True)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+Base = declarative_base()
+
+
+class User(Base):
+    __tablename__ = "users"
+    __table_args__ = (UniqueConstraint("email", name="uq_users_email"),)
+
+    id = Column(Integer, primary_key=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    full_name = Column(String(255))
+    hashed_password = Column(String(512), nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    two_factor_enabled = Column(Boolean, default=False, nullable=False)  # ✅ Fixed
+    totp_secret = Column(String(64))
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    sessions = relationship("SessionToken", back_populates="user", cascade="all, delete-orphan")
+
+
+class SessionToken(Base):
+    __tablename__ = "session_tokens"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    token = Column(String(255), unique=True, index=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    revoked = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    user = relationship("User", back_populates="sessions")
+
+
+def init_db():
+    """Create tables if they don’t exist."""
+    Base.metadata.create_all(bind=engine)
+    print(f"Database created at {DB_PATH}")
+
+
+if __name__ == "__main__":
+    init_db()
+
+=== File: core\auth_service.py ===
+from typing import Optional
+from datetime import datetime, timedelta
+import secrets
+
+from argon2 import PasswordHasher
+from email_validator import validate_email, EmailNotValidError
+from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
+
+from .auth_db import SessionLocal, User, SessionToken
+
+ph = PasswordHasher()
+SESSION_DAYS = 7  # persistent login duration
+
+
+class RegisterIn(BaseModel):
+    email: str
+    full_name: Optional[str] = None
+    password: str
+
+
+def _hash(pw: str) -> str:
+    return ph.hash(pw)
+
+
+def _verify(pw: str, h: str) -> bool:
+    try:
+        ph.verify(h, pw)
+        return True
+    except Exception:
+        return False
+
+
+# ---------- Register ----------
+def register_user(inp: RegisterIn) -> None:
+    email_norm = (inp.email or "").strip().lower()
+    pw = (inp.password or "").strip()
+
+    # validate email
+    try:
+        validate_email(email_norm)
+    except EmailNotValidError as e:
+        raise ValueError(str(e))
+
+    if len(pw) < 10:
+        raise ValueError("Password must be at least 10 characters")
+
+    with SessionLocal() as db:
+        if db.query(User).filter(User.email == email_norm).first():
+            raise ValueError("Email already registered")
+        u = User(
+            email=email_norm,
+            full_name=(inp.full_name or "").strip() or None,
+            hashed_password=_hash(pw),
+        )
+        db.add(u)
+        db.commit()
+
+
+# ---------- Login ----------
+def authenticate(email: str, password: str) -> dict:
+    email_norm = (email or "").strip().lower()
+    pw = (password or "").strip()
+
+    with SessionLocal() as db:
+        u = db.query(User).filter(User.email == email_norm).first()
+        if not u or not getattr(u, "is_active", True):
+            raise ValueError("Invalid email or password")
+        try:
+            ph.verify(u.hashed_password, pw)
+        except Exception:
+            raise ValueError("Invalid email or password")
+
+        return {"user_id": u.id, "email": u.email, "full_name": u.full_name}
+
+
+# ---------- Profile ----------
+def get_profile(user_id: int) -> dict:
+    with SessionLocal() as db:
+        u: Optional[User] = db.get(User, user_id)
+        if not u:
+            raise ValueError("User not found")
+        return {"id": u.id, "email": u.email, "full_name": u.full_name}
+
+
+# ---------- Persistent session tokens ----------
+def create_persistent_session(user_id: int) -> tuple[str, datetime]:
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.utcnow() + timedelta(days=SESSION_DAYS)
+    with SessionLocal() as db:
+        db.add(SessionToken(user_id=user_id, token=token, expires_at=expires_at))
+        db.commit()
+    return token, expires_at
+
+
+def validate_session_token(token: str) -> dict | None:
+    now = datetime.utcnow()
+    with SessionLocal() as db:
+        row: Optional[SessionToken] = db.query(SessionToken).filter_by(token=token, revoked=False).first()
+        if not row or row.expires_at <= now:
+            return None
+
+        u: Optional[User] = db.get(User, row.user_id)
+        if not u or not getattr(u, "is_active", True):
+            return None
+
+        return {"user_id": u.id, "email": u.email, "full_name": u.full_name}
+
+
+def revoke_session_token(token: str) -> None:
+    with SessionLocal() as db:
+        row: Optional[SessionToken] = db.query(SessionToken).filter_by(token=token).first()
+        if row:
+            row.revoked = True
+            db.add(row)
+            db.commit()
+
+=== File: core\agents\agent_sdk\__init__.py ===
+# core/agent_sdk/__init__.py
+"""
+Shim so callers can do:
+    from core.agent_sdk import get_bus, Topic
+or:
+    from core.agent_sdk.bus_factory import get_bus
+    from core.agent_sdk.protocol import Topic
+"""
+
+# Prefer local bus_factory/protocol modules if present
+try:
+    from .bus_factory import get_bus        # noqa: F401
+except Exception as e:
+    raise ImportError("core.agent_sdk.bus_factory not found") from e
+
+try:
+    from .protocol import Topic             # noqa: F401
+except Exception as e:
+    raise ImportError("core.agent_sdk.protocol not found") from e
+
+=== File: core\agents\agent_sdk\bus_factory.py ===
+# core/agent_sdk/bus_factory.py
+import os
+from .bus_iface import BusIface
+from .local_bus import bus as local_bus  # in-process fallback
+
+_bus: BusIface | None = None
+
+def get_bus() -> BusIface:
+    """Return the selected bus implementation based on ALERT_BUS env var."""
+    global _bus
+    if _bus:
+        return _bus
+
+    impl = os.getenv("ALERT_BUS", "local").lower()
+
+    if impl == "local":
+        _bus = local_bus
+
+    elif impl == "nats":
+        # requires core/agent_sdk/transports/nats_bus.py
+        from .transports.nats_bus import NatsBus
+        _bus = NatsBus(os.getenv("NATS_URL", "nats://localhost:4222"))
+
+    elif impl == "kafka":
+        # if/when you add it at core/agent_sdk/transports/kafka_bus.py
+        from .transports.kafka_bus import KafkaBus  # type: ignore
+        _bus = KafkaBus(os.getenv("KAFKA_BOOTSTRAP", "localhost:9092"))
+
+    else:
+        raise RuntimeError(f"Unknown ALERT_BUS={impl}")
+
+    return _bus
+
+=== File: core\agents\agent_sdk\bus_iface.py ===
+# core/bus_iface.py
+from typing import Any, Callable
+
+Handler = Callable[[Any], Any]  # may be sync or async
+
+class BusIface:
+    def subscribe(self, topic: str, handler: Handler) -> None: ...
+    async def publish(self, topic: str, payload: Any) -> None: ...
+
+=== File: core\agents\agent_sdk\local_bus.py ===
+# core/bus.py
+from __future__ import annotations
+import asyncio
+import inspect
+import logging
+from collections import defaultdict
+from typing import Any, Callable, DefaultDict, List
+
+log = logging.getLogger(__name__)
+
+Handler = Callable[[Any], Any]  # may be sync or async
+
+class EventBus:
+    def __init__(self) -> None:
+        self._subs: DefaultDict[str, List[Handler]] = defaultdict(list)
+
+    def subscribe(self, topic: str, handler: Handler) -> None:
+        """Register a handler for a topic (idempotent)."""
+        if handler not in self._subs[topic]:
+            self._subs[topic].append(handler)
+
+    def unsubscribe(self, topic: str, handler: Handler) -> None:
+        try:
+            self._subs.get(topic, []).remove(handler)
+        except ValueError:
+            pass
+
+    # OPTIONAL: concurrent fan-out
+    async def publish(self, topic: str, payload: Any) -> None:
+        handlers = list(self._subs.get(topic, []))
+        coros = []
+        for h in handlers:
+            try:
+                if inspect.iscoroutinefunction(h):
+                    coros.append(h(payload))
+                else:
+                    res = h(payload)
+                    if inspect.isawaitable(res):
+                        coros.append(res)
+            except Exception as e:
+                log.warning("EventBus handler error on %s: %s", topic, e)
+        if coros:
+            await asyncio.gather(*coros, return_exceptions=True)
+
+
+# singleton
+bus = EventBus()
+
+=== File: core\agents\agent_sdk\protocol.py ===
+# core/protocol.py
+from enum import Enum
+
+class Topic(Enum):
+    MARKET_TICK = "MARKET_TICK"
+    PRICE_PROPOSAL = "PRICE_PROPOSAL"
+    ALERT = "ALERT" 
+
+=== File: core\agents\agent_sdk\transports\__init__.py ===
+
+=== File: core\agents\agent_sdk\transports\nats_bus.py ===
+# core/brokers/nats_bus.py
+import asyncio, json
+from typing import Any, Dict, List
+from nats.aio.client import Client as NATS  # pip install nats-py
+
+from ..bus_iface import BusIface, Handler
+from ....brokers.types import to_jsonable
+
+class NatsBus(BusIface):
+    def __init__(self, url: str):
+        self.url = url
+        self.nc: NATS | None = None
+        self._subs: Dict[str, List[Handler]] = {}
+
+    async def _ensure(self):
+        if self.nc:
+            return
+        self.nc = NATS()
+        await self.nc.connect(servers=[self.url])
+        # subscribe all pre-registered topics
+        for topic in list(self._subs.keys()):
+            await self.nc.subscribe(topic, cb=self._on_msg)
+
+    async def _on_msg(self, msg):
+        try:
+            payload = json.loads(msg.data.decode("utf-8"))
+        except Exception:
+            payload = None
+        handlers = list(self._subs.get(msg.subject, []))
+        coros = []
+        for h in handlers:
+            try:
+                res = h(payload)
+                if asyncio.iscoroutine(res):
+                    coros.append(res)
+            except Exception:
+                # swallow to avoid breaking the stream
+                pass
+        if coros:
+            await asyncio.gather(*coros, return_exceptions=True)
+
+    def subscribe(self, topic: str, handler: Handler) -> None:
+        self._subs.setdefault(topic, []).append(handler)
+
+    async def publish(self, topic: str, payload: Any) -> None:
+        await self._ensure()
+        assert self.nc
+        body = json.dumps(to_jsonable(payload)).encode("utf-8")
+        await self.nc.publish(topic, body)
+
+=== File: core\agents\agent_sdk\util\__init__.py ===
+
+=== File: core\agents\agent_sdk\util\retry.py ===
+# core/util/retry.py
+import asyncio, random
+from typing import Awaitable, Callable, Tuple, Type
+
+async def retry(
+    fn: Callable[[], Awaitable[None]],
+    attempts: int = 3,
+    base: float = 0.4,
+    cap: float = 3.0,
+    retry_on: Tuple[Type[BaseException], ...] = (Exception,),
+) -> None:
+    delay = base
+    for i in range(attempts):
+        try:
+            return await fn()
+        except retry_on:
+            if i == attempts - 1:
+                raise
+            await asyncio.sleep(delay)
+            # exponential backoff with small jitter
+            delay = min(cap, delay * (2 + random.random() * 0.2))
+
+=== File: core\agents\alert_service\__init__.py ===
+
+=== File: core\agents\alert_service\api.py ===
+from typing import Optional, Dict, Any, List
+
+from .repo import Repo
+from .engine import AlertEngine
+from .schemas import RuleSpec
+from .config import load_runtime_defaults, merge_defaults_db, for_ui
+
+# Singletons for this process
+_repo = Repo()
+_engine = AlertEngine(_repo)
+_started = False  # idempotent start guard
+
+def _dump(model):
+    fn = getattr(model, "model_dump", None)
+    if callable(fn):
+        return fn()
+    return model.dict()
+
+# ---------- Lifecycle ----------
+async def start() -> None:
+    global _started
+    if _started:
+        return
+    await _repo.init()
+    await _engine.start()
+    _started = True
+
+async def reload_rules() -> None:
+    """Hot-reload rules in the running engine."""
+    if hasattr(_engine, "reload_rules"):
+        await _engine.reload_rules()    # type: ignore[attr-defined]
+    elif hasattr(_engine, "_load_rules"):
+        await _engine._load_rules()     # type: ignore[attr-defined]
+
+# ---------- Incidents ----------
+async def list_incidents(status: Optional[str] = None) -> List[Dict[str, Any]]:
+    return await _repo.list_incidents(status)
+
+async def ack_incident(incident_id: str) -> Dict[str, Any]:
+    await _repo.set_status(incident_id, "ACKED")
+    return {"ok": True, "id": incident_id, "status": "ACKED"}
+
+async def resolve_incident(incident_id: str) -> Dict[str, Any]:
+    await _repo.set_status(incident_id, "RESOLVED")
+    return {"ok": True, "id": incident_id, "status": "RESOLVED"}
+
+# ---------- Rules ----------
+async def create_rule(spec: Dict[str, Any]) -> Dict[str, Any]:
+    rule = RuleSpec(**spec)             # validate
+    await _repo.upsert_rule(rule)
+    await reload_rules()
+    return {"ok": True, "id": rule.id}
+
+async def list_rules() -> List[Dict[str, Any]]:
+    rows = await _repo.list_rules()
+    return [_dump(r.spec) for r in rows]
+
+# ---------- Channel Settings ----------
+async def get_settings() -> Dict[str, Any]:
+    defaults = load_runtime_defaults()
+    db_cfg = await _repo.get_channel_settings()
+    merged = merge_defaults_db(defaults, db_cfg)
+    return for_ui(merged)               # redact smtp_password
+
+async def save_settings(d: Dict[str, Any]) -> bool:
+    await _repo.save_channel_settings(d)
+    return True
+
+=== File: core\agents\alert_service\auth.py ===
+import hmac, hashlib, time, os
+
+SECRET = os.getenv("ALERTS_CAP_SECRET", "dev-secret")
+
+SCOPES = {"read","write","create_rule"}
+
+def verify_capability(token: str, scope: str):
+    if scope not in SCOPES: raise PermissionError("unknown scope")
+    try:
+        payload, sig = token.rsplit(".", 1)
+        if not hmac.compare_digest(
+            hmac.new(SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest(), sig
+        ):
+            raise ValueError("bad signature")
+        ts_str, granted = payload.split(":")
+        if scope not in granted.split(","): raise PermissionError("scope denied")
+        if time.time() - int(ts_str) > 3600: raise PermissionError("token expired")
+    except Exception as e:
+        raise PermissionError("invalid capability") from e
+
+=== File: core\agents\alert_service\config.py ===
+from dataclasses import dataclass, field, asdict
+from typing import Optional, List, Dict, Any
+import os, json
+from urllib.parse import urlparse
+
+# If running on Streamlit Cloud, we can read st.secrets
+try:
+    import streamlit as st  # type: ignore
+    _SECRETS = dict(st.secrets)  # copy to plain dict
+except Exception:
+    _SECRETS = {}
+
+@dataclass
+class ChannelSettings:
+    # Slack
+    slack_webhook_url: Optional[str] = None
+    # Email (SMTP)
+    email_from: Optional[str] = None
+    email_to: List[str] = field(default_factory=list)
+    smtp_host: Optional[str] = None
+    smtp_port: int = 587
+    smtp_user: Optional[str] = None
+    smtp_password: Optional[str] = None
+    # Generic webhook
+    webhook_url: Optional[str] = None
+
+    def as_dict(self, *, redact: bool = False) -> Dict[str, Any]:
+        d = asdict(self)
+        if redact:
+            d["smtp_password"] = None  # never echo secret back to UI
+        return d
+
+def _get(key: str, default: Any = None) -> Any:
+    # Prefer Streamlit Secrets if present; fallback to env
+    if key in _SECRETS:
+        return _SECRETS.get(key, default)
+    return os.getenv(key, default)
+
+def _json_list(val: Optional[str]) -> list:
+    if val in (None, ""):
+        return []
+    # Accept JSON array or comma-separated string
+    try:
+        v = json.loads(val) if isinstance(val, str) else val
+        if isinstance(v, list):
+            return [str(x).strip() for x in v if str(x).strip()]
+    except Exception:
+        pass
+    return [s.strip() for s in str(val).split(",") if s.strip()]
+
+def load_runtime_defaults() -> ChannelSettings:
+    """Read defaults from st.secrets or env (loaded via .env)."""
+    return ChannelSettings(
+        slack_webhook_url=_get("ALERTS_SLACK_WEBHOOK"),
+        email_from=_get("ALERTS_EMAIL_FROM"),
+        email_to=_json_list(_get("ALERTS_EMAIL_TO")),
+        smtp_host=_get("ALERTS_SMTP_HOST"),
+        smtp_port=int(_get("ALERTS_SMTP_PORT", 587)),
+        smtp_user=_get("ALERTS_SMTP_USER"),
+        smtp_password=_get("ALERTS_SMTP_PASSWORD"),
+        webhook_url=_get("ALERTS_GENERIC_WEBHOOK"),
+    )
+
+def merge_defaults_db(defaults: ChannelSettings, db_cfg: dict | None) -> ChannelSettings:
+    """DB overrides > defaults (env/secrets)."""
+    if not db_cfg:
+        _validate(defaults)
+        return defaults
+    merged = asdict(defaults)
+    for k, v in db_cfg.items():
+        if v not in (None, "", [], {}):
+            merged[k] = v
+    cfg = ChannelSettings(**merged)
+    _validate(cfg)
+    return cfg
+
+def _validate(cfg: ChannelSettings) -> None:
+    def _ok_url(u: Optional[str]) -> bool:
+        if not u:
+            return True
+        try:
+            p = urlparse(u)
+            return p.scheme in ("http", "https")
+        except Exception:
+            return False
+
+    if not _ok_url(cfg.slack_webhook_url):
+        raise ValueError("Invalid Slack webhook URL")
+    if not _ok_url(cfg.webhook_url):
+        raise ValueError("Invalid generic webhook URL")
+    if cfg.smtp_port and (int(cfg.smtp_port) <= 0 or int(cfg.smtp_port) > 65535):
+        raise ValueError("Invalid SMTP port")
+
+def for_ui(cfg: ChannelSettings) -> Dict[str, Any]:
+    """Return a UI-safe dict (password redacted)."""
+    return cfg.as_dict(redact=True)
+
+=== File: core\agents\alert_service\correlate.py ===
+from datetime import datetime, timedelta
+from .schemas import Alert, Incident
+from .repo import Repo
+
+class Correlator:
+    def __init__(self, repo: Repo): self.repo = repo
+    async def upsert_incident(self, alert: Alert, throttle: str|None):
+        # throttle by fingerprint window
+        if throttle and await self.repo.is_throttled(alert.fingerprint, throttle):
+            await self.repo.touch_incident(alert.fingerprint)
+            return None
+        inc = await self.repo.find_or_create_incident(alert)
+        return inc
+
+=== File: core\agents\alert_service\detectors.py ===
+from typing import Dict
+from datetime import datetime
+from collections import defaultdict
+import math
+
+class EwmaZ:
+    def __init__(self, alpha=0.3):
+        self.mu = None
+        self.var = None
+        self.alpha = alpha
+    def update(self, x):
+        if self.mu is None:
+            self.mu, self.var = x, 1e-6
+        else:
+            self.mu = self.alpha*x + (1-self.alpha)*self.mu
+            self.var = self.alpha*(x-self.mu)**2 + (1-self.alpha)*self.var
+        z = 0 if self.var == 0 else (x - self.mu) / math.sqrt(self.var)
+        return z
+
+class DetectorRegistry:
+    def __init__(self):
+        self.series: Dict[str, Dict[str, EwmaZ]] = defaultdict(dict)
+    async def eval(self, name: str, key: str, field: str, value: float, ts: datetime, params: Dict):
+        if name != "ewma_zscore": raise ValueError("unknown detector")
+        s = self.series[key].setdefault(field, EwmaZ(alpha=params.get("alpha", 0.3)))
+        z = s.update(value)
+        return abs(z) >= params.get("z", 2.5)
+
+=== File: core\agents\alert_service\engine.py ===
+# core/agents/alert_service/engine.py
+import json
+from datetime import datetime, timezone
+from typing import Dict, Any
+from types import SimpleNamespace
+
+from .repo import Repo
+from .rules import RuleRuntime
+from .detectors import DetectorRegistry
+from .schemas import Alert
+from .sinks import get_sinks
+from core.agents.agent_sdk.protocol import Topic
+from core.agents.agent_sdk.bus_factory import get_bus
+
+bus = get_bus()
+
+class AlertEngine:
+    def __init__(self, repo: Repo):
+        self.repo = repo
+        self.detectors = DetectorRegistry()
+        self._rules: Dict[str, RuleRuntime] = {}
+        self.sinks = get_sinks(repo)  # preload once
+
+    async def start(self):
+        await self.repo.init()
+        await self._load_rules()
+
+        bus.subscribe(Topic.MARKET_TICK.value, self.on_tick)
+        bus.subscribe(Topic.PRICE_PROPOSAL.value, self.on_pp)
+
+        ready = SimpleNamespace(
+            ts=datetime.now(timezone.utc),
+            sku="SYS",
+            severity="info",
+            title=f"AlertEngine ready ({len(self._rules)} rules)",
+        )
+        await bus.publish(Topic.ALERT.value, ready)
+
+    async def reload_rules(self):
+        await self._load_rules()
+
+    async def _load_rules(self):
+        self._rules.clear()
+        for rr in await self.repo.list_rules():
+            self._rules[rr.id] = RuleRuntime(rr.spec)
+
+    async def on_tick(self, tick):
+        await self._evaluate("MARKET_TICK", tick, alias="tick")
+
+    async def on_pp(self, pp):
+        await self._evaluate("PRICE_PROPOSAL", pp, alias="pp")
+
+    @staticmethod
+    def _to_dict(obj: Any) -> Dict[str, Any]:
+        fn = getattr(obj, "model_dump", None)
+        if callable(fn):
+            try:
+                return fn()
+            except Exception:
+                pass
+        fn = getattr(obj, "dict", None)
+        if callable(fn):
+            try:
+                return fn()
+            except Exception:
+                pass
+        j = getattr(obj, "model_dump_json", None)
+        if callable(j):
+            try:
+                return json.loads(j())
+            except Exception:
+                pass
+        return getattr(obj, "__dict__", {}) or {}
+
+    async def _evaluate(self, source: str, payload: Any, alias: str):
+        now = datetime.now(timezone.utc)  # aware
+        for rid, rule in self._rules.items():
+            if (rule.spec.source or "").strip().upper() != source.strip().upper():
+                continue
+            fired = await rule.evaluate(payload, now, self.detectors, alias=alias)
+            if not fired:
+                continue
+
+            sku = getattr(payload, "sku", "UNKNOWN")
+            payload_dict = self._to_dict(payload)
+
+            alert = Alert(
+                id=f"a_{int(now.timestamp()*1000)}",
+                rule_id=rid,
+                sku=sku,
+                title=f"{rid} on {sku}",
+                payload=payload_dict,
+                severity=rule.spec.severity,
+                ts=now,
+                fingerprint=f"{rid}:{sku}",
+            )
+
+            inc = await self._correlate(alert, rule)
+            if not inc:
+                continue
+            await self._deliver(inc, rule)
+
+    async def _correlate(self, alert, rule):
+        from .correlate import Correlator
+        try:
+            return await Correlator(self.repo).upsert_incident(
+                alert, rule.spec.notify.throttle
+            )
+        except Exception:
+            return None
+
+    async def _deliver(self, incident, rule):
+        channels = getattr(rule.spec.notify, "channels", None) or []
+        for ch in channels:
+            sink = self.sinks.get(ch)
+            if not sink:
+                continue
+            await sink.send(incident, rule)
+
+=== File: core\agents\alert_service\mcp_server.py ===
+# Minimal MCP server exposing the tools above.
+# (Works with any MCP-compatible client / other agents.)
+import asyncio, os
+from mcp.server.fastmcp import FastMCP
+from .repo import Repo
+from .engine import AlertEngine
+from .tools import Tools
+from .auth import verify_capability
+
+mcp = FastMCP("alerts-service")
+
+repo = Repo()
+engine = AlertEngine(repo)
+tools = Tools(repo)
+
+@mcp.tool()
+async def create_rule(spec: dict, capability_token: str):
+    verify_capability(capability_token, "create_rule")
+    return await tools.create_rule(spec)
+
+@mcp.tool()
+async def list_rules(capability_token: str):
+    verify_capability(capability_token, "read")
+    return await tools.list_rules()
+
+@mcp.tool()
+async def list_incidents(status: str|None = None, capability_token: str = ""):
+    verify_capability(capability_token, "read")
+    return await tools.list_incidents(status)
+
+@mcp.tool()
+async def ack_incident(incident_id: str, capability_token: str):
+    verify_capability(capability_token, "write")
+    return await tools.ack_incident(incident_id)
+
+@mcp.tool()
+async def resolve_incident(incident_id: str, capability_token: str):
+    verify_capability(capability_token, "write")
+    return await tools.resolve_incident(incident_id)
+
+async def main():
+    await repo.init()
+    await engine.start()
+    await mcp.run()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
+=== File: core\agents\alert_service\repo.py ===
+# core/agents/alert_service/repo.py
+
+import aiosqlite, json
+from datetime import datetime, timedelta
+from typing import List, Optional, Dict, Any
+from .schemas import RuleSpec, RuleRecord, Alert, Incident
+
+class Repo:
+    def __init__(self, path: str = "app/alert.db") -> None:
+        self.path = path
+
+    async def init(self) -> None:
+        async with aiosqlite.connect(self.path) as db:
+            await db.executescript("""
+            CREATE TABLE IF NOT EXISTS rules (
+              id TEXT PRIMARY KEY,
+              version INTEGER,
+              spec_json TEXT,
+              enabled INTEGER
+            );
+            CREATE TABLE IF NOT EXISTS incidents (
+              id TEXT PRIMARY KEY,
+              rule_id TEXT,
+              sku TEXT,
+              status TEXT,
+              first_seen TEXT,
+              last_seen TEXT,
+              severity TEXT,
+              title TEXT,
+              group_key TEXT,
+              fingerprint TEXT UNIQUE
+            );
+            CREATE TABLE IF NOT EXISTS deliveries (
+              id TEXT PRIMARY KEY,
+              incident_id TEXT,
+              channel TEXT,
+              ts TEXT,
+              status TEXT,
+              response_json TEXT
+            );
+            CREATE TABLE IF NOT EXISTS settings (
+              key TEXT PRIMARY KEY,
+              value TEXT
+            );
+            """)
+            await db.commit()
+
+    # ---------- Rules ----------
+    async def list_rules(self) -> List[RuleRecord]:
+        async with aiosqlite.connect(self.path) as db:
+            cur = await db.execute("SELECT id, version, spec_json FROM rules WHERE enabled=1")
+            rows = await cur.fetchall()
+            return [
+                RuleRecord(id=r[0], version=r[1], spec=RuleSpec(**json.loads(r[2])))
+                for r in rows
+            ]
+
+    async def upsert_rule(self, spec: RuleSpec) -> None:
+        async with aiosqlite.connect(self.path) as db:
+            v = 1
+            # If RuleSpec is a pydantic/dataclass, adjust serializer as needed
+            spec_json = json.dumps(getattr(spec, "dict", lambda: spec.__dict__)())
+            await db.execute(
+                "INSERT OR REPLACE INTO rules (id, version, spec_json, enabled) VALUES (?,?,?,?)",
+                (spec.id, v, spec_json, 1 if getattr(spec, "enabled", True) else 0),
+            )
+            await db.commit()
+
+    # ---------- Incidents ----------
+    async def find_or_create_incident(self, alert: Alert) -> Incident:
+        """Correlate by fingerprint, update last_seen or create new incident."""
+        async with aiosqlite.connect(self.path) as db:
+            cur = await db.execute(
+                "SELECT id, status, first_seen, last_seen FROM incidents WHERE fingerprint=?",
+                (alert.fingerprint,),
+            )
+            row = await cur.fetchone()
+            ts_iso = alert.ts.isoformat()
+            if row:
+                await db.execute(
+                    "UPDATE incidents SET last_seen=?, severity=?, title=? WHERE id=?",
+                    (ts_iso, alert.severity, alert.title, row[0]),
+                )
+                await db.commit()
+                return Incident(
+                    id=row[0],
+                    rule_id=alert.rule_id,
+                    sku=alert.sku,
+                    status="OPEN",
+                    first_seen=datetime.fromisoformat(row[2]),
+                    last_seen=alert.ts,
+                    severity=alert.severity,
+                    title=alert.title,
+                    group_key=alert.sku,
+                )
+
+            inc_id = f"inc_{int(alert.ts.timestamp()*1000)}"
+            await db.execute(
+                """
+                INSERT INTO incidents
+                  (id, rule_id, sku, status, first_seen, last_seen, severity, title, group_key, fingerprint)
+                VALUES (?,?,?,?,?,?,?,?,?,?)
+                """,
+                (inc_id, alert.rule_id, alert.sku, "OPEN", ts_iso, ts_iso,
+                 alert.severity, alert.title, alert.sku, alert.fingerprint),
+            )
+            await db.commit()
+            return Incident(
+                id=inc_id,
+                rule_id=alert.rule_id,
+                sku=alert.sku,
+                status="OPEN",
+                first_seen=alert.ts,
+                last_seen=alert.ts,
+                severity=alert.severity,
+                title=alert.title,
+                group_key=alert.sku,
+            )
+
+    async def is_throttled(self, fingerprint: str, dur: str) -> bool:
+        """Return True if an incident with this fingerprint was seen within duration (e.g., '5m','1h','30s')."""
+        unit = dur[-1]
+        n = int(dur[:-1])
+        delta = {"m": timedelta(minutes=n), "h": timedelta(hours=n), "s": timedelta(seconds=n)}[unit]
+        async with aiosqlite.connect(self.path) as db:
+            cur = await db.execute("SELECT last_seen FROM incidents WHERE fingerprint=?", (fingerprint,))
+            row = await cur.fetchone()
+            if not row:
+                return False
+            last = datetime.fromisoformat(row[0])
+            return datetime.utcnow() - last < delta
+
+    async def list_incidents(self, status: Optional[str]) -> List[Dict[str, Any]]:
+        q = """
+        SELECT id, rule_id, sku, status, first_seen, last_seen, severity, title
+        FROM incidents
+        """
+        args: list[Any] = []
+        if status:
+            q += " WHERE status=?"
+            args.append(status)
+        q += " ORDER BY last_seen DESC"
+
+        async with aiosqlite.connect(self.path) as db:
+            cur = await db.execute(q, args)
+            rows = await cur.fetchall()
+            return [
+                dict(
+                    id=r[0],
+                    rule_id=r[1],
+                    sku=r[2],
+                    status=r[3],
+                    first_seen=r[4],
+                    last_seen=r[5],
+                    severity=r[6],
+                    title=r[7],
+                )
+                for r in rows
+            ]
+
+    async def set_status(self, inc_id: str, status: str) -> None:
+        async with aiosqlite.connect(self.path) as db:
+            await db.execute(
+                "UPDATE incidents SET status=?, last_seen=? WHERE id=?",
+                (status, datetime.utcnow().isoformat(), inc_id),
+            )
+            await db.commit()
+
+    # ---------- Deliveries (optional helpers) ----------
+    async def record_delivery(self, delivery_id: str, incident_id: str, channel: str,
+                              status: str, response_json: Dict[str, Any] | None = None) -> None:
+        async with aiosqlite.connect(self.path) as db:
+            await db.execute(
+                "INSERT OR REPLACE INTO deliveries (id, incident_id, channel, ts, status, response_json) "
+                "VALUES (?,?,?,?,?,?)",
+                (
+                    delivery_id,
+                    incident_id,
+                    channel,
+                    datetime.utcnow().isoformat(),
+                    status,
+                    json.dumps(response_json or {}),
+                ),
+            )
+            await db.commit()
+
+    # ---------- Channel settings ----------
+    async def get_channel_settings(self) -> Optional[dict]:
+        """
+        Returns a dict of channel overrides persisted by the UI, or None if not set.
+        This gets merged over secrets/env by merge_defaults_db().
+        """
+        async with aiosqlite.connect(self.path) as db:
+            cur = await db.execute("SELECT value FROM settings WHERE key='channels'")
+            row = await cur.fetchone()
+            return json.loads(row[0]) if row else None
+
+    async def save_channel_settings(self, cfg: dict) -> None:
+        async with aiosqlite.connect(self.path) as db:
+            val = json.dumps(cfg)
+            # upsert by primary key
+            await db.execute(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+                ("channels", val),
+            )
+            await db.commit()
+
+=== File: core\agents\alert_service\rules.py ===
+# core/agents/alert_service/rules.py
+from __future__ import annotations
+
+import ast
+import logging
+import operator as op
+from typing import Any, Dict, Optional
+from datetime import datetime, timedelta
+
+from .schemas import RuleSpec
+from .detectors import DetectorRegistry
+
+log = logging.getLogger(__name__)
+
+ALLOWED: Dict[str, Any] = {
+    "min": min, "max": max, "abs": abs,
+    "True": True, "False": False, "None": None,
+}
+
+OPS = {
+    ast.Add: op.add, ast.Sub: op.sub, ast.Mult: op.mul, ast.Div: op.truediv,
+    ast.Mod: op.mod, ast.Pow: op.pow,
+    ast.Gt: op.gt, ast.Lt: op.lt, ast.GtE: op.ge, ast.LtE: op.le, ast.Eq: op.eq, ast.NotEq: op.ne,
+}
+
+def _get_attr(obj: Any, name: str, default: Any = None) -> Any:
+    if obj is None: return default
+    if isinstance(obj, dict): return obj.get(name, default)
+    return getattr(obj, name, default)
+
+def _get_key(obj: Any, name: str, default: Any = None) -> Any:
+    if isinstance(obj, dict): return obj.get(name, default)
+    return getattr(obj, name, default)
+
+def _eval(node: ast.AST, env: Dict[str, Any]) -> Any:
+    if isinstance(node, ast.Constant): return node.value
+    if isinstance(node, ast.Num): return node.n
+    if isinstance(node, ast.Name):
+        if node.id in env: return env[node.id]
+        if node.id in ALLOWED: return ALLOWED[node.id]
+        raise ValueError(f"name '{node.id}' not allowed")
+    if isinstance(node, ast.Attribute):
+        base = _eval(node.value, env)
+        return _get_attr(base, node.attr)
+    if isinstance(node, ast.Subscript):
+        container = _eval(node.value, env)
+        sl = node.slice.value if hasattr(node.slice, "value") else node.slice
+        key = _eval(sl, env)
+        try: return container[key]
+        except Exception: return None
+    if isinstance(node, ast.UnaryOp):
+        if isinstance(node.op, ast.USub): return -_eval(node.operand, env)
+        if isinstance(node.op, ast.UAdd): return +_eval(node.operand, env)
+        if isinstance(node.op, ast.Not): return not bool(_eval(node.operand, env))
+        raise ValueError("unsupported unary op")
+    if isinstance(node, ast.BinOp):
+        left = _eval(node.left, env); right = _eval(node.right, env)
+        fn = OPS.get(type(node.op)); 
+        if fn is None: raise ValueError("unsupported binary op")
+        return fn(left, right)
+    if isinstance(node, ast.Compare):
+        left = _eval(node.left, env)
+        for opnode, comparator in zip(node.ops, node.comparators):
+            right = _eval(comparator, env)
+            fn = OPS.get(type(opnode))
+            if fn is None or not fn(left, right): return False
+            left = right
+        return True
+    if isinstance(node, ast.BoolOp):
+        if isinstance(node.op, ast.And):
+            for v in node.values:
+                if not bool(_eval(v, env)): return False
+            return True
+        if isinstance(node.op, ast.Or):
+            for v in node.values:
+                if bool(_eval(v, env)): return True
+            return False
+        raise ValueError("unsupported bool op")
+    if isinstance(node, ast.Call):
+        func = _eval(node.func, env)
+        if func not in (min, max, abs):
+            raise ValueError("function not allowed")
+        args = [_eval(a, env) for a in node.args]
+        return func(*args)
+    raise ValueError(f"unsupported node: {type(node).__name__}")
+
+def compile_where(expr: str):
+    tree = ast.parse(expr, mode="eval")
+    def fn(env: Dict[str, Any]) -> bool:
+        return bool(_eval(tree.body, env))
+    return fn
+
+def parse_duration(s: Optional[str]) -> timedelta:
+    if not s: return timedelta(0)
+    s = s.strip().lower()
+    if len(s) < 2: raise ValueError(f"invalid duration '{s}'")
+    unit = s[-1]
+    n = int(s[:-1].strip())
+    table = {"s": timedelta(seconds=n), "m": timedelta(minutes=n),
+             "h": timedelta(hours=n), "d": timedelta(days=n)}
+    if unit not in table:
+        raise ValueError(f"unsupported duration unit '{unit}' in '{s}' (use s/m/h/d)")
+    return table[unit]
+
+class RuleRuntime:
+    """Compiled predicate + hold_for logic."""
+    def __init__(self, spec: RuleSpec):
+        self.spec = spec
+        self.where = compile_where(spec.where) if spec.where else None
+        self.hold = parse_duration(spec.hold_for) if spec.hold_for else None
+        self._last_true: Dict[str, datetime] = {}
+
+    async def evaluate(self, payload: Any, now: datetime,
+                       detectors: DetectorRegistry, alias: Optional[str] = None) -> bool:
+        if not self.spec.enabled: return False
+
+        env: Dict[str, Any] = {**ALLOWED, "tick": payload, "pp": payload}
+        if alias: env[alias] = payload
+
+        ok = False
+        if self.where:
+            try:
+                ok = bool(self.where(env))
+                log.debug("rule %s eval where=%s alias=%s sku=%s => %s",
+                          self.spec.id, self.spec.where, alias, _get_key(payload, "sku"), ok)
+            except Exception as e:
+                log.debug("rule %s evaluation error: %s", self.spec.id, e)
+                return False
+        elif self.spec.detector:
+            key = _get_key(payload, "sku", "GLOBAL")
+            val = _get_attr(payload, self.spec.field) if self.spec.field else None
+            ok = await detectors.eval(self.spec.detector, key=key, field=self.spec.field,
+                                      value=val, ts=now, params=self.spec.params)
+        else:
+            return False
+
+        sku = _get_key(payload, "sku", "")
+        if not ok:
+            self._last_true.pop(sku, None)
+            return False
+
+        if not self.hold or self.hold == timedelta(0):
+            return True
+
+        last = self._last_true.get(sku)
+        if not last:
+            self._last_true[sku] = now
+            return False
+
+        return (now - last) >= self.hold
+
+=== File: core\agents\alert_service\schemas.py ===
+from pydantic import BaseModel, Field, AwareDatetime, validator
+from typing import Literal, List, Optional, Dict, Any
+
+Severity = Literal["info", "warn", "crit"]
+IncidentStatus = Literal["OPEN", "ACKED", "RESOLVED"]
+
+class MarketTick(BaseModel):
+    sku: str
+    our_price: float
+    competitor_price: Optional[float] = None
+    demand_index: float = Field(ge=0, le=1)
+    ts: AwareDatetime
+
+class PriceProposal(BaseModel):
+    sku: str
+    proposed_price: float
+    margin: float
+    ts: AwareDatetime
+
+class NotifySpec(BaseModel):
+    channels: List[Literal["ui","slack","email","webhook"]] = ["ui"]
+    throttle: Optional[str] = None  # "15m", "1h"
+    webhook_url: Optional[str] = None
+    email_to: Optional[List[str]] = None
+
+class RuleSpec(BaseModel):
+    id: str
+    source: Literal["MARKET_TICK","PRICE_PROPOSAL"]
+    # either boolean expression or detector
+    where: Optional[str] = None
+    detector: Optional[str] = None
+    field: Optional[str] = None
+    params: Dict[str, Any] = {}
+    hold_for: Optional[str] = None  # "5m"
+    severity: Severity = "warn"
+    dedupe: str = "sku"
+    group_by: List[str] = []
+    notify: NotifySpec = NotifySpec()
+    enabled: bool = True
+
+    @validator("where", always=True)
+    def where_or_detector(cls, v, values):
+        if not v and not values.get("detector"):
+            raise ValueError("Provide either 'where' or 'detector'.")
+        return v
+
+class RuleRecord(BaseModel):
+    id: str
+    spec: RuleSpec
+    version: int
+
+class Alert(BaseModel):
+    id: str
+    rule_id: str
+    sku: str
+    title: str
+    payload: Dict[str, Any]
+    severity: Severity
+    ts: AwareDatetime
+    fingerprint: str
+
+class Incident(BaseModel):
+    id: str
+    rule_id: str
+    sku: str
+    status: IncidentStatus
+    first_seen: AwareDatetime
+    last_seen: AwareDatetime
+    severity: Severity
+    title: str
+    group_key: str
+
+=== File: core\agents\alert_service\tools.py ===
+from .repo import Repo
+from .schemas import RuleSpec
+from pydantic import ValidationError
+
+class Tools:
+    def __init__(self, repo: Repo): self.repo = repo
+
+    async def create_rule(self, spec_json: dict):
+        try:
+            spec = RuleSpec(**spec_json)
+        except ValidationError as e:
+            return {"ok": False, "error": e.errors()}
+        await self.repo.upsert_rule(spec)
+        return {"ok": True, "id": spec.id}
+
+    async def list_rules(self):
+        rules = await self.repo.list_rules()
+        return {"ok": True, "rules": [r.spec.dict() for r in rules]}
+
+    async def list_incidents(self, status: str|None = None):
+        rows = await self.repo.list_incidents(status)
+        return {"ok": True, "incidents": rows}
+
+    async def ack_incident(self, incident_id: str):
+        await self.repo.set_status(incident_id, "ACKED")
+        return {"ok": True}
+
+    async def resolve_incident(self, incident_id: str):
+        await self.repo.set_status(incident_id, "RESOLVED")
+        return {"ok": True}
+
+=== File: core\agents\alert_service\sinks\__init__.py ===
+from __future__ import annotations
+from typing import Dict, Any, Optional
+
+from .ui import UiSink
+
+def _maybe_add(sinks: Dict[str, Any], name: str, cls_name: str, repo):
+    try:
+        mod = __import__(f"core.agents.alert_service.sinks.{name}", fromlist=[cls_name])
+        cls = getattr(mod, cls_name)
+        try:
+            sinks[name] = cls(repo)  # some sinks accept repo
+        except TypeError:
+            sinks[name] = cls()      # others don't
+    except Exception:
+        # Missing / optional sink; ignore.
+        pass
+
+def get_sinks(repo: Optional[Any] = None) -> Dict[str, Any]:
+    """Return available sinks. `repo` is optional for callers that don't have it."""
+    sinks: Dict[str, Any] = {"ui": UiSink()}
+    _maybe_add(sinks, "email", "EmailSink", repo)
+    _maybe_add(sinks, "slack", "SlackSink", repo)
+    _maybe_add(sinks, "webhook", "WebhookSink", repo)
+    return sinks
+
+=== File: core\agents\alert_service\sinks\email.py ===
+# core/agents/alert_service/sinks/email.py
+import os, ssl, smtplib, asyncio
+from email.message import EmailMessage
+from typing import Any
+
+from ..config import load_runtime_defaults, merge_defaults_db
+from ..util.retry import retry
+
+class EmailSink:
+    def __init__(self, repo):
+        self.repo = repo
+
+    async def send(self, incident: Any, rule: Any):
+        # Merge env/secrets defaults with DB overrides (repo optional)
+        db_cfg = {}
+        if self.repo:
+            try:
+                db_cfg = await self.repo.get_channel_settings()
+            except Exception:
+                db_cfg = {}
+        cfg = merge_defaults_db(load_runtime_defaults(), db_cfg)
+
+        def _get(name: str, default=None):
+            if isinstance(cfg, dict):
+                return cfg.get(name, os.getenv(name.upper(), default))
+            return getattr(cfg, name, os.getenv(name.upper(), default))
+
+        EMAIL_FROM    = _get("email_from", "alerts@yourco.com")
+        EMAIL_TO      = _get("email_to", [])
+        if isinstance(EMAIL_TO, str):
+            EMAIL_TO = [e.strip() for e in EMAIL_TO.split(",") if e.strip()]
+        SMTP_HOST     = _get("smtp_host", "smtp.gmail.com")
+        SMTP_PORT     = int(_get("smtp_port", 587))
+        SMTP_USER     = _get("smtp_user", EMAIL_FROM)
+        SMTP_PASSWORD = _get("smtp_password", "")
+
+        if not EMAIL_TO:
+            return  # nowhere to send
+
+        # Normalize incident to dict
+        inc = incident if isinstance(incident, dict) else getattr(incident, "__dict__", {}) or {}
+
+        subj = f"[{str(inc.get('severity','INFO')).upper()}] {inc.get('title','Alert')} (rule={inc.get('rule_id')}, sku={inc.get('sku')})"
+
+        body_lines = [
+            f"Title:      {inc.get('title')}",
+            f"Severity:   {inc.get('severity')}",
+            f"Rule:       {inc.get('rule_id')}",
+            f"SKU:        {inc.get('sku')}",
+            f"Status:     {inc.get('status','OPEN')}",
+            f"Timestamp:  {inc.get('last_seen') or inc.get('ts')}",
+            "",
+            "Payload:",
+            f"{inc.get('payload')}",
+        ]
+        msg = EmailMessage()
+        msg["From"] = EMAIL_FROM
+        msg["To"] = ", ".join(EMAIL_TO)
+        msg["Subject"] = subj
+        msg.set_content("\n".join(body_lines))
+
+        ctx = ssl.create_default_context()
+
+        def _send_sync():
+            # Synchronous SMTP send (called via to_thread with retry)
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as s:
+                s.ehlo()
+                # Try STARTTLS if supported
+                try:
+                    s.starttls(context=ctx)
+                    s.ehlo()
+                except smtplib.SMTPException:
+                    # If STARTTLS not supported, proceed without it
+                    pass
+                if SMTP_USER and SMTP_PASSWORD:
+                    s.login(SMTP_USER, SMTP_PASSWORD)
+                s.send_message(msg)
+
+        delivery_id = f"deliv_{inc.get('id','')}_email"
+
+        async def _send_async():
+            await asyncio.to_thread(_send_sync)
+
+        try:
+            # Retry transient failures
+            await retry(_send_async, attempts=3)
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="email",
+                    status="OK",
+                    response_json={"to": EMAIL_TO, "subject": subj}
+                )
+        except Exception as e:
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="email",
+                    status="ERR",
+                    response_json={"error": str(e)}
+                )
+
+=== File: core\agents\alert_service\sinks\slack.py ===
+# core/agents/alert_service/sinks/slack.py
+import aiohttp
+from ..config import load_runtime_defaults, merge_defaults_db
+from ..util.retry import retry
+
+class SlackSink:
+    def __init__(self, repo):
+        self.repo = repo
+
+    async def send(self, incident, rule):
+        # Load config (DB overrides > runtime defaults)
+        db_cfg = {}
+        if self.repo:
+            try:
+                db_cfg = await self.repo.get_channel_settings()
+            except Exception:
+                db_cfg = {}
+        cfg = merge_defaults_db(load_runtime_defaults(), db_cfg)
+
+        # Resolve webhook URL from dataclass or dict
+        webhook = (getattr(cfg, "slack_webhook_url", None)
+                   if not isinstance(cfg, dict)
+                   else cfg.get("slack_webhook_url"))
+        if not webhook:
+            return  # No destination configured
+
+        # Normalize incident to dict for logging/formatting
+        inc = incident if isinstance(incident, dict) else getattr(incident, "__dict__", {}) or {}
+        sev = str(inc.get("severity", "INFO")).upper()
+        title = inc.get("title", "Alert")
+        rule_id = inc.get("rule_id")
+        sku = inc.get("sku")
+        text = f"[{sev}] {title} (rule={rule_id}, sku={sku})"
+
+        # POST with retries; log outcome to deliveries table if available
+        async def _post():
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with aiohttp.ClientSession(timeout=timeout) as sess:
+                async with sess.post(webhook, json={"text": text}) as r:
+                    body = await r.text()
+                    # Treat 3xx/4xx/5xx as failures so retry can kick in
+                    if r.status >= 300:
+                        # Raise a plain Exception to keep retry util simple and broker-agnostic
+                        raise Exception(f"Slack webhook HTTP {r.status}: {body[:200]}")
+
+        delivery_id = f"deliv_{inc.get('id','')}_slack"
+        try:
+            await retry(_post, attempts=3)
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="slack",
+                    status="OK",
+                    response_json={"text": text}
+                )
+        except Exception as e:
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="slack",
+                    status="ERR",
+                    response_json={"error": str(e)}
+                )
+
+=== File: core\agents\alert_service\sinks\ui.py ===
+from ...agent_sdk.bus_factory import get_bus
+# core/agents/alert_service/sinks/ui.py
+from core.agents.agent_sdk import Topic, get_bus
+
+_bus = get_bus()
+
+class UiSink:
+    async def send(self, incident, rule):
+        obj = incident if isinstance(incident, dict) else getattr(incident, "__dict__", incident)
+        await _bus.publish(Topic.ALERT.value, obj)
+
+=== File: core\agents\alert_service\sinks\webhook.py ===
+# core/agents/alert_service/sinks/webhook.py
+import aiohttp
+from ..config import load_runtime_defaults, merge_defaults_db
+from ..util.retry import retry
+
+class WebhookSink:
+    def __init__(self, repo):
+        self.repo = repo
+
+    async def send(self, incident, rule):
+        # Load config with DB overrides
+        db_cfg = {}
+        if self.repo:
+            try:
+                db_cfg = await self.repo.get_channel_settings()
+            except Exception:
+                db_cfg = {}
+        cfg = merge_defaults_db(load_runtime_defaults(), db_cfg)
+
+        # Resolve webhook URL from dataclass or dict
+        webhook = (getattr(cfg, "webhook_url", None)
+                   if not isinstance(cfg, dict)
+                   else cfg.get("webhook_url"))
+        if not webhook:
+            return  # not configured
+
+        # Normalize incident to dict
+        inc = incident if isinstance(incident, dict) else getattr(incident, "__dict__", {}) or {}
+
+        payload = {
+            "id": inc.get("id"),
+            "rule_id": inc.get("rule_id"),
+            "sku": inc.get("sku"),
+            "severity": inc.get("severity"),
+            "title": inc.get("title"),
+            "status": inc.get("status", "OPEN"),
+        }
+
+        async def _post():
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with aiohttp.ClientSession(timeout=timeout) as sess:
+                async with sess.post(webhook, json=payload) as r:
+                    body = await r.text()
+                    if r.status >= 300:
+                        raise Exception(f"Webhook HTTP {r.status}: {body[:200]}")
+
+        delivery_id = f"deliv_{inc.get('id','')}_webhook"
+        try:
+            await retry(_post, attempts=3)
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="webhook",
+                    status="OK",
+                    response_json={"payload": payload}
+                )
+        except Exception as e:
+            if hasattr(self.repo, "record_delivery"):
+                await self.repo.record_delivery(
+                    delivery_id=delivery_id,
+                    incident_id=inc.get("id", ""),
+                    channel="webhook",
+                    status="ERR",
+                    response_json={"error": str(e)}
+                )
+
+=== File: core\agents\simulators\__init__.py ===
+
+=== File: core\agents\simulators\demo_publishers.py ===
+# core/agents/simulators/demo_publishers.py
+import asyncio
+from dataclasses import dataclass, asdict, field
+from datetime import datetime as dt, timezone
+from typing import Optional
+
+# Correct imports: use the core.agent_sdk modules directly
+from core.agents.agent_sdk.bus_factory import get_bus
+from core.agents.agent_sdk.protocol import Topic
+
+# Initialize a shared bus instance
+bus = get_bus()
+
+# Minimal event shapes for the demo (engine uses getattr + dict conversion)
+@dataclass
+class MarketTick:
+    sku: str
+    our_price: float
+    competitor_price: Optional[float]
+    demand_index: float
+    ts: dt
+
+@dataclass
+class PriceProposal:
+    sku: str
+    proposed_price: float
+    cost: Optional[float] = None
+    margin: Optional[float] = None
+    # timezone-aware by default
+    ts: dt = field(default_factory=lambda: dt.now(timezone.utc))
+
+    def __post_init__(self):
+        if self.margin is None and self.cost is not None and self.proposed_price:
+            self.margin = (self.proposed_price - self.cost) / self.proposed_price
+        if self.margin is None:
+            self.margin = 0.0
+
+# Helpers to serialize if any consumer expects dict-like payloads
+def _to_dict(obj):
+    try:
+        return obj.model_dump()
+    except Exception:
+        pass
+    try:
+        return asdict(obj)
+    except Exception:
+        pass
+    return getattr(obj, "__dict__", {}) or {}
+
+async def simulate_undercut(
+    sku: str = "SKU-123",
+    our: float = 100.0,
+    comp: float = 98.0,
+    seconds: float = 30,
+    hz: float = 1.0,
+) -> None:
+    """
+    Competitor undercuts enough to satisfy rule:
+    tick.competitor_price * 1.02 < tick.our_price
+    98 * 1.02 = 99.96 < 100 -> True
+    """
+    loop = asyncio.get_running_loop()
+    end = loop.time() + float(seconds)
+    period = 1.0 / float(hz) if hz else 1.0
+    while loop.time() < end:
+        tick = MarketTick(
+            sku=sku,
+            our_price=our,
+            competitor_price=comp,
+            demand_index=0.50,
+            ts=dt.now(timezone.utc),
+        )
+        await bus.publish(Topic.MARKET_TICK.value, tick)
+        await asyncio.sleep(period)
+
+async def simulate_demand_spike(
+    sku: str = "SKU-123",
+    spike: float = 0.95,
+    seconds: float = 30,
+    hz: float = 1.0,
+) -> None:
+    """
+    Demand meets the seeded rule where="tick.demand_index >= 0.95".
+    """
+    loop = asyncio.get_running_loop()
+    end = loop.time() + float(seconds)
+    period = 1.0 / float(hz) if hz else 1.0
+    while loop.time() < end:
+        tick = MarketTick(
+            sku=sku,
+            our_price=100.0,
+            competitor_price=100.0,
+            demand_index=spike,
+            ts=dt.now(timezone.utc),
+        )
+        await bus.publish(Topic.MARKET_TICK.value, tick)
+        await asyncio.sleep(period)
+
+async def simulate_margin_breach(
+    sku: str = "SKU-123",
+    proposed: float = 90.0,
+    cost: float = 82.0,
+) -> None:
+    """
+    Violates where="pp.margin < 0.12".
+    margin = (90-82)/90 ≈ 0.089 < 0.12
+    """
+    pp = PriceProposal(sku=sku, proposed_price=proposed, cost=cost, ts=dt.now(timezone.utc))
+    await bus.publish(Topic.PRICE_PROPOSAL.value, pp)
+
+=== File: core\agents\user_interact\__init__.py ===
+
+=== File: core\agents\user_interact\user_interaction_agent.py ===
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import torch
+
+class UserInteractionAgent:
+    def __init__(self, user_name, model_name="gpt2"):
+        self.user_name = user_name
+        self.model_name = model_name
+
+        # Load tokenizer and model
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModelForCausalLM.from_pretrained(model_name)
+        # Use GPU if available
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device)
+
+    def get_response(self, message):
+        try:
+            # Encode input
+            inputs = self.tokenizer.encode(message + self.tokenizer.eos_token, return_tensors="pt").to(self.device)
+            # Generate output
+            outputs = self.model.generate(inputs, max_length=200, pad_token_id=self.tokenizer.eos_token_id)
+            # Decode
+            response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            return response
+        except Exception as e:
+            return f"Error: {e}"
+
+=== File: core\brokers\types.py ===
+# core/brokers/types.py
+import json
+from datetime import datetime, timezone
+from typing import Any
+
+def to_jsonable(obj: Any) -> Any:
+    """Make any pydantic/dataclass/obj JSON-serializable with ISO datetimes."""
+    if hasattr(obj, "model_dump"):
+        obj = obj.model_dump()
+    elif hasattr(obj, "dict"):
+        obj = obj.dict()
+    elif hasattr(obj, "__dict__"):
+        obj = obj.__dict__
+    def _conv(o):
+        if isinstance(o, datetime):
+            return o.astimezone(timezone.utc).isoformat()
+        raise TypeError(f"Not JSON serializable: {type(o)}")
+    return json.loads(json.dumps(obj, default=_conv))
+
+=== File: core\graphs\alert_authoring_graph.py ===
+from langgraph.graph import StateGraph, END
+from typing import Dict, Any
+from pydantic import BaseModel, ValidationError
+from core.agents.alert_service.schemas import RuleSpec
+from core.agents.alert_service.tools import Tools
+from core.agents.alert_service.repo import Repo
+
+class GState(BaseModel):
+    user_text: str
+    draft_rule: Dict[str, Any] | None = None
+    validated: bool = False
+    result: Dict[str, Any] | None = None
+
+tools = Tools(Repo())
+
+def nl_to_draft(state: GState) -> GState:
+    # very small deterministic parser; you can swap in an LLM with structured output
+    txt = state.user_text.lower()
+    spec = {
+        "id": "auto-undercut",
+        "source": "MARKET_TICK",
+        "where": "tick.competitor_price and tick.competitor_price * 1.02 < tick.our_price",
+        "hold_for": "5m",
+        "severity": "warn",
+        "notify": {"channels": ["ui"], "throttle": "15m"},
+        "enabled": True
+    }
+    state.draft_rule = spec
+    return state
+
+def validate_rule(state: GState) -> GState:
+    try:
+        RuleSpec(**state.draft_rule)
+        state.validated = True
+    except ValidationError as e:
+        state.result = {"ok": False, "error": e.errors()}
+    return state
+
+def persist_rule(state: GState) -> GState:
+    if not state.validated: return state
+    state.result = {"ok": True}
+    # call tool directly (synchronous here; wrap async in your app)
+    import asyncio
+    asyncio.get_event_loop().run_until_complete(tools.create_rule(state.draft_rule))
+    return state
+
+graph = StateGraph(GState)
+graph.add_node("parse", nl_to_draft)
+graph.add_node("validate", validate_rule)
+graph.add_node("persist", persist_rule)
+graph.add_edge("parse","validate")
+graph.add_edge("validate","persist")
+graph.set_entry_point("parse")
+graph.set_finish_point("persist")
+app = graph.compile()
+
+=== File: core\graphs\incident_triage_graph.py ===
+from langgraph.graph import StateGraph
+from pydantic import BaseModel
+from core.agents.alert_service.tools import Tools
+from core.agents.alert_service.repo import Repo
+
+class TriageState(BaseModel):
+    command: str
+    incident_id: str | None = None
+    action: str | None = None
+    result: dict | None = None
+
+tools = Tools(Repo())
+
+def parse_cmd(s: TriageState) -> TriageState:
+    t = s.command.lower()
+    if t.startswith("ack "): s.action, s.incident_id = "ACK", t.split()[1]
+    elif t.startswith("resolve "): s.action, s.incident_id = "RESOLVE", t.split()[1]
+    else: s.action = "LIST"
+    return s
+
+def act(s: TriageState) -> TriageState:
+    import asyncio
+    if s.action == "ACK": s.result = asyncio.get_event_loop().run_until_complete(tools.ack_incident(s.incident_id))
+    elif s.action == "RESOLVE": s.result = asyncio.get_event_loop().run_until_complete(tools.resolve_incident(s.incident_id))
+    else: s.result = asyncio.get_event_loop().run_until_complete(tools.list_incidents("OPEN"))
+    return s
+
+graph = StateGraph(TriageState)
+graph.add_node("parse", parse_cmd)
+graph.add_node("act", act)
+graph.add_edge("parse","act")
+graph.set_entry_point("parse")
+app = graph.compile()
+

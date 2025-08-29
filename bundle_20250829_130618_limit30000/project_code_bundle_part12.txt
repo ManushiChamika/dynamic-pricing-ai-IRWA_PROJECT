@@ -1,0 +1,59 @@
+=== File: README.md ===
+# dynamic-pricing-ai-IRWA_PROJECT
+.env
+app/alert.db
+
+
+=== File: requirements.txt ===
+streamlit==1.38.0
+sqlalchemy==2.0.36
+argon2-cffi==23.1.0
+pyotp==2.9.0
+email-validator==2.2.0
+pydantic==2.8.2
+extra-streamlit-components==0.1.71
+qrcode==7.4.2
+Pillow==10.4.0
+plotly
+aiosqlite
+aiohttp
+aiosmtplib
+python-dotenv
+pandas
+langgraph
+mcp
+transformers
+# torch may require a platform-specific wheel; install separately if fails
+torch
+nats-py
+
+
+=== File: scripts\ingest_demo.py ===
+# scripts/ingest_demo.py
+"""
+Run a small demo ingestion using the mock connector.
+Usage: python scripts/ingest_demo.py
+"""
+import asyncio
+import os, sys
+HERE = os.path.dirname(__file__)
+ROOT = os.path.abspath(os.path.join(HERE, ".."))
+sys.path.insert(0, ROOT)
+
+from core.agents.data_collector.repo import DataRepo
+from core.agents.data_collector.collector import DataCollector
+from core.agents.data_collector.connectors.mock import mock_ticks
+
+async def main():
+    repo = DataRepo(path="app/data.db")
+    await repo.init()
+    coll = DataCollector(repo)
+    for tick in mock_ticks(n=8):
+        await coll.ingest_tick(tick)
+    print("Ingest demo completed.")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
+
+=== File: scripts\smoke_price_optimizer.py ===
