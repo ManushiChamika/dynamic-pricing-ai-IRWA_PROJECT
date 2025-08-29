@@ -44,7 +44,7 @@ async def ingest_tick(d: dict) -> Dict:
 
 
 @mcp.tool()
-async def import_product_catalog(rows: List[Dict[str, Any]]) -> Dict:
+async def import_product_catalog(rows: list) -> dict:
     """Import or update product rows into the product catalog.
 
     Returns a dict with count of processed rows.
@@ -89,7 +89,7 @@ async def start_collection(
     market: str = "DEFAULT",
     connector: str = "mock",
     depth: int = 1,
-) -> Dict:
+) -> dict:
     """Start a background collection job for a given sku/market."""
     await _repo.init()
     try:
@@ -108,7 +108,7 @@ async def start_collection(
 
 
 @mcp.tool()
-async def get_job_status(job_id: str) -> Dict:
+async def get_job_status(job_id: str) -> dict:
     """Return current job status or job_not_found."""
     await _repo.init()
     try:
