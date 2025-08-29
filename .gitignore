@@ -74,6 +74,9 @@ project_code_dump.txt
 prompts.md
 scripts/collect_project_code.ps1
 
+# ---------- Local code bundles (ignore large generated bundles) ----------
+bundle_*/
+
 # ---------- Notebooks / checkpoints ----------
 .ipynb_checkpoints/
 
