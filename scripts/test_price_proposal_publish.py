@@ -7,6 +7,8 @@ from core.agents.data_collector.repo import DataRepo
 from core.agents.alert_notifier import AlertNotifier, Thresholds
 from core.agents.data_collector import mcp_server as svc
 import core.agents.pricing_optimizer as po_mod
+import sqlite3
+from datetime import datetime
 
 
 async def main() -> int:
@@ -26,6 +28,40 @@ async def main() -> int:
         }
     ])
     print("import_product_catalog:", imp)
+
+    # Seed market.db with fresh competitor records for SKU-123 so optimizer can run
+    try:
+        conn = sqlite3.connect("market.db")
+        cur = conn.cursor()
+        cur.execute(
+            "CREATE TABLE IF NOT EXISTS market_data (id INTEGER PRIMARY KEY AUTOINCREMENT, product_name TEXT NOT NULL, price REAL NOT NULL, update_time TEXT DEFAULT CURRENT_TIMESTAMP)"
+        )
+        cur.execute(
+            "CREATE TABLE IF NOT EXISTS pricing_list (id INTEGER PRIMARY KEY AUTOINCREMENT, product_name TEXT NOT NULL, optimized_price REAL NOT NULL, last_update TEXT DEFAULT CURRENT_TIMESTAMP, reason TEXT)"
+        )
+        now = datetime.now().isoformat()
+        cur.execute("DELETE FROM market_data WHERE product_name=?", ("SKU-123",))
+        for p in (98.0, 100.0, 102.0, 101.0, 99.0):
+            cur.execute(
+                "INSERT INTO market_data (product_name, price, update_time) VALUES (?,?,?)",
+                ("SKU-123", float(p), now),
+            )
+        conn.commit()
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+    # Optionally ingest some ticks to ensure features are present
+    start = await svc.start_collection("SKU-123", market="DEFAULT", connector="mock", depth=3)
+    if start.get("ok"):
+        job_id = start["job_id"]
+        for _ in range(20):
+            st = await svc.get_job_status(job_id)
+            if st.get("ok") and st.get("job", {}).get("status") in {"DONE", "FAILED"}:
+                break
+            await asyncio.sleep(0.2)
 
     # Start alert notifier to capture PRICE_PROPOSAL alerts (e.g., MARGIN_BREACH)
     alerts: List[str] = []
