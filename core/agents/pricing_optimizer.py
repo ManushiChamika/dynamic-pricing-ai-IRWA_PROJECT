@@ -1,3 +1,10 @@
+# Minimal stub for run_pricing_optimizer
+import asyncio
+
+async def run_pricing_optimizer():
+	print("[pricing_optimizer] Running pricing optimizer...")
+	await asyncio.sleep(2)
+	print("[pricing_optimizer] Finished pricing optimizer run.")
 # core/agents/pricing_optimizer.py
 
 import os
