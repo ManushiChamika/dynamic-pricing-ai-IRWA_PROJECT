@@ -1,4 +1,3 @@
-=== File: bundle_20250829_134647_limit25000\project_code_bundle_part1.txt ===
 === File: app\__init__.py ===
 
 
@@ -1376,6 +1375,38 @@ if "_alerts_started" not in st.session_state:
 
 # 6) Route to Home
 st.switch_page("pages/0_Home.py")
+
+
+=== File: branch_notes_feat_improve_data_collector.md ===
+# Branch: feat/improve-data-collector
+
+## Purpose
+Add product catalog, ingestion job, and price proposal persistence to DataRepo. Implement three MCP tools for product import, collection, and job status. All changes will be minimal, local, and well-commented.
+
+## Scope
+- Add product catalog + ingestion job + price proposal persistence to DataRepo.
+- Add three MCP tools to Data Collector MCP server:
+  1. import_product_catalog(rows: list[dict])
+  2. start_collection(sku, market="DEFAULT", connector="mock", depth=1)
+  3. get_job_status(job_id)
+- Only edit:
+  - core/agents/data_collector/repo.py
+  - core/agents/data_collector/mcp_server.py
+
+## Constraints & Style
+- Python 3.10+ async style, aiosqlite, uuid for job ids.
+- Job lifecycle: QUEUED → RUNNING → DONE → FAILED.
+- Minimal, idiomatic changes, no new external deps.
+- All DB changes additive, new tables only.
+- Well-commented, small patch.
+
+## Deliverables
+1. Two unified-diff patches for repo.py and mcp_server.py
+2. Tiny test snippet for basic verification
+3. 3-line acceptance checklist
+
+## Implementation Guidance
+- See user prompt for full details and requirements.
 
 
 === File: core\__init__.py ===
@@ -2893,3 +2924,472 @@ if __name__ == "__main__":
     asyncio.run(main())
 
 
+
+
+=== File: core\agents\data_collector\repo.py ===
+from __future__ import annotations
+
+import os
+from pathlib import Path
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional, List
+
+import aiosqlite
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+class DataRepo:
+    """
+    Minimal repo for market ticks. Uses SQLite at DATA_DB or app/data.db.
+    """
+
+    def __init__(self, path: Optional[str] = None) -> None:
+        db_env = os.getenv("DATA_DB", "app/data.db")
+        self.path = Path(path or db_env)
+
+    async def init(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        async with aiosqlite.connect(self.path.as_posix()) as db:
+            await db.executescript(
+                """
+                PRAGMA journal_mode=WAL;
+
+                CREATE TABLE IF NOT EXISTS market_ticks (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  sku TEXT NOT NULL,
+                  market TEXT NOT NULL,
+                  our_price REAL NOT NULL,
+                  competitor_price REAL,
+                  demand_index REAL,
+                  ts TEXT NOT NULL,
+                  source TEXT,
+                  ingested_at TEXT NOT NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS ix_ticks_sku_market_ts
+                  ON market_ticks (sku, market, ts);
+                """
+            )
+            await db.commit()
+
+    async def insert_tick(self, d: Dict[str, Any]) -> None:
+        # Expect ISO ts; if missing, use now
+        ts = d.get("ts") or _utc_now_iso()
+        async with aiosqlite.connect(self.path.as_posix()) as db:
+            await db.execute(
+                """
+                INSERT INTO market_ticks
+                  (sku, market, our_price, competitor_price, demand_index, ts,
+                   source, ingested_at)
+                VALUES (?,?,?,?,?,?,?,?)
+                """,
+                (
+                    d["sku"],
+                    d.get("market", "DEFAULT"),
+                    float(d["our_price"]),
+                    d.get("competitor_price"),
+                    d.get("demand_index"),
+                    ts,
+                    d.get("source", "unknown"),
+                    _utc_now_iso(),
+                ),
+            )
+            await db.commit()
+
+    async def features_for(
+        self, sku: str, market: str, since_iso: str
+    ) -> Dict[str, Any]:
+        """
+        Return simple recent features for a window: latest values + basic gap.
+        """
+        q = """
+        SELECT our_price, competitor_price, demand_index, ts
+        FROM market_ticks
+        WHERE sku=? AND market=? AND ts>=?
+        ORDER BY ts DESC
+        LIMIT 100
+        """
+        async with aiosqlite.connect(self.path.as_posix()) as db:
+            cur = await db.execute(q, (sku, market, since_iso))
+            rows = await cur.fetchall()
+
+        if not rows:
+            return {
+                "snapshot_id": None,
+                "as_of": None,
+                "features": {},
+                "provenance": [],
+                "count": 0,
+            }
+
+        # Latest row
+        our_latest, comp_latest, dem_latest, as_of = rows[0]
+        gap_pct = None
+        if our_latest and comp_latest is not None:
+            try:
+                gap_pct = (our_latest - comp_latest) / our_latest if our_latest else None
+            except ZeroDivisionError:
+                gap_pct = None
+
+        return {
+            "snapshot_id": f"snap:{sku}:{market}:{as_of}",
+            "as_of": as_of,
+            "features": {
+                "our_price": our_latest,
+                "competitor_price": comp_latest,
+                "demand_index": dem_latest,
+                "price_gap_pct": gap_pct,
+            },
+            "provenance": ["market_ticks"],
+            "count": len(rows),
+        }
+
+
+
+
+=== File: core\agents\price_optimizer\__init__.py ===
+"""
+Price Optimizer package for Dynamic Pricing project.
+Contains:
+- optimizer: heuristic optimizer with constraints and rationale.
+- mcp_server: MCP tool endpoint for optimize_price (optional if MCP installed).
+"""
+__all__ = ["optimizer"]
+
+
+
+
+
+=== File: core\agents\price_optimizer\mcp_server.py ===
+from __future__ import annotations
+
+import asyncio
+from typing import Dict, Any
+
+try:
+    from mcp.server.fastmcp import FastMCP
+except Exception as e:
+    # Allow file to exist even if MCP isn't installed; runtime will report
+    FastMCP = None  # type: ignore
+
+from .optimizer import Features, optimize
+
+
+async def main():
+    if FastMCP is None:
+        raise RuntimeError("MCP not available: install the MCP package to run this server.")
+
+    mcp = FastMCP("price-optimizer-service")
+
+    @mcp.tool()
+    async def optimize_price(payload: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        payload: {
+          "sku": "...",
+          "our_price": 100.0,
+          "competitor_price": 98.0,
+          "demand_index": 0.5,
+          "cost": 90.0,
+          "min_price": 80.0,
+          "max_price": 130.0,
+          "min_margin": 0.12
+        }
+        """
+        f = Features(
+            sku=str(payload["sku"]),
+            our_price=float(payload["our_price"]),
+            competitor_price=payload.get("competitor_price"),
+            demand_index=payload.get("demand_index"),
+            cost=payload.get("cost"),
+        )
+        res = optimize(
+            f=f,
+            min_price=float(payload.get("min_price", 0.0)),
+            max_price=float(payload.get("max_price", 1e9)),
+            min_margin=float(payload.get("min_margin", 0.12)),
+        )
+        return res
+
+    await mcp.run()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
+
+
+
+
+=== File: core\agents\price_optimizer\optimizer.py ===
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Optional, Dict, Any
+
+
+@dataclass
+class Features:
+    sku: str
+    our_price: float
+    competitor_price: Optional[float] = None
+    demand_index: Optional[float] = None
+    cost: Optional[float] = None
+
+
+def optimize(
+    f: Features,
+    min_price: float,
+    max_price: float,
+    min_margin: float = 0.12,
+) -> Dict[str, Any]:
+    """
+    Heuristic v0:
+    - Start from our_price.
+    - If competitor undercuts by >= ~2%, reduce slightly (to 99% of competitor) within bounds.
+    - Enforce margin floor if cost provided.
+    - Clamp to [min_price, max_price].
+    """
+    base = float(f.our_price)
+    rationale = []
+
+    # Competitor undercut heuristic
+    if f.competitor_price is not None:
+        try:
+            if f.competitor_price * 1.02 < f.our_price:
+                base = max(f.competitor_price * 0.99, min_price)
+                rationale.append("Competitor undercut → reduce slightly")
+        except Exception:
+            pass
+
+    # Enforce margin floor
+    if f.cost is not None:
+        try:
+            floor = f.cost / (1.0 - float(min_margin))
+            if base < floor:
+                base = floor
+                rationale.append("Margin floor enforced")
+        except Exception:
+            pass
+
+    # Clamp to bounds
+    base = min(max(base, min_price), max_price)
+
+    return {
+        "recommended_price": round(base, 2),
+        "confidence": 0.6,  # placeholder
+        "rationale": "; ".join(rationale) or "No change",
+        "constraints_evaluation": {
+            "min_price": min_price,
+            "max_price": max_price,
+            "min_margin": min_margin,
+        },
+    }
+
+
+
+
+
+=== File: core\agents\simulators\__init__.py ===
+
+
+=== File: core\agents\simulators\demo_publishers.py ===
+# core/agents/simulators/demo_publishers.py
+import asyncio
+from dataclasses import dataclass, asdict, field
+from datetime import datetime as dt, timezone
+from typing import Optional
+
+# Correct imports: use the core.agent_sdk modules directly
+from core.agents.agent_sdk.bus_factory import get_bus
+from core.agents.agent_sdk.protocol import Topic
+
+# Initialize a shared bus instance
+bus = get_bus()
+
+# Minimal event shapes for the demo (engine uses getattr + dict conversion)
+@dataclass
+class MarketTick:
+    sku: str
+    our_price: float
+    competitor_price: Optional[float]
+    demand_index: float
+    ts: dt
+
+@dataclass
+class PriceProposal:
+    sku: str
+    proposed_price: float
+    cost: Optional[float] = None
+    margin: Optional[float] = None
+    # timezone-aware by default
+    ts: dt = field(default_factory=lambda: dt.now(timezone.utc))
+
+    def __post_init__(self):
+        if self.margin is None and self.cost is not None and self.proposed_price:
+            self.margin = (self.proposed_price - self.cost) / self.proposed_price
+        if self.margin is None:
+            self.margin = 0.0
+
+# Helpers to serialize if any consumer expects dict-like payloads
+def _to_dict(obj):
+    try:
+        return obj.model_dump()
+    except Exception:
+        pass
+    try:
+        return asdict(obj)
+    except Exception:
+        pass
+    return getattr(obj, "__dict__", {}) or {}
+
+async def simulate_undercut(
+    sku: str = "SKU-123",
+    our: float = 100.0,
+    comp: float = 98.0,
+    seconds: float = 30,
+    hz: float = 1.0,
+) -> None:
+    """
+    Competitor undercuts enough to satisfy rule:
+    tick.competitor_price * 1.02 < tick.our_price
+    98 * 1.02 = 99.96 < 100 -> True
+    """
+    loop = asyncio.get_running_loop()
+    end = loop.time() + float(seconds)
+    period = 1.0 / float(hz) if hz else 1.0
+    while loop.time() < end:
+        tick = MarketTick(
+            sku=sku,
+            our_price=our,
+            competitor_price=comp,
+            demand_index=0.50,
+            ts=dt.now(timezone.utc),
+        )
+        await bus.publish(Topic.MARKET_TICK.value, tick)
+        await asyncio.sleep(period)
+
+async def simulate_demand_spike(
+    sku: str = "SKU-123",
+    spike: float = 0.95,
+    seconds: float = 30,
+    hz: float = 1.0,
+) -> None:
+    """
+    Demand meets the seeded rule where="tick.demand_index >= 0.95".
+    """
+    loop = asyncio.get_running_loop()
+    end = loop.time() + float(seconds)
+    period = 1.0 / float(hz) if hz else 1.0
+    while loop.time() < end:
+        tick = MarketTick(
+            sku=sku,
+            our_price=100.0,
+            competitor_price=100.0,
+            demand_index=spike,
+            ts=dt.now(timezone.utc),
+        )
+        await bus.publish(Topic.MARKET_TICK.value, tick)
+        await asyncio.sleep(period)
+
+async def simulate_margin_breach(
+    sku: str = "SKU-123",
+    proposed: float = 90.0,
+    cost: float = 82.0,
+) -> None:
+    """
+    Violates where="pp.margin < 0.12".
+    margin = (90-82)/90 ≈ 0.089 < 0.12
+    """
+    pp = PriceProposal(sku=sku, proposed_price=proposed, cost=cost, ts=dt.now(timezone.utc))
+    await bus.publish(Topic.PRICE_PROPOSAL.value, pp)
+
+
+=== File: core\agents\user_interact\__init__.py ===
+
+
+=== File: core\agents\user_interact\user_interaction_agent.py ===
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import torch
+
+class UserInteractionAgent:
+    def __init__(self, user_name, model_name="gpt2"):
+        self.user_name = user_name
+        self.model_name = model_name
+
+        # Load tokenizer and model
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModelForCausalLM.from_pretrained(model_name)
+        # Use GPU if available
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device)
+
+    def get_response(self, message):
+        try:
+            # Encode input
+            inputs = self.tokenizer.encode(message + self.tokenizer.eos_token, return_tensors="pt").to(self.device)
+            # Generate output
+            outputs = self.model.generate(inputs, max_length=200, pad_token_id=self.tokenizer.eos_token_id)
+            # Decode
+            response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            return response
+        except Exception as e:
+            return f"Error: {e}"
+
+
+=== File: core\auth_db.py ===
+from pathlib import Path
+from sqlalchemy import (
+    create_engine, Column, Integer, String, Boolean, DateTime, func,
+    UniqueConstraint, ForeignKey
+)
+from sqlalchemy.orm import sessionmaker, declarative_base, relationship
+
+# DB at project root (parent of 'core')
+BASE_DIR = Path(__file__).resolve().parents[1]
+DB_PATH = (BASE_DIR / "auth.db").resolve()
+
+engine = create_engine(f"sqlite:///{DB_PATH}", future=True, echo=True)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+Base = declarative_base()
+
+
+class User(Base):
+    __tablename__ = "users"
+    __table_args__ = (UniqueConstraint("email", name="uq_users_email"),)
+
+    id = Column(Integer, primary_key=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    full_name = Column(String(255))
+    hashed_password = Column(String(512), nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    two_factor_enabled = Column(Boolean, default=False, nullable=False)  # ✅ Fixed
+    totp_secret = Column(String(64))
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    sessions = relationship("SessionToken", back_populates="user", cascade="all, delete-orphan")
+
+
+class SessionToken(Base):
+    __tablename__ = "session_tokens"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    token = Column(String(255), unique=True, index=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    revoked = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    user = relationship("User", back_populates="sessions")
+
+
+def init_db():
+    """Create tables if they don’t exist."""
+    Base.metadata.create_all(bind=engine)
+    print(f"Database created at {DB_PATH}")
+
+
+if __name__ == "__main__":
+    init_db()

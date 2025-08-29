@@ -1,16 +1,16 @@
 PROJECT BUNDLE SUMMARY
 ==================================================
 
-Creation Time: 20250829_165800
-Token Limit: 25,000
-Parts Created: 4
-Files Included: 69
-Files Skipped: 16356
+Creation Time: 20250829_181514
+Token Limit: 30,000
+Parts Created: 2
+Files Included: 67
+Files Skipped: 16357
 Errors: 0
 
 EXCLUDED DIRECTORIES:
 ------------------------------
-  .git: 186 files
+  .git: 188 files
   .venv: 16129 files
   __pycache__: 25 files
 
@@ -19,8 +19,8 @@ LARGE FILES IGNORED: 7
 
 IGNORED FILE EXTENSIONS:
 ------------------------------
-  .log: 3 files
   (no extension): 2 files
+  .log: 2 files
   .example: 1 files
   .db: 1 files
   .svg: 1 files
@@ -30,7 +30,5 @@ FILES INCLUDED:
 ------------------------------
   project_code_bundle_part1.txt
   project_code_bundle_part2.txt
-  project_code_bundle_part3.txt
-  project_code_bundle_part4.txt
 
 Log file: bundle_creation.log
