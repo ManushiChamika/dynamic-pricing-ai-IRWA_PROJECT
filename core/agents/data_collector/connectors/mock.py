@@ -1,15 +1,26 @@
-# core/agents/data_collector/connectors/mock.py
-from datetime import datetime, timezone
-from typing import Iterable, Dict, Any
+from __future__ import annotations
 
-def mock_ticks(sku: str = "SKU-123", market: str = "LK", n: int = 5) -> Iterable[Dict[str, Any]]:
+from datetime import datetime, timezone
+from typing import Dict, Any, Iterable
+
+
+def mock_ticks(
+    sku: str = "SKU-123",
+    market: str = "DEFAULT",
+    base_price: float = 100.0,
+    comp_price: float = 98.0,
+    demand: float = 0.5,
+    n: int = 5,
+) -> Iterable[Dict[str, Any]]:
     for i in range(n):
         yield {
             "sku": sku,
             "market": market,
-            "our_price": 100.0 + float(i),
-            "competitor_price": 98.0 + float(i),
-            "demand_index": 0.45 + i * 0.05,
+            "our_price": base_price,
+            "competitor_price": comp_price,
+            "demand_index": demand,
             "ts": datetime.now(timezone.utc).isoformat(),
             "source": "mock",
         }
+
+
