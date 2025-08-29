@@ -1,0 +1,1397 @@
+===== C:\Users\sithu\OneDrive\Desktop\IRWA agentic AI\dynamic-pricing-ai-IRWA_PROJECT\app\pages\0_Home.py =====
+from app.session_utils import COOKIE_NAME, cookie_mgr, ensure_session_from_cookie
+from core.auth_service import revoke_session_token
+import streamlit as st, pathlib
+
+# ————————————————————————————————————————————————————————————————
+# Page config
+# ————————————————————————————————————————————————————————————————
+st.set_page_config(
+    page_title="FluxPricer AI — Home",
+    page_icon="💹",
+    layout="wide",
+    menu_items={
+        "Get help": None,
+        "Report a bug": None,
+        "About": "FluxPricer AI — demo for coursework. Not for production use."
+    },
+)
+
+# ————————————————————————————————————————————————————————————————
+# Global Styles (Professional, Modern, Accessible)
+# ————————————————————————————————————————————————————————————————
+st.markdown(
+    """
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=Montserrat:wght@300;400;600;700&display=swap');
+
+  :root {
+    --primary: #4f46e5;      /* Indigo 600 */
+    --secondary: #7c3aed;    /* Violet 600 */
+    --accent1: #a78bfa;      /* Violet 400 */
+    --accent2: #e0e7ff;      /* Indigo 100 */
+    --dark: #111827;         /* Gray 900 */
+    --muted: #6b7280;        /* Gray 500 */
+    --light: #f9fafb;        /* Slate 50 */
+    --success: #16a34a;      /* Green 600 */
+    --warning: #f59e0b;      /* Amber 500 */
+    --danger: #ef4444;       /* Red 500 */
+    --info: #0ea5e9;         /* Sky 500 */
+    --card: #fff;
+    --border: #e5e7eb;
+    --shadow: 0 8px 24px rgba(0,0,0,0.08);
+  }
+
+  /* Base */
+  html, body, [class^="block-container"] {
+    font-family: 'Inter', 'Montserrat', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial;
+    background: linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);
+    color: var(--dark);
+  }
+
+  /* Container width */
+  section.main > div {
+    max-width: 1200px;
+    margin: auto;
+    padding-top: 1.5rem;
+  }
+
+  /* Hide default Streamlit header */
+  header[data-testid="stHeader"] { background: transparent; }
+
+  /* Smooth hover lift */
+  .lift { transition: transform .25s ease, box-shadow .25s ease; }
+  .lift:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
+
+  /* Hero */
+  .hero {
+    position: relative;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    border-radius: 24px;
+    padding: 3rem 2rem;
+    color: white;
+    text-align: center;
+    max-width: 1100px;
+    margin: auto;
+    box-shadow: 0 12px 40px rgba(79,70,229,0.25);
+  }
+  .hero h1{ font-size: 2.5rem; font-weight: 800; margin-bottom: .5rem; }
+  .hero p{ font-size: 1.125rem; opacity: .9; margin: 0 auto; max-width: 800px; }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+    transition: transform .25s ease, box-shadow .25s ease;
+  }
+  .card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+  .agent-card .icon{ font-size: 2rem; line-height: 1; color: white; background: linear-gradient(135deg, var(--primary), var(--secondary)); border-radius: 12px; width: 52px; height: 52px; display:flex; align-items:center; justify-content:center; margin-bottom: .75rem; }
+  .agent-card h4{ margin:.5rem 0; font-weight: 700; }
+  .agent-card p{ margin: 0; color: var(--muted); font-size: .925rem; }
+
+  /* Metrics */
+  .metric { text-align: center; }
+  .metric h3{ margin:.25rem 0 0; font-size: 1.75rem; font-weight:700; }
+  .kicker{ text-transform: uppercase; letter-spacing: .12em; font-size: .75rem; color: var(--muted); margin-bottom:.25rem; }
+
+  /* Buttons */
+  .stButton>button {
+    width: 100%; font-weight: 600; border-radius: 10px; border: 0; padding: .75rem 1rem;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: #fff; box-shadow: 0 8px 24px rgba(79,70,229,0.28);
+    transition: transform .2s ease, box-shadow .2s ease, opacity .2s ease;
+  }
+  .stButton>button:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(79,70,229,0.38); }
+  .stButton>button:active { transform: translateY(0); }
+
+  .btn-secondary>button { background: #fff; color: var(--primary); border: 2px solid var(--accent1); box-shadow: none; }
+  .btn-secondary>button:hover { background: #f5f3ff; }
+
+  .btn-danger>button { background: linear-gradient(135deg, var(--danger), #fb7185); box-shadow: 0 8px 24px rgba(239,68,68,.25); }
+
+  /* Modal */
+  .overlay { position: fixed; inset: 0; background: rgba(17,24,39,.55); z-index: 999; }
+  .modal { position: fixed; inset: 50% auto auto 50%; transform: translate(-50%, -50%); z-index: 1000; width: 420px; max-width: 92vw; }
+  .modal .content{ background: #fff; border-radius: 16px; padding: 1.5rem; box-shadow: 0 20px 50px rgba(0,0,0,.2); }
+
+  /* Footer */
+  .footer { text-align: center; color: var(--muted); border-top: 1px solid #e5e7eb; padding: 1.25rem 0 .5rem; font-size: .875rem; margin-top: 2rem; }
+
+  /* Utility */
+  .center { display:flex; align-items:center; justify-content:center; }
+  .mb-0{ margin-bottom:0; } .mb-2{ margin-bottom:.5rem; } .mb-3{ margin-bottom:1rem; } .mb-4{ margin-bottom:1.25rem; }
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+# ————————————————————————————————————————————————————————————————
+# Session bootstrap
+# ————————————————————————————————————————————————————————————————
+ensure_session_from_cookie("home")
+
+# ————————————————————————————————————————————————————————————————
+# HERO
+# ————————————————————————————————————————————————————————————————
+st.markdown('<div class="hero">', unsafe_allow_html=True)
+
+logo_path = pathlib.Path("assets/logo.svg")
+if logo_path.exists():
+    st.markdown('<div class="center mb-2">' + logo_path.read_text() + '</div>', unsafe_allow_html=True)
+else:
+    st.markdown('<h1 class="center mb-0">FluxPricer AI</h1>', unsafe_allow_html=True)
+
+# Main title
+st.markdown('<h1>Real-time Dynamic Pricing for Fashion & Accessories</h1>', unsafe_allow_html=True)
+
+# ✅ Show robot image (center + larger)
+robot_path = pathlib.Path("assets/robo.png")
+if robot_path.exists():
+    st.image(str(robot_path), width=560)
+
+
+# Subtitle
+st.markdown(
+    '<p style="margin-top:0.5rem; opacity:.9;">Multi-agent system delivering intelligent pricing decisions with real-time market adaptation</p>',
+    unsafe_allow_html=True
+)
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+
+# ————————————————————————————————————————————————————————————————
+# Agents Grid
+# ————————————————————————————————————————————————————————————————
+st.markdown("## 🤖 Our Intelligent Agent System")
+st.caption("Four specialized AI agents working in harmony to optimize your pricing strategy")
+
+c1, c2, c3, c4 = st.columns(4, gap="large")
+with c1:
+    st.markdown('<div class="card lift agent-card"><div class="icon">📊</div><h4>Market Data Collector</h4><p>Gathers and preprocesses competitor pricing, sales history, and external market signals in real time.</p></div>', unsafe_allow_html=True)
+with c2:
+    st.markdown('<div class="card lift agent-card"><div class="icon">🤖</div><h4>Price Optimizer</h4><p>ML models and constrained optimization converge on ideal prices across products and regions.</p></div>', unsafe_allow_html=True)
+with c3:
+    st.markdown('<div class="card lift agent-card"><div class="icon">🔔</div><h4>Alert Agent</h4><p>Monitors market shocks and notifies you of opportunities or risks instantly.</p></div>', unsafe_allow_html=True)
+with c4:
+    st.markdown('<div class="card lift agent-card"><div class="icon">👤</div><h4>User Interaction</h4><p>Intuitive dashboards, clear explanations of model decisions, and safe manual overrides.</p></div>', unsafe_allow_html=True)
+
+# ————————————————————————————————————————————————————————————————
+# Primary Actions
+# ————————————————————————————————————————————————————————————————
+st.markdown("##Get Started")
+a1, a2, a3 = st.columns(3, gap="large")
+
+if st.session_state.get("session"):
+    with a1:
+        st.markdown('<div class="card lift"><div class="kicker">Navigation</div>', unsafe_allow_html=True)
+        if st.button("Alerts & Notifications", key="btn_alerts"):
+            st.switch_page("pages/5_Alerts_and_Notifications.py")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with a2:
+        st.markdown('<div class="card lift"><div class="kicker">Account</div>', unsafe_allow_html=True)
+        if st.button("Profile", key="btn_profile"):
+            st.switch_page("pages/4_Profile.py")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with a3:
+        st.markdown('<div class="card lift"><div class="kicker">Session</div>', unsafe_allow_html=True)
+        st.markdown('<div class="stButton btn-danger">', unsafe_allow_html=True)
+        logout_clicked = st.button("Logout", key="logout_btn")
+        st.markdown('</div></div>', unsafe_allow_html=True)
+        if logout_clicked:
+            st.session_state["confirm_logout"] = True
+
+    # Logout confirmation modal
+    if st.session_state.get("confirm_logout"):
+        st.markdown('<div class="overlay"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="modal"><div class="content">', unsafe_allow_html=True)
+        st.warning("Are you sure you want to log out?")
+        mc1, mc2 = st.columns(2)
+        with mc1:
+            if st.button("✅ Yes, log out", key="logout_yes", use_container_width=True):
+                tok = st.session_state.get("session", {}).get("token")
+                if tok:
+                    try: revoke_session_token(tok)
+                    except Exception: pass
+                st.session_state.pop("session", None)
+                st.session_state["_skip_cookie_restore_once"] = True
+                st.session_state.pop("confirm_logout", None)
+                st.switch_page("pages/_logout.py")
+        with mc2:
+            st.markdown('<div class="stButton btn-secondary">', unsafe_allow_html=True)
+            if st.button("❌ Cancel", key="logout_cancel", use_container_width=True):
+                st.session_state.pop("confirm_logout", None)
+            st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div></div>', unsafe_allow_html=True)
+
+else:
+    with a1:
+        st.markdown('<div class="card lift"><div class="kicker">Welcome back</div>', unsafe_allow_html=True)
+        if st.button("🔑 Login", key="btn_login"):
+            st.switch_page("pages/1_Login.py")
+        st.markdown('</div>', unsafe_allow_html=True)
+    with a2:
+        st.markdown('<div class="card lift"><div class="kicker">New here?</div>', unsafe_allow_html=True)
+        st.markdown('<div class="stButton btn-secondary">', unsafe_allow_html=True)
+        if st.button("✨ Create Account", key="btn_register"):
+            st.switch_page("pages/2_Register.py")
+        st.markdown('</div></div>', unsafe_allow_html=True)
+    a3.write("")
+
+# ————————————————————————————————————————————————————————————————
+# Status Summary
+# ————————————————————————————————————————————————————————————————
+st.divider()
+
+s1, s2, s3 = st.columns(3, gap="large")
+
+auth_state = "Logged in" if st.session_state.get("session") else "Guest"
+status_color = "var(--success)" if st.session_state.get("session") else "var(--warning)"
+
+with s1:
+    st.markdown(f'<div class="card metric lift"><div class="kicker">Auth Status</div><h3 style="color:{status_color}">{auth_state}</h3></div>', unsafe_allow_html=True)
+with s2:
+    st.markdown('<div class="card metric lift"><div class="kicker">Active Agents</div><h3 style="color: var(--info)">4</h3></div>', unsafe_allow_html=True)
+with s3:
+    st.markdown('<div class="card metric lift"><div class="kicker">Monitoring</div><h3 style="color: var(--primary)">24/7</h3></div>', unsafe_allow_html=True)
+
+# ————————————————————————————————————————————————————————————————
+# Footer
+# ————————————————————————————————————————————————————————————————
+st.markdown('<div class="footer">FluxPricer AI © — demo for coursework. Not for production use.</div>', unsafe_allow_html=True)
+
+
+===== C:\Users\sithu\OneDrive\Desktop\IRWA agentic AI\dynamic-pricing-ai-IRWA_PROJECT\app\pages\1_Login.py =====
+# app/pages/1_Login.py
+# --- path bootstrap ---
+import sys, pathlib
+HERE = pathlib.Path(__file__).resolve()
+ROOT = next(p for p in [HERE, *HERE.parents] if (p / "core").exists())
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+# ----------------------
+
+import streamlit as st
+from datetime import datetime, timedelta, timezone
+
+from core.auth_db import init_db
+from core.auth_service import authenticate, create_persistent_session
+from app.session_utils import ensure_session_from_cookie, COOKIE_NAME, cookie_mgr
+
+
+
+# 1) FIRST Streamlit call
+st.set_page_config(page_title="Login — FluxPricer AI", page_icon="🔐", layout="centered")
+
+# 2) Init DB and let ensure_session_from_cookie() be the ONLY place that mounts CookieManager
+init_db()
+ensure_session_from_cookie()  # mounts component, handles first-pass None/{} and sets session if cookie valid
+
+# 3) If we were waiting for cookie commit from the previous submit:
+if st.session_state.get("_await_cookie_commit"):
+    if st.session_state.get("session"):
+        # cookie was read & validated by ensure_session_from_cookie()
+        st.session_state.pop("_await_cookie_commit", None)
+        st.session_state["_post_login_redirect_ready"] = True
+        st.rerun()
+    else:
+        st.info("Still finalizing sign-in…")
+        st.stop()
+
+# 4) Redirects
+if st.session_state.get("_post_login_redirect_ready"):
+    st.session_state.pop("_post_login_redirect_ready", None)
+    st.switch_page("pages/dashboard.py")
+
+if st.session_state.get("session"):
+    st.switch_page("pages/dashboard.py")
+
+
+# 5) UI
+st.title("🔐 Login")
+with st.form("login_form", clear_on_submit=False):
+    email = st.text_input("Email", placeholder="you@example.com")
+    password = st.text_input("Password", type="password")
+    submitted = st.form_submit_button("Login")
+
+# 6) Handle submit
+if submitted:
+    email_norm = (email or "").strip().lower()
+    pw = (password or "").strip()
+
+    if not email_norm or not pw:
+        st.error("Email and password are required.")
+    else:
+        try:
+            # 2FA removed: only email & password
+            session = authenticate(email=email_norm, password=pw)
+            st.session_state["session"] = session
+
+            # Create server-side token
+            token, _ = create_persistent_session(session["user_id"])
+
+            # Set the cookie using the ONE CookieManager instance
+            cm = cookie_mgr()  # singleton
+            expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+            cm.set(
+                COOKIE_NAME,
+                token,
+                expires_at=expires_at,   # if your stx version doesn't support expires_at, switch to expires=expires_at
+                max_age=7*24*60*60,
+                path="/",
+                same_site="Lax",
+                # secure=True,  # enable on HTTPS in prod
+            )
+
+            # Allow this render to complete so browser commits the cookie.
+            st.session_state["_await_cookie_commit"] = True
+            st.success("Welcome! Finalizing sign-in…")
+            st.stop()
+        except Exception as e:
+            st.error(str(e))
+
+
+===== C:\Users\sithu\OneDrive\Desktop\IRWA agentic AI\dynamic-pricing-ai-IRWA_PROJECT\app\pages\2_Register.py =====
+# --- path bootstrap ---
+import sys, pathlib
+HERE = pathlib.Path(__file__).resolve()
+ROOT = next(p for p in [HERE, *HERE.parents] if (p / "core").exists())
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+# ----------------------
+
+import streamlit as st
+from datetime import timedelta  # (not required, just here if you later add auto-login)
+st.set_page_config(page_title="Register — FluxPricer AI", page_icon="🪪", layout="centered")
+
+from core.auth_db import init_db
+from core.auth_service import RegisterIn, register_user
+from app.session_utils import ensure_session_from_cookie
+
+# Init + cookie-based session restore
+init_db()
+ensure_session_from_cookie()
+
+# Already logged in? Go home.
+if st.session_state.get("session"):
+    st.switch_page("pages/0_Home.py")
+    st.stop()
+
+st.title("🪪 Create Account")
+with st.form("register_form", clear_on_submit=False):
+    email = st.text_input("Email", placeholder="you@example.com")
+    full_name = st.text_input("Full name (optional)")
+    password = st.text_input("Password (≥10 chars)", type="password")
+    submitted = st.form_submit_button("Register")
+
+if submitted:
+    email_norm = (email or "").strip().lower()
+    full_name_norm = (full_name or "").strip() or None
+    pw = (password or "").strip()
+
+    # Quick client-side checks (server will re-validate anyway)
+    if not email_norm:
+        st.error("Email is required.")
+    elif len(pw) < 10:
+        st.error("Password must be at least 10 characters.")
+    else:
+        try:
+            register_user(RegisterIn(
+                email=email_norm,
+                full_name=full_name_norm,
+                password=pw,
+            ))
+            st.success("Account created. Please log in.")
+            st.switch_page("pages/1_Login.py")
+            st.stop()
+        except Exception as e:
+            # Pass through the nice messages from register_user (email exists, invalid email, etc.)
+            st.error(str(e))
+
+
+===== C:\Users\sithu\OneDrive\Desktop\IRWA agentic AI\dynamic-pricing-ai-IRWA_PROJECT\app\pages\4_Profile.py =====
+# --- path bootstrap ---
+import sys, pathlib
+HERE = pathlib.Path(__file__).resolve()
+ROOT = next(p for p in [HERE, *HERE.parents] if (p / "core").exists())
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+# ----------------------
+
+import streamlit as st
+st.set_page_config(page_title="Profile — FluxPricer AI", page_icon="👤", layout="centered")
+
+from core.auth_service import get_profile
+from app.session_utils import ensure_session_from_cookie
+
+# Restore session from cookie on refresh
+ensure_session_from_cookie()
+
+# ---- auth guard ----
+session = st.session_state.get("session")
+if not session:
+    st.warning("Please login first.")
+    st.stop()
+
+# ---- simple CSS ----
+st.markdown("""
+<style>
+.page-wrap {max-width: 820px; margin: 0 auto;}
+.card {
+  background:#111827; border:1px solid #1f2937; border-radius:16px; padding:18px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.25);
+}
+.kv {display:flex; gap:8px; align-items:center; margin:6px 0;}
+.kv label {width:140px; color:#9ca3af;}
+</style>
+""", unsafe_allow_html=True)
+
+# ---- load profile ----
+try:
+    prof = get_profile(session["user_id"])
+except Exception as e:
+    st.error(f"Could not load profile: {e}")
+    st.stop()
+
+st.markdown("<div class='page-wrap'>", unsafe_allow_html=True)
+
+st.markdown(f"""
+<div class="card">
+  <div class="kv"><label>User ID</label><div>{prof.get("id","-")}</div></div>
+  <div class="kv"><label>Email</label><div>{prof.get("email","-")}</div></div>
+  <div class="kv"><label>Name</label><div>{prof.get("full_name") or "-"}</div></div>
+</div>
+""", unsafe_allow_html=True)
+
+# Actions row
+c1, c2 = st.columns([1, 1])
+
+with c2:
+    if st.button("Back to Home", key="btn_back_home"):
+        st.switch_page("pages/0_Home.py")
+
+
+===== C:\Users\sithu\OneDrive\Desktop\IRWA agentic AI\dynamic-pricing-ai-IRWA_PROJECT\app\pages\5_Alerts_and_Notifications.py =====
+# app/pages/5_Alerts_and_Notifications.py
+# --- path bootstrap ---
+import sys, pathlib
+HERE = pathlib.Path(__file__).resolve()
+ROOT = next(p for p in [HERE, *HERE.parents] if (p / "core").exists())
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+# ----------------------
+
+import asyncio, streamlit as st
+from typing import List
+st.set_page_config(page_title="Alerts — FluxPricer AI", page_icon="🔔", layout="wide")
+
+from core.bus import bus
+from core.protocol import Topic
+from core.models import AlertEvent
+from core.agents.alert_notifier import AlertNotifier, Thresholds
+from core.agents.market_collector import run_market_collector as _mc
+from core.agents.pricing_optimizer import run_pricing_optimizer as _po
+from app.session_utils import ensure_session_from_cookie
+
+ensure_session_from_cookie()
+
+if not st.session_state.get("session"):
+    st.warning("Please login first."); st.stop()
+
+st.title("🔔 Alerts & Notifications")
+with st.sidebar:
+    st.header("Thresholds")
+    undercut = st.slider("Competitor undercut ≥", 0.0, 0.20, 0.01, 0.005)
+    demand = st.slider("Demand spike ≥", 0.0, 1.0, 0.80, 0.01)
+    margin = st.slider("Min margin ≥", 0.0, 0.50, 0.10, 0.01)
+
+    st.header("Channels")
+    ch_ui = st.checkbox("UI stream", True)
+    ch_slack = st.checkbox("Slack stub", False)
+    ch_email = st.checkbox("Email stub", False)
+
+    start_btn = st.button("Start Agents")
+    stop_btn = st.button("Stop Agents")
+
+log = st.empty()
+status = st.empty()
+
+# sinks
+async def ui_sink(a: AlertEvent):
+    lines: List[str] = st.session_state.setdefault("alert_lines", [])
+    lines.append(f"[{a.ts:%H:%M:%S}] {a.kind} {a.sku} — {a.message} [{a.severity}]")
+    st.session_state["alert_lines"] = lines[-200:]
+    log.code("\n".join(st.session_state["alert_lines"]))
+
+async def slack_stub(a: AlertEvent):
+    print(f"[SLACK] #{'pricing-alerts'}: {a.kind} {a.sku} — {a.message} [{a.severity}]")
+
+async def email_stub(a: AlertEvent):
+    print(f"[EMAIL] ops@fluxpricer.ai: {a.kind} {a.sku} — {a.message} [{a.severity}]")
+
+# ✅ subscribe only once per session to avoid duplicate alerts on rerun
+if not st.session_state.get("_alert_ui_sink_subscribed"):
+    bus.subscribe(Topic.ALERT.value, ui_sink)
+    st.session_state["_alert_ui_sink_subscribed"] = True
+
+async def start_agents():
+    if st.session_state.get("agents_running"):
+        return
+    sinks = ([ui_sink] if ch_ui else []) + ([slack_stub] if ch_slack else []) + ([email_stub] if ch_email else [])
+    notifier = AlertNotifier(Thresholds(undercut, demand, margin), sinks=sinks)
+    await notifier.start()
+    asyncio.create_task(_po())
+    asyncio.create_task(_mc("SKU-123"))
+    st.session_state["agents_running"] = True
+    status.success("Agents running — watch alerts below.")
+
+async def stop_agents():
+    st.session_state["agents_running"] = False
+    status.info("Agents stop signal sent (demo uses simple tasks).")
+
+if start_btn:
+    asyncio.get_event_loop().create_task(start_agents())
+if stop_btn:
+    asyncio.get_event_loop().create_task(stop_agents())
+
+log.code("\n".join(st.session_state.get("alert_lines", [])) or "# Alerts will appear here...")
+
+
+===== C:\Users\sithu\OneDrive\Desktop\IRWA agentic AI\dynamic-pricing-ai-IRWA_PROJECT\app\pages\dashboard.py =====
+# app/pages/dashboard.py
+
+import streamlit as st
+import plotly.express as px
+import pandas as pd
+import random
+
+# ---- 1) Set page config first ----
+st.set_page_config(page_title="Dynamic Pricing Dashboard", page_icon="📊", layout="wide")
+
+# ====== 2) Custom CSS for Light Blue Theme ======
+st.markdown(
+    """
+    <style>
+    .stApp { background-color: #a6bdde; color: #000000; }
+    .stMetric { background-color: #7da3c3; border-radius: 10px; padding: 10px; color: #000000; }
+    .css-1lcbmhc.e1fqkh3o3 { background-color: #a6bdde; color: #000000; }
+    .stSidebar { background-color: #7da3c3; color: #000000; }
+    .stChatMessage { background-color: #6b92b1; color: #000000; border-radius: 10px; padding: 5px; }
+    .stTextInput > div > div > input { background-color: #a6bdde; color: #000000; border: 1px solid #000000; }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# ====== 3) AI Agent Simulation / Retrieval ======
+def get_dynamic_pricing_data():
+    products = ["A", "B", "C", "D", "E"]
+    data = []
+    for p in products:
+        price = random.randint(100, 200)
+        demand = random.randint(150, 500)
+        data.append({"Product": p, "Price": price, "Demand": demand})
+    return pd.DataFrame(data)
+
+def get_demand_trend():
+    return pd.DataFrame({
+        "Date": pd.date_range(start="2025-01-01", periods=12, freq="M"),
+        "Demand": [random.randint(200, 400) for _ in range(12)]
+    })
+
+def ai_chat_response(user_input):
+    if "price" in user_input.lower():
+        return "💡 The AI suggests adjusting prices based on demand trends to maximize profit."
+    elif "demand" in user_input.lower():
+        return "📊 Current demand is rising. AI recommends monitoring seasonal patterns."
+    elif "hello" in user_input.lower():
+        return "👋 Hello! I’m your Dynamic Pricing Assistant. Ask me about sales, demand, or prices."
+    else:
+        return "🤖 Sorry, I didn’t understand. Try asking about **price**, **demand**, or **sales**."
+
+# ====== 4) SESSION CHECK ======
+if "session" not in st.session_state or st.session_state["session"] is None:
+    st.warning("⚠️ You must log in first!")
+    st.stop()
+
+user_session = st.session_state["session"]
+user_name = user_session.get("full_name", "User")
+
+# ====== 5) DASHBOARD HEADER ======
+st.markdown(f"<h2 style='color:#000000;'>👋 Welcome back, <b>{user_name}</b></h2>", unsafe_allow_html=True)
+
+# ====== 6) Metrics Section ======
+st.subheader("📈 Key Business Metrics")
+df = get_dynamic_pricing_data()
+col1, col2, col3 = st.columns(3)
+col1.metric(label="💰 Total Sales", value=f"${df['Price'].sum() * 1000:,}", delta="+5%")
+col2.metric(label="💵 Avg. Price", value=f"${df['Price'].mean():.2f}", delta="-2%")
+col3.metric(label="📦 Units Sold", value=f"{df['Demand'].sum():,}", delta="+8%")
+st.markdown("---")
+
+# ====== 7) Tabs for Charts & AI Chat ======
+tab1, tab2 = st.tabs(["📊 Charts", "💬 AI Chat Assistant"])
+
+with tab1:
+    st.subheader("💡 AI Prediction: Price vs Demand")
+    fig = px.scatter(
+        df, x="Price", y="Demand", size="Demand", color="Product",
+        hover_name="Product",
+        template="plotly_white",
+        width=900, height=500
+    )
+    fig.update_layout(
+        plot_bgcolor="#5896ed",
+        paper_bgcolor="#5896ed",
+        font_color="#000000",
+        xaxis=dict(gridcolor="#a6bdde", title_font_color="#000000", tickfont_color="#000000"),
+        yaxis=dict(gridcolor="#a6bdde", title_font_color="#000000", tickfont_color="#000000"),
+        legend=dict(font_color="#000000")
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.subheader("📈 AI Forecast: Demand Over Time")
+    trend_df = get_demand_trend()
+    fig2 = px.line(
+        trend_df, x="Date", y="Demand", markers=True,
+        template="plotly_white",
+        width=900, height=400
+    )
+    fig2.update_traces(line=dict(color="#FFFFFF"))  # Line color white
+    fig2.update_layout(
+        plot_bgcolor="#5896ed",
+        paper_bgcolor="#5896ed",
+        font_color="#000000",
+        xaxis=dict(gridcolor="#a6bdde", title_font_color="#000000", tickfont_color="#000000"),
+        yaxis=dict(gridcolor="#a6bdde", title_font_color="#000000", tickfont_color="#000000")
+    )
+    st.plotly_chart(fig2, use_container_width=True)
+
+with tab2:
+    if "chat_history" not in st.session_state:
+        st.session_state["chat_history"] = []
+
+    for chat in st.session_state["chat_history"]:
+        with st.chat_message(chat["role"]):
+            st.markdown(chat["content"])
+
+    if user_input := st.chat_input("Ask me about pricing, demand, or sales..."):
+        st.session_state["chat_history"].append({"role": "user", "content": user_input})
+        with st.chat_message("user"):
+            st.markdown(user_input)
+
+        response = ai_chat_response(user_input)
+        st.session_state["chat_history"].append({"role": "assistant", "content": response})
+        with st.chat_message("assistant"):
+            st.markdown(response)
+
+# ====== 8) Sidebar ======
+st.sidebar.title("⚙️ Menu")
+st.sidebar.subheader("👤 User Info")
+st.sidebar.info(f"**Name:** {user_name}\n**Email:** {user_session.get('email')}")
+
+if st.sidebar.button("🚪 Logout"):
+    st.session_state["session"] = None
+    st.success("You have been logged out. Please refresh or go back to login.")
+    st.stop()
+
+
+===== C:\Users\sithu\OneDrive\Desktop\IRWA agentic AI\dynamic-pricing-ai-IRWA_PROJECT\app\pages\_logout.py =====
+# app/pages/_logout.py
+import streamlit as st
+from app.session_utils import ensure_session_from_cookie, cookie_mgr, clear_session_cookie
+from core.auth_service import revoke_session_token
+
+st.set_page_config(page_title="Logout — FluxPricer AI", page_icon="👋", layout="centered")
+
+# Restore from cookie if present
+ensure_session_from_cookie("logout")
+
+# Mount CookieManager so its JS can clear cookies on this page
+cm = cookie_mgr()
+
+st.header("Log out")
+st.write("Are you sure you want to log out?")
+
+col1, col2 = st.columns([1, 1])
+
+with col1:
+    if st.button("✅ Yes, log out", key="logout_yes"):
+        session = st.session_state.get("session")
+
+        if session:
+            # Revoke server-side (best effort)
+            tok = session.get("token")
+            if tok:
+                try:
+                    revoke_session_token(tok)
+                except Exception:
+                    pass
+
+            # Prevent immediate cookie-based restore and drop in-memory session
+            st.session_state.pop("session", None)
+            st.session_state["_skip_cookie_restore_once"] = True
+
+            # Clear the browser cookie (expires_at + max_age=0 + delete with exact attrs)
+            clear_session_cookie()
+
+            st.success("You’ve been logged out.")
+            st.caption("Cookie cleared. Redirecting…")
+            st.markdown('<meta http-equiv="refresh" content="1.2;url=/">', unsafe_allow_html=True)
+        else:
+            # Not logged in → send user to Login with a message
+            st.session_state["flash_info"] = "Please log in first."
+            st.switch_page("pages/1_Login.py")
+
+with col2:
+    if st.button("❌ Cancel", key="logout_cancel"):
+        # If logged in, go home; else go to Login
+        if st.session_state.get("session"):
+            st.switch_page("pages/0_Home.py")
+        else:
+            st.switch_page("pages/1_Login.py")
+
+
+===== C:\Users\sithu\OneDrive\Desktop\IRWA agentic AI\dynamic-pricing-ai-IRWA_PROJECT\app\session_utils.py =====
+# app/session_utils.py
+import streamlit as st
+import extra_streamlit_components as stx
+from datetime import datetime, timedelta, timezone
+from core.auth_service import validate_session_token
+
+COOKIE_NAME = "fp_session"
+
+# Must match how the cookie is created (your row shows Lax, secure False, no domain, path "/")
+COOKIE_ATTRS = {
+    "path": "/",          # required
+    "samesite": "Lax",    # exactly as created
+    "secure": False,      # exactly as created (True only on HTTPS prod if you used it)
+    # DO NOT set "domain" for localhost (browsers ignore/forbid it)
+}
+
+def cookie_mgr() -> stx.CookieManager:
+    if "_cookie_mgr" not in st.session_state:
+        # one instance per Streamlit session; reuse everywhere
+        st.session_state["_cookie_mgr"] = stx.CookieManager(key="cookie-manager")
+    return st.session_state["_cookie_mgr"]
+
+def set_session_cookie(token: str) -> None:
+    cm = cookie_mgr()
+    cm.set(COOKIE_NAME, token, key="set_session_cookie", **COOKIE_ATTRS)
+
+def clear_session_cookie() -> None:
+    """
+    Clear fp_session using the same attributes it was created with.
+    We do: expires_at in the past, max_age=0, and delete — all three,
+    plus a hostOnly 'no-attrs' pass for older browsers.
+    """
+    cm = cookie_mgr()
+
+    # 1) expire in the past (UTC)
+    past = datetime.now(timezone.utc) - timedelta(days=1)
+    try:
+        cm.set(COOKIE_NAME, "", expires_at=past, key="expire_cookie", **COOKIE_ATTRS)
+    except TypeError:
+        cm.set(COOKIE_NAME, "", expires_at=past, key="expire_cookie")
+
+    # 2) set max_age=0
+    try:
+        cm.set(COOKIE_NAME, "", max_age=0, key="maxage_cookie", **COOKIE_ATTRS)
+    except TypeError:
+        cm.set(COOKIE_NAME, "", max_age=0, key="maxage_cookie")
+
+    # 3) explicit delete with matching attrs
+    try:
+        cm.delete(COOKIE_NAME, key="delete_cookie", **COOKIE_ATTRS)
+    except TypeError:
+        cm.delete(COOKIE_NAME)
+
+    # 4) (defensive) hostOnly delete with *no attrs* — useful on localhost
+    try:
+        cm.delete(COOKIE_NAME, key="delete_cookie_hostonly")
+    except Exception:
+        pass
+
+def ensure_session_from_cookie(page_key: str = "root") -> None:
+    if st.session_state.pop("_skip_cookie_restore_once", False):
+        return
+    if st.session_state.get("session"):
+        return
+
+    cm = cookie_mgr()
+    cookies = cm.get_all(key=f"get_all_{page_key}")
+    if cookies is None:
+        st.stop()
+
+    token = cookies.get(COOKIE_NAME)
+    if not token:
+        return
+
+    try:
+        sess = validate_session_token(token)
+    except Exception:
+        sess = None
+
+    if sess:
+        st.session_state["session"] = sess
+
+
+===== C:\Users\sithu\OneDrive\Desktop\IRWA agentic AI\dynamic-pricing-ai-IRWA_PROJECT\app\streamlit_app.py =====
+# 1) Safe: sys.path bootstrap BEFORE any Streamlit calls
+import sys, pathlib
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+# 2) First Streamlit call must be set_page_config
+import streamlit as st
+st.set_page_config(page_title="FluxPricer AI", page_icon="💹", layout="wide")
+
+# --- Hide default "streamlit app" text in sidebar ---
+st.markdown("""
+    <style>
+        [data-testid="stSidebarNav"] > div:first-child {
+            display: none;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- (Optional) Add your own sidebar branding ---
+with st.sidebar:
+    st.markdown("### FluxPricer AI")
+
+# 3) Now it's safe to import/call helpers that render components
+from app.session_utils import ensure_session_from_cookie
+ensure_session_from_cookie()
+
+# 4) Optional: init session dict and route to Home
+st.session_state.setdefault("session", None)
+st.switch_page("pages/0_Home.py")
+
+
+===== C:\Users\sithu\OneDrive\Desktop\IRWA agentic AI\dynamic-pricing-ai-IRWA_PROJECT\app\_cookies.py =====
+# app/_cookies.py
+import streamlit as st
+import extra_streamlit_components as stx
+
+COOKIE_NAME = "fp_session"
+
+def get_cookie_manager():
+    if "cookie_manager" not in st.session_state:
+        # Create ONE component instance and reuse it
+        st.session_state["cookie_manager"] = stx.CookieManager(key="cookie-manager")
+    return st.session_state["cookie_manager"]
+
+
+===== C:\Users\sithu\OneDrive\Desktop\IRWA agentic AI\dynamic-pricing-ai-IRWA_PROJECT\core\agents\alert_notifier.py =====
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Awaitable, Callable, List, Optional
+from ..bus import bus
+from ..protocol import Topic
+from ..models import MarketTick, PriceProposal, AlertEvent
+
+@dataclass
+class Thresholds:
+    undercut_delta: float = 0.01
+    demand_spike: float = 0.80
+    min_margin: float = 0.10
+
+class AlertNotifier:
+    name = "alert_notifier"
+    def __init__(self, thresholds: Thresholds | None = None,
+                 sinks: Optional[List[Callable[[AlertEvent], Awaitable[None]]]] = None):
+        self.thresholds = thresholds or Thresholds()
+        self.sinks = sinks or []
+
+    async def start(self):
+        async def on_tick(tick: MarketTick):
+            t = self.thresholds
+            if tick.competitor_price and tick.competitor_price * (1 + t.undercut_delta) < tick.our_price:
+                await self._emit("UNDERCUT", f"Competitor {tick.competitor_price} < our {tick.our_price}", "warn", tick.sku)
+            if tick.demand_index >= t.demand_spike:
+                await self._emit("DEMAND_SPIKE", f"Demand spike index={tick.demand_index}", "info", tick.sku)
+        async def on_prop(pp: PriceProposal):
+            if pp.margin < self.thresholds.min_margin:
+                await self._emit("MARGIN_BREACH", f"Proposed {pp.proposed_price} margin {pp.margin:.2%}", "crit", pp.sku)
+
+        bus.subscribe(Topic.MARKET_TICK.value, on_tick)
+        bus.subscribe(Topic.PRICE_PROPOSAL.value, on_prop)
+
+    async def _emit(self, kind, message, severity, sku):
+        alert = AlertEvent(sku=sku, kind=kind, message=message, severity=severity, ts=datetime.utcnow())
+        await bus.publish(Topic.ALERT.value, alert)
+        for s in self.sinks: await s(alert)
+
+
+===== C:\Users\sithu\OneDrive\Desktop\IRWA agentic AI\dynamic-pricing-ai-IRWA_PROJECT\core\agents\market_collector.py =====
+
+
+===== C:\Users\sithu\OneDrive\Desktop\IRWA agentic AI\dynamic-pricing-ai-IRWA_PROJECT\core\agents\policy_guard.py =====
+
+
+===== C:\Users\sithu\OneDrive\Desktop\IRWA agentic AI\dynamic-pricing-ai-IRWA_PROJECT\core\agents\pricing_optimizer.py =====
+# core/agents/pricing_optimizer.py
+
+import os
+import sqlite3
+import time
+import importlib
+from datetime import datetime, timedelta
+from pathlib import Path
+
+
+# Load .env from project root if present (simple loader, no extra deps)
+def _load_dotenv_if_present():
+	# If key already present, skip
+	if os.getenv("OPENAI_API_KEY"):
+		return
+	# Project root is two parents up from this file (core/agents/...)
+	root = Path(__file__).resolve().parents[2]
+	env_path = root / ".env"
+	if not env_path.exists():
+		return
+	try:
+		with env_path.open("r", encoding="utf-8") as f:
+			for line in f:
+				line = line.strip()
+				if not line or line.startswith("#"):
+					continue
+				if "=" not in line:
+					continue
+				k, v = line.split("=", 1)
+				k = k.strip()
+				v = v.strip().strip('"').strip("'")
+				if k and not os.getenv(k):
+					os.environ[k] = v
+	except Exception:
+		pass
+
+
+# attempt to load .env early
+_load_dotenv_if_present()
+
+# --- Step 1: Tools (algorithms) ---
+
+def rule_based(records):
+	"""
+	Simple rule-based algorithm:
+	- Takes competitor prices
+	- Returns average competitor price minus 2%
+	"""
+	prices = [r[0] for r in records]
+	if not prices:
+		return None
+	avg = sum(prices) / len(prices)
+	return round(avg * 0.98, 2)
+
+
+def ml_model(records):
+	"""
+	Placeholder ML model:
+	- Currently just returns average competitor price
+	- Later can be replaced with regression/ML
+	"""
+	prices = [r[0] for r in records]
+	if not prices:
+		return None
+	return round(sum(prices) / len(prices), 2)
+
+
+def profit_maximization(records):
+	"""
+	Profit-maximization strategy:
+	- Takes competitor prices
+	- Returns average competitor price with +10% markup
+	"""
+	prices = [r[0] for r in records]
+	if not prices:
+		return None
+	avg = sum(prices) / len(prices)
+	return round(avg * 1.10, 2)
+
+
+# Toolbox mapping (dictionary of available tools)
+TOOLS = {
+	"rule_based": rule_based,
+	"ml_model": ml_model,
+	"profit_maximization": profit_maximization,
+}
+
+
+# --- Step 2: LLM Brain ---
+
+class LLMBrain:
+	"""
+	The LLM acts as the 'brain' of the Pricing Optimizer Agent.
+	It decides which tool/algorithm to use based on user intent and data context.
+	"""
+
+	def __init__(self, api_key: str | None = None, base_url: str | None = None, model: str | None = None):
+		# Try to import OpenAI dynamically. If not available, fall back to None
+		# Prefer explicitly passed api_key, else try OPENROUTER_API_KEY then OPENAI_API_KEY
+		api_key = api_key or os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
+		base_url = base_url or os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1"
+		self.model = model or os.getenv("OPENROUTER_MODEL") or os.getenv("OPENAI_MODEL") or "z-ai/glm-4.5-air:free"
+		self.client = None
+		if api_key:
+			try:
+				openai_mod = importlib.import_module("openai")
+				# client construction depends on library; support passing base_url for OpenRouter
+				try:
+					# Newer OpenAI SDK accepts base_url and api_key in constructor
+					self.client = openai_mod.OpenAI(api_key=api_key, base_url=base_url)
+				except Exception:
+					# Fallback: set module-level api_key and optionally base_url
+					try:
+						openai_mod.api_key = api_key
+					except Exception:
+						pass
+					try:
+						openai_mod.base_url = base_url
+					except Exception:
+						pass
+					self.client = openai_mod
+			except ModuleNotFoundError:
+				print("⚠️ openai package not installed; LLMBrain will use deterministic fallback")
+		else:
+			print("⚠️ No OpenRouter/OpenAI API key set; LLMBrain will use deterministic fallback")
+
+	def decide_tool(self, user_intent, n_records):
+		"""
+		Ask the LLM which tool to use.
+		"""
+		prompt = f"""
+		You are the brain of a Pricing Optimizer Agent.
+		User intent: {user_intent}
+		Number of competitor records: {n_records}
+
+		Available tools:
+		- rule_based: use average competitor price - 2%
+		- ml_model: use machine learning for large datasets
+		- profit_maximization: maximize profit with markup
+
+		Decide the best tool. Answer with only one word:
+		rule_based, ml_model, or profit_maximization.
+		"""
+		try:
+			# If no client, use deterministic rule: prefer ml_model for large n, profit if intent contains profit
+			if not self.client:
+				intent = (user_intent or "").lower()
+				if "profit" in intent or "maximize" in intent:
+					return "profit_maximization"
+				if n_records >= 50:
+					return "ml_model"
+				return "rule_based"
+
+			resp = self.client.chat.completions.create(
+				model=self.model,
+				messages=[{"role": "user", "content": prompt}],
+				max_tokens=5,
+				temperature=0.0,
+			)
+			choice = resp.choices[0].message.content.strip().lower()
+			return choice if choice in TOOLS else "rule_based"
+		except Exception as e:
+			print("❌ LLM error:", e)
+			return "rule_based"
+
+
+# --- Step 3: Pricing Optimizer Agent ---
+
+class PricingOptimizerAgent:
+	def __init__(self, db_path="market.db", api_key: str | None = None):
+		self.conn = sqlite3.connect(db_path, check_same_thread=False)
+		self.cursor = self.conn.cursor()
+		self.brain = LLMBrain(api_key=api_key)
+
+	def fetch_market_data(self, product_name):
+		self.cursor.execute(
+			"SELECT price, update_time FROM market_data WHERE product_name=?",
+			(product_name,),
+		)
+		return self.cursor.fetchall()
+
+	def is_data_stale(self, records):
+		if not records:
+			return True
+		latest_time = max([datetime.fromisoformat(r[1]) for r in records])
+		return (datetime.now() - latest_time) > timedelta(hours=24)
+
+	def update_pricing_list(self, product_name, price, algo):
+		self.cursor.execute(
+			"""
+			INSERT INTO pricing_list (product_name, optimized_price, last_update, reason)
+			VALUES (?, ?, CURRENT_TIMESTAMP, ?)
+			""",
+			(product_name, price, f"optimized using {algo}"),
+		)
+		self.conn.commit()
+
+	def run_once(self, product_name, user_intent="competitive pricing"):
+		records = self.fetch_market_data(product_name)
+
+		if self.is_data_stale(records):
+			print(f"⚠️ Data for {product_name} is stale. Request Market Data Collector.")
+			return None
+
+		# LLM decides which tool to use
+		algo = self.brain.decide_tool(user_intent, len(records))
+		print(f"🧠 LLM chose: {algo}")
+
+		# Run the chosen tool
+		price = TOOLS[algo](records)
+		if price:
+			self.update_pricing_list(product_name, price, algo)
+			print(f"✅ Optimized {product_name}: {price} (via {algo})")
+			# TODO: Notify Alert Agent
+		return price
+
+
+# --- Example run loop ---
+if __name__ == "__main__":
+	agent = PricingOptimizerAgent()
+	while True:
+		agent.run_once("iphone15", user_intent="maximize profit")
+		time.sleep(30)
+
+
+
+
+===== C:\Users\sithu\OneDrive\Desktop\IRWA agentic AI\dynamic-pricing-ai-IRWA_PROJECT\core\agents\__init__.py =====
+
+
+===== C:\Users\sithu\OneDrive\Desktop\IRWA agentic AI\dynamic-pricing-ai-IRWA_PROJECT\core\auth_db.py =====
+from pathlib import Path
+from sqlalchemy import (
+    create_engine, Column, Integer, String, Boolean, DateTime, func,
+    UniqueConstraint, ForeignKey
+)
+from sqlalchemy.orm import sessionmaker, declarative_base, relationship
+
+# DB at project root (parent of 'core')
+BASE_DIR = Path(__file__).resolve().parents[1]
+DB_PATH = (BASE_DIR / "auth.db").resolve()
+
+engine = create_engine(f"sqlite:///{DB_PATH}", future=True, echo=True)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+Base = declarative_base()
+
+
+class User(Base):
+    __tablename__ = "users"
+    __table_args__ = (UniqueConstraint("email", name="uq_users_email"),)
+
+    id = Column(Integer, primary_key=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    full_name = Column(String(255))
+    hashed_password = Column(String(512), nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    two_factor_enabled = Column(Boolean, default=False, nullable=False)  # ✅ Fixed
+    totp_secret = Column(String(64))
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    sessions = relationship("SessionToken", back_populates="user", cascade="all, delete-orphan")
+
+
+class SessionToken(Base):
+    __tablename__ = "session_tokens"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    token = Column(String(255), unique=True, index=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    revoked = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    user = relationship("User", back_populates="sessions")
+
+
+def init_db():
+    """Create tables if they don’t exist."""
+    Base.metadata.create_all(bind=engine)
+    print(f"Database created at {DB_PATH}")
+
+
+if __name__ == "__main__":
+    init_db()
+
+
+===== C:\Users\sithu\OneDrive\Desktop\IRWA agentic AI\dynamic-pricing-ai-IRWA_PROJECT\core\auth_service.py =====
+from typing import Optional
+from datetime import datetime, timedelta
+import secrets
+
+from argon2 import PasswordHasher
+from email_validator import validate_email, EmailNotValidError
+from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
+
+from .auth_db import SessionLocal, User, SessionToken
+
+ph = PasswordHasher()
+SESSION_DAYS = 7  # persistent login duration
+
+
+class RegisterIn(BaseModel):
+    email: str
+    full_name: Optional[str] = None
+    password: str
+
+
+def _hash(pw: str) -> str:
+    return ph.hash(pw)
+
+
+def _verify(pw: str, h: str) -> bool:
+    try:
+        ph.verify(h, pw)
+        return True
+    except Exception:
+        return False
+
+
+# ---------- Register ----------
+def register_user(inp: RegisterIn) -> None:
+    email_norm = (inp.email or "").strip().lower()
+    pw = (inp.password or "").strip()
+
+    # validate email
+    try:
+        validate_email(email_norm)
+    except EmailNotValidError as e:
+        raise ValueError(str(e))
+
+    if len(pw) < 10:
+        raise ValueError("Password must be at least 10 characters")
+
+    with SessionLocal() as db:
+        if db.query(User).filter(User.email == email_norm).first():
+            raise ValueError("Email already registered")
+        u = User(
+            email=email_norm,
+            full_name=(inp.full_name or "").strip() or None,
+            hashed_password=_hash(pw),
+        )
+        db.add(u)
+        db.commit()
+
+
+# ---------- Login ----------
+def authenticate(email: str, password: str) -> dict:
+    email_norm = (email or "").strip().lower()
+    pw = (password or "").strip()
+
+    with SessionLocal() as db:
+        u = db.query(User).filter(User.email == email_norm).first()
+        if not u or not getattr(u, "is_active", True):
+            raise ValueError("Invalid email or password")
+        try:
+            ph.verify(u.hashed_password, pw)
+        except Exception:
+            raise ValueError("Invalid email or password")
+
+        return {"user_id": u.id, "email": u.email, "full_name": u.full_name}
+
+
+# ---------- Profile ----------
+def get_profile(user_id: int) -> dict:
+    with SessionLocal() as db:
+        u: Optional[User] = db.get(User, user_id)
+        if not u:
+            raise ValueError("User not found")
+        return {"id": u.id, "email": u.email, "full_name": u.full_name}
+
+
+# ---------- Persistent session tokens ----------
+def create_persistent_session(user_id: int) -> tuple[str, datetime]:
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.utcnow() + timedelta(days=SESSION_DAYS)
+    with SessionLocal() as db:
+        db.add(SessionToken(user_id=user_id, token=token, expires_at=expires_at))
+        db.commit()
+    return token, expires_at
+
+
+def validate_session_token(token: str) -> dict | None:
+    now = datetime.utcnow()
+    with SessionLocal() as db:
+        row: Optional[SessionToken] = db.query(SessionToken).filter_by(token=token, revoked=False).first()
+        if not row or row.expires_at <= now:
+            return None
+
+        u: Optional[User] = db.get(User, row.user_id)
+        if not u or not getattr(u, "is_active", True):
+            return None
+
+        return {"user_id": u.id, "email": u.email, "full_name": u.full_name}
+
+
+def revoke_session_token(token: str) -> None:
+    with SessionLocal() as db:
+        row: Optional[SessionToken] = db.query(SessionToken).filter_by(token=token).first()
+        if row:
+            row.revoked = True
+            db.add(row)
+            db.commit()
+
+
+===== C:\Users\sithu\OneDrive\Desktop\IRWA agentic AI\dynamic-pricing-ai-IRWA_PROJECT\core\create_market_db.py =====
+import sqlite3
+
+def create_tables(db_path='market.db'):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    # Create market_data table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS market_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_name TEXT NOT NULL,
+            price REAL NOT NULL,
+            features TEXT,
+            update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    # Create pricing_list table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS pricing_list (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_name TEXT NOT NULL,
+            optimized_price REAL NOT NULL,
+            last_update TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            reason TEXT
+        )
+    ''')
+
+    conn.commit()
+    conn.close()
+
+if __name__ == "__main__":
+    create_tables()
+
+
+===== C:\Users\sithu\OneDrive\Desktop\IRWA agentic AI\dynamic-pricing-ai-IRWA_PROJECT\core\__init__.py =====
+
+
+===== C:\Users\sithu\OneDrive\Desktop\IRWA agentic AI\dynamic-pricing-ai-IRWA_PROJECT\README.md =====
+# dynamic-pricing-ai-IRWA_PROJECT  
+
+
+===== C:\Users\sithu\OneDrive\Desktop\IRWA agentic AI\dynamic-pricing-ai-IRWA_PROJECT\requirements.txt =====
+streamlit==1.38.0
+sqlalchemy==2.0.36
+argon2-cffi==23.1.0
+pyotp==2.9.0
+email-validator==2.2.0
+pydantic==2.8.2
+extra-streamlit-components==0.1.71
+qrcode==7.4.2
+Pillow==10.4.0
+
+

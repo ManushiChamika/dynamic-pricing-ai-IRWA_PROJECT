@@ -7,15 +7,3 @@ pydantic==2.8.2
 extra-streamlit-components==0.1.71
 qrcode==7.4.2
 Pillow==10.4.0
-plotly
-aiosqlite
-aiohttp
-aiosmtplib
-python-dotenv
-pandas
-langgraph
-mcp
-transformers
-# torch may require a platform-specific wheel; install separately if fails
-torch
-nats-py
