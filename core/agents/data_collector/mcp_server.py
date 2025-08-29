@@ -30,14 +30,14 @@ def _since_iso_from_window(window: str) -> str:
 @mcp.tool()
 async def fetch_market_features(
     sku: str, market: str = "DEFAULT", time_window: str = "P7D", freshness_sla_minutes: int = 60
-) -> Dict:
+) -> dict:
     await _repo.init()
     since_iso = _since_iso_from_window(time_window)
     return await _repo.features_for(sku, market, since_iso)
 
 
 @mcp.tool()
-async def ingest_tick(d: dict) -> Dict:
+async def ingest_tick(d: dict) -> dict:
     await _repo.init()
     await _collector.ingest_tick(d)
     return {"ok": True}
