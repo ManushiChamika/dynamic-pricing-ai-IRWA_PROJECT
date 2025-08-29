@@ -1,3 +1,6 @@
+# Pricing agent output artifacts
+app/pricing_agent_run.json
+app/pricing_agent_dbrows.json
 
 ########################################################
 # .gitignore - purpose and guidance
