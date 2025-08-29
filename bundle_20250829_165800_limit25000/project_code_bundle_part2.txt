@@ -1,558 +1,6 @@
-=== File: project_code_bundle.txt ===
-
-=== File: collect_project_code.ps1 ===
-param(
-    [string]$OutputFile = "project_code_bundle.txt",
-    [string]$LogFile = "project_code_bundle.log",
-    [int]$MaxSizeMB = 5,
-    [switch]$DryRun
-)
-
-$ErrorActionPreference = "Stop"
-$MaxSizeBytes = $MaxSizeMB * 1MB
-$Included = 0
-$Skipped = 0
-$Errors = 0
-
-# List of text file extensions
-$textExts = @(
-    ".py",".md",".txt",".json",".yaml",".yml",".ini",".cfg",".js",".ts",".html",".css",
-    ".java",".c",".cpp",".h",".rb",".go",".rs",".sh",".ps1",".sql"
-)
-
-# List of excluded folders
-$excludeDirs = @(
-    ".git","__pycache__","build","dist","node_modules","venv",".venv","env",
-    "site-packages",".egg-info",".parcel-cache","vendor"
-)
-
-function IsTextFile($path) {
-    try {
-        $bytes = Get-Content -Path $path -Encoding Byte -ReadCount 0
-        if ($bytes -contains 0) { return $false }
-        $null = [System.Text.Encoding]::UTF8.GetString($bytes)
-        return $true
-    } catch {
-        try {
-            $null = Get-Content -Path $path -Encoding Default -ErrorAction Stop
-            return $true
-        } catch {
-            return $false
-        }
-    }
-}
-
-function ShouldExclude($path) {
-    foreach ($dir in $excludeDirs) {
-        if ($path -match "(^|\\)$dir(\\|$)") { return $true }
-    }
-    return $false
-}
-
-function Log($msg) {
-    Add-Content -Path $LogFile -Value ("[{0}] {1}" -f (Get-Date), $msg)
-}
-
-# Find all files
-$files = Get-ChildItem -Path . -Recurse -File | Where-Object {
-    -not (ShouldExclude($_.FullName)) -and
-    ($textExts -contains $_.Extension.ToLower() -or $_.Name -eq "requirements.txt" -or $_.Name -eq "README.md")
-}
-
-if ($DryRun) {
-    foreach ($file in $files) {
-        if ($file.Length -gt $MaxSizeBytes) {
-            Write-Host "SKIP (large): $($file.FullName)"
-            continue
-        }
-        if (-not (IsTextFile($file.FullName))) {
-            Write-Host "SKIP (binary): $($file.FullName)"
-            continue
-        }
-        Write-Host "INCLUDE: $($file.FullName)"
-    }
-    Write-Host "Dry run complete."
-    exit
-}
-
-# Clear output files
-Set-Content -Path $OutputFile -Value ""
-Set-Content -Path $LogFile -Value ""
-
-foreach ($file in $files) {
-    $relPath = $file.FullName.Substring((Get-Location).Path.Length + 1)
-    if ($file.Length -gt $MaxSizeBytes) {
-        Log "SKIP (large > $MaxSizeMB MB): $relPath"
-        $Skipped++
-        continue
-    }
-    if (-not (IsTextFile($file.FullName))) {
-        Log "SKIP (binary/non-text): $relPath"
-        $Skipped++
-        continue
-    }
-    try {
-        Add-Content -Path $OutputFile -Value "=== File: $relPath ==="
-        Get-Content -Path $file.FullName -Encoding UTF8 | Add-Content -Path $OutputFile
-        Add-Content -Path $OutputFile -Value ""
-        $Included++
-    } catch {
-        Log "ERROR: $relPath - $_"
-        $Errors++
-    }
-}
-
-Log "Summary: Included=$Included, Skipped=$Skipped, Errors=$Errors"
-Write-Host "Done. Included: $Included, Skipped: $Skipped, Errors: $Errors"
-Write-Host "See $LogFile for details."
-
-=== File: Get-ProjectTree.ps1 ===
-<#
-  Usage:
-    .\Get-ProjectTree.ps1 -Root "C:\path\to\repo" -MaxSizeMB 5 -DryRun
-
-  Outputs a list (one relative path per line). Use -DryRun to preview only.
-#>
-
-param(
-  [string]$Root = (Get-Location).Path,
-  [string[]]$ExcludeDirs = @(
-    'node_modules', '.git', 'venv', '.venv', 'env', '__pycache__',
-    'dist', 'build', 'site-packages', '.egg-info', 'vendor'
-  ),
-  [string[]]$AllowedExts = @(
-    '.py', '.md', '.txt', '.json', '.yml', '.yaml', '.ini', '.cfg', '.js',
-    '.ts', '.html', '.css', '.java', '.c', '.cpp', '.h', '.rb', '.go', '.rs',
-    '.sh', '.ps1', '.sql'
-  ),
-  [int]$MaxSizeMB = 5,
-  [switch]$DryRun
-)
-
-# --- helpers ---------------------------------------------------------------
-function Is-TextFile {
-  param([string]$Path)
-  try {
-    $bytes = Get-Content -Path $Path -Encoding Byte -TotalCount 1024 `
-      -ErrorAction Stop
-    # If any NUL (0) found in the first chunk, treat as binary
-    return -not ($bytes -contains 0)
-  } catch {
-    return $false
-  }
-}
-
-# Build exclusion regex for directories
-$esc = $ExcludeDirs | ForEach-Object { [regex]::Escape($_) }
-$dirPattern = ($esc -join '|')
-$dirRegex = "\\($dirPattern)\\"
-
-# special file names without extension we want to allow
-$allowedNames = @('README.md', 'requirements.txt', 'me.md')
-$maxBytes = $MaxSizeMB * 1MB
-$rootTrim = $Root.TrimEnd('\','/')
-
-Write-Verbose "Root: $Root"
-Write-Verbose "Excluding dirs: $($ExcludeDirs -join ', ')"
-
-# --- collect files --------------------------------------------------------
-$allFiles = Get-ChildItem -Path $Root -Recurse -File `
-  -ErrorAction SilentlyContinue
-
-$filtered = $allFiles | Where-Object {
-  $full = $_.FullName
-  # skip if inside excluded directory
-  if ($full -match $dirRegex) { return $false }
-
-  # skip very large files
-  if ($_.Length -gt $maxBytes) { return $false }
-
-  # allow if filename explicitly whitelisted
-  if ($allowedNames -contains $_.Name.ToLower()) { return $true }
-
-  # allow by extension
-  if ($AllowedExts -contains $_.Extension.ToLower()) {
-    # simple NUL-byte test for binary files
-    return (Is-TextFile -Path $full)
-  }
-  return $false
-}
-
-# produce relative paths and optional nice tree-like indenting
-$relList = @()
-foreach ($f in $filtered | Sort-Object FullName) {
-  $rel = $f.FullName.Substring($rootTrim.Length).TrimStart('\','/')
-  $relList += $rel
-}
-
-# --- output ---------------------------------------------------------------
-if ($DryRun) {
-  Write-Output "DRY-RUN: would include $($relList.Count) files:"
-  $relList | ForEach-Object { Write-Output $_ }
-} else {
-  # default to printing list to stdout; user can redirect to file
-  $relList | ForEach-Object { Write-Output $_ }
-}
-
-# Summary to stderr for scripts to capture
-[Console]::Error.WriteLine("Included: $($relList.Count)  " +
-  "Scanned: $($allFiles.Count)")
-
-=== File: README.md ===
-# dynamic-pricing-ai-IRWA_PROJECT
-.env
-app/alert.db
-
-=== File: requirements.txt ===
-streamlit==1.38.0
-sqlalchemy==2.0.36
-argon2-cffi==23.1.0
-pyotp==2.9.0
-email-validator==2.2.0
-pydantic==2.8.2
-extra-streamlit-components==0.1.71
-qrcode==7.4.2
-Pillow==10.4.0
-plotly
-aiosqlite
-aiohttp
-aiosmtplib
-pydantic
-
-=== File: user_data.json ===
-{
-    "imasha@gmail.com": {
-        "chat_history": [
-            {
-                "role": "user",
-                "content": "hi",
-                "time": "16:18:07"
-            },
-            {
-                "role": "assistant",
-                "content": "\ud83d\udc4b Hello Imasha! I\u2019m your Dynamic Pricing Assistant. Ask me about price, demand, or sales.",
-                "time": "16:18:07"
-            },
-            {
-                "role": "user",
-                "content": "hello",
-                "time": "16:18:11"
-            },
-            {
-                "role": "assistant",
-                "content": "\ud83d\udc4b Hello Imasha! I\u2019m your Dynamic Pricing Assistant. Ask me about price, demand, or sales.",
-                "time": "16:18:11"
-            },
-            {
-                "role": "user",
-                "content": "price",
-                "time": "16:18:21"
-            },
-            {
-                "role": "assistant",
-                "content": "\ud83d\udca1 Hi Imasha, AI suggests adjusting prices dynamically using demand data.",
-                "time": "16:18:21"
-            },
-            {
-                "role": "user",
-                "content": "sales",
-                "time": "16:18:29"
-            },
-            {
-                "role": "assistant",
-                "content": "\ud83d\udcc8 Sales are expected to grow by 13% next month.",
-                "time": "16:18:29"
-            },
-            {
-                "role": "user",
-                "content": "hi",
-                "time": "16:36:46"
-            },
-            {
-                "role": "assistant",
-                "content": "\ud83d\udc4b Hello Imasha! I\u2019m your Dynamic Pricing Assistant. Ask me about price, demand, or sales.",
-                "time": "16:36:46"
-            },
-            {
-                "role": "user",
-                "content": "prices",
-                "time": "16:36:51"
-            },
-            {
-                "role": "assistant",
-                "content": "\ud83d\udca1 Hi Imasha, AI suggests adjusting prices dynamically using demand data.",
-                "time": "16:36:51"
-            },
-            {
-                "role": "user",
-                "content": "hi",
-                "time": "19:29:59"
-            },
-            {
-                "role": "assistant",
-                "content": "Error: \n\nYou tried to access openai.ChatCompletion, but this is no longer supported in openai>=1.0.0 - see the README at https://github.com/openai/openai-python for the API.\n\nYou can run `openai migrate` to automatically upgrade your codebase to use the 1.0.0 interface. \n\nAlternatively, you can pin your installation to the old version, e.g. `pip install openai==0.28`\n\nA detailed migration guide is available here: https://github.com/openai/openai-python/discussions/742\n",
-                "time": "19:29:59"
-            },
-            {
-                "role": "user",
-                "content": "hi",
-                "time": "19:37:35"
-            },
-            {
-                "role": "assistant",
-                "content": "Error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-or-v1*************************************************************4d68. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}",
-                "time": "19:37:37"
-            },
-            {
-                "role": "user",
-                "content": "hi",
-                "time": "19:40:16"
-            },
-            {
-                "role": "assistant",
-                "content": "Error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-or-v1*************************************************************4d68. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}",
-                "time": "19:40:18"
-            },
-            {
-                "role": "user",
-                "content": "hi",
-                "time": "19:42:28"
-            },
-            {
-                "role": "assistant",
-                "content": "Error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-or-v1*************************************************************4d68. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}",
-                "time": "19:42:30"
-            },
-            {
-                "role": "user",
-                "content": "hi",
-                "time": "19:47:41"
-            },
-            {
-                "role": "assistant",
-                "content": "Error: HTTPSConnectionPool(host='api.deepseek.ai', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by NameResolutionError(\"<urllib3.connection.HTTPSConnection object at 0x000002A6907C4590>: Failed to resolve 'api.deepseek.ai' ([Errno 11001] getaddrinfo failed)\"))",
-                "time": "19:47:41"
-            },
-            {
-                "role": "user",
-                "content": "hi",
-                "time": "20:21:52"
-            },
-            {
-                "role": "assistant",
-                "content": "Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/gpt2",
-                "time": "20:21:54"
-            },
-            {
-                "role": "user",
-                "content": "hi",
-                "time": "20:25:35"
-            },
-            {
-                "role": "assistant",
-                "content": "\ud83e\udd16 Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct",
-                "time": "20:25:36"
-            },
-            {
-                "role": "user",
-                "content": "hi",
-                "time": "20:29:17"
-            },
-            {
-                "role": "assistant",
-                "content": "\ud83e\udd16 Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct",
-                "time": "20:29:18"
-            },
-            {
-                "role": "user",
-                "content": "hi",
-                "time": "20:34:06"
-            },
-            {
-                "role": "assistant",
-                "content": "\ud83e\udd16 Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct",
-                "time": "20:34:07"
-            },
-            {
-                "role": "user",
-                "content": "hi",
-                "time": "20:38:48"
-            },
-            {
-                "role": "assistant",
-                "content": "\ud83e\udd16 Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/gpt2",
-                "time": "20:38:50"
-            },
-            {
-                "role": "user",
-                "content": "prices",
-                "time": "20:38:59"
-            },
-            {
-                "role": "assistant",
-                "content": "\ud83e\udd16 Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/gpt2",
-                "time": "20:39:00"
-            },
-            {
-                "role": "user",
-                "content": "hi",
-                "time": "20:45:04"
-            },
-            {
-                "role": "assistant",
-                "content": "\ud83e\udd16 Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/bigscience/bloom-560m",
-                "time": "20:45:06"
-            },
-            {
-                "role": "user",
-                "content": "hi",
-                "time": "20:58:22"
-            },
-            {
-                "role": "assistant",
-                "content": "Error: HTTPSConnectionPool(host='api.deepseek.ai', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by NameResolutionError(\"<urllib3.connection.HTTPSConnection object at 0x000002415C870830>: Failed to resolve 'api.deepseek.ai' ([Errno 11001] getaddrinfo failed)\"))",
-                "time": "20:58:22"
-            },
-            {
-                "role": "user",
-                "content": "hi",
-                "time": "21:09:42"
-            },
-            {
-                "role": "assistant",
-                "content": "Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/gpt2",
-                "time": "21:09:43"
-            },
-            {
-                "role": "user",
-                "content": "hi",
-                "time": "21:10:46"
-            },
-            {
-                "role": "assistant",
-                "content": "Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/gpt2",
-                "time": "21:10:47"
-            },
-            {
-                "role": "user",
-                "content": "hi",
-                "time": "21:16:00"
-            },
-            {
-                "role": "assistant",
-                "content": "Error: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill",
-                "time": "21:16:01"
-            },
-            {
-                "role": "user",
-                "content": "hi",
-                "time": "21:23:04"
-            },
-            {
-                "role": "assistant",
-                "content": "Model 'meta-llama/Llama-2-7b-chat-hf' is not available via the Hugging Face Inference API.",
-                "time": "21:23:04"
-            },
-            {
-                "role": "user",
-                "content": "hi",
-                "time": "21:35:02"
-            },
-            {
-                "role": "assistant",
-                "content": "Model 'meta-llama/Llama-2-7b-chat-hf' is not available via the Hugging Face Inference API.",
-                "time": "21:35:02"
-            },
-            {
-                "role": "user",
-                "content": "hi",
-                "time": "21:46:38"
-            },
-            {
-                "role": "assistant",
-                "content": "hiThe U.S. Department of Justice has filed a lawsuit against the company that owns the video game company, Electronic Arts, alleging that the company violated antitrust laws by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the",
-                "time": "21:46:46"
-            },
-            {
-                "role": "user",
-                "content": "I want price list of cars",
-                "time": "21:47:17"
-            },
-            {
-                "role": "assistant",
-                "content": "I want price list of carsThe following is a list of all the major automakers that have announced their plans to build a new fleet of autonomous vehicles.\n\nFord Motor Co.\n\nFord Motor Co. is planning to build a fleet of autonomous vehicles by 2020.\n\nThe automaker announced the plans on its website on Thursday.\n\nThe company said it will build a fleet of autonomous vehicles by 2020.\n\nThe automaker said it will build a fleet of autonomous vehicles by 2020.\n\nThe automaker said it will build a fleet of autonomous vehicles by 2020.\n\nThe automaker said it will build a fleet of autonomous vehicles by 2020.\n\nThe automaker said it will build a fleet of autonomous vehicles by 2020.\n\nThe automaker said it will build a fleet of autonomous vehicles by 2020.\n\nThe automaker said it will build a fleet of autonomous vehicles by 2020.\n\nThe automaker said it will build a fleet of autonomous",
-                "time": "21:47:24"
-            },
-            {
-                "role": "user",
-                "content": "what is the best cloth to buy",
-                "time": "21:48:10"
-            },
-            {
-                "role": "assistant",
-                "content": "what is the best cloth to buyThe first time I saw the new \"The Walking Dead\" trailer, I was so excited. I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to see the first trailer for the show, and I was so excited to",
-                "time": "21:48:17"
-            },
-            {
-                "role": "user",
-                "content": "cars",
-                "time": "00:25:58"
-            },
-            {
-                "role": "assistant",
-                "content": "carsThe U.S. Department of Justice has filed a lawsuit against the company that owns the National Security Agency's (NSA) Tailored Access Operations (TAO) program, alleging that the program violates the Fourth Amendment.\n\nThe lawsuit, filed in U.S. District Court in Washington, D.C., alleges that the NSA's Tailored Access Operations (TAO) program violates the Fourth Amendment by requiring the NSA to obtain a warrant before it can access the user's private data.\n\nThe lawsuit, filed in U.S. District Court in Washington, D.C., alleges that the NSA's Tailored Access Operations (TAO) program violates the Fourth Amendment by requiring the NSA to obtain a warrant before it can access the user's private data.\n\nThe NSA's Tailored Access Operations (TAO) program is a program that collects and stores user data, including the user's name, email address, phone number, and other personal information. The",
-                "time": "00:26:09"
-            },
-            {
-                "role": "user",
-                "content": "hi",
-                "time": "00:44:28"
-            },
-            {
-                "role": "assistant",
-                "content": "hiThe U.S. Department of Justice has filed a lawsuit against the company that owns the video game company, Electronic Arts, alleging that the company violated antitrust laws by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the",
-                "time": "00:44:39"
-            },
-            {
-                "role": "user",
-                "content": "hello",
-                "time": "08:57:29"
-            },
-            {
-                "role": "assistant",
-                "content": "helloThe U.S. Department of Justice has filed a lawsuit against the company that owns the video game company, Electronic Arts, alleging that the company violated antitrust laws by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the",
-                "time": "08:57:47"
-            },
-            {
-                "role": "user",
-                "content": "hi",
-                "time": "09:44:51"
-            },
-            {
-                "role": "assistant",
-                "content": "hiThe U.S. Department of Justice has filed a lawsuit against the company that owns the video game company, Electronic Arts, alleging that the company violated antitrust laws by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the",
-                "time": "09:45:00"
-            },
-            {
-                "role": "user",
-                "content": "hi",
-                "time": "10:15:25"
-            },
-            {
-                "role": "assistant",
-                "content": "hiThe U.S. Department of Justice has filed a lawsuit against the company that owns the video game company, Electronic Arts, alleging that the company violated antitrust laws by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.\n\nThe lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the",
-                "time": "10:15:36"
-            }
-        ],
-        "metrics": {
-            "total_sales": 847000,
-            "avg_price": 169.4,
-            "units_sold": 1720
-        }
-    }
-}
-
+=== File: bundle_20250829_134647_limit25000\project_code_bundle_part1.txt ===
 === File: app\__init__.py ===
+
 
 === File: app\_cookies.py ===
 # app/_cookies.py
@@ -567,206 +15,12 @@ def get_cookie_manager():
         st.session_state["cookie_manager"] = stx.CookieManager(key="cookie-manager")
     return st.session_state["cookie_manager"]
 
+
 === File: app\env_bootstrap.py ===
 # app/env_bootstrap.py
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv(), override=False)  # loads .env if present
 
-=== File: app\session_utils.py ===
-# app/session_utils.py
-import streamlit as st
-import extra_streamlit_components as stx
-from datetime import datetime, timedelta, timezone
-from core.auth_service import validate_session_token
-
-COOKIE_NAME = "fp_session"
-
-# Must match how the cookie is created (your row shows Lax, secure False, no domain, path "/")
-COOKIE_ATTRS = {
-    "path": "/",          # required
-    "samesite": "Lax",    # exactly as created
-    "secure": False,      # exactly as created (True only on HTTPS prod if you used it)
-    # DO NOT set "domain" for localhost (browsers ignore/forbid it)
-}
-
-def cookie_mgr() -> stx.CookieManager:
-    if "_cookie_mgr" not in st.session_state:
-        # one instance per Streamlit session; reuse everywhere
-        st.session_state["_cookie_mgr"] = stx.CookieManager(key="cookie-manager")
-    return st.session_state["_cookie_mgr"]
-
-def set_session_cookie(token: str) -> None:
-    cm = cookie_mgr()
-    cm.set(COOKIE_NAME, token, key="set_session_cookie", **COOKIE_ATTRS)
-
-def clear_session_cookie() -> None:
-    """
-    Clear fp_session using the same attributes it was created with.
-    We do: expires_at in the past, max_age=0, and delete — all three,
-    plus a hostOnly 'no-attrs' pass for older browsers.
-    """
-    cm = cookie_mgr()
-
-    # 1) expire in the past (UTC)
-    past = datetime.now(timezone.utc) - timedelta(days=1)
-    try:
-        cm.set(COOKIE_NAME, "", expires_at=past, key="expire_cookie", **COOKIE_ATTRS)
-    except TypeError:
-        cm.set(COOKIE_NAME, "", expires_at=past, key="expire_cookie")
-
-    # 2) set max_age=0
-    try:
-        cm.set(COOKIE_NAME, "", max_age=0, key="maxage_cookie", **COOKIE_ATTRS)
-    except TypeError:
-        cm.set(COOKIE_NAME, "", max_age=0, key="maxage_cookie")
-
-    # 3) explicit delete with matching attrs
-    try:
-        cm.delete(COOKIE_NAME, key="delete_cookie", **COOKIE_ATTRS)
-    except TypeError:
-        cm.delete(COOKIE_NAME)
-
-    # 4) (defensive) hostOnly delete with *no attrs* — useful on localhost
-    try:
-        cm.delete(COOKIE_NAME, key="delete_cookie_hostonly")
-    except Exception:
-        pass
-
-def ensure_session_from_cookie(page_key: str = "root") -> None:
-    if st.session_state.pop("_skip_cookie_restore_once", False):
-        return
-    if st.session_state.get("session"):
-        return
-
-    cm = cookie_mgr()
-    cookies = cm.get_all(key=f"get_all_{page_key}")
-    if cookies is None:
-        st.stop()
-
-    token = cookies.get(COOKIE_NAME)
-    if not token:
-        return
-
-    try:
-        sess = validate_session_token(token)
-    except Exception:
-        sess = None
-
-    if sess:
-        st.session_state["session"] = sess
-
-=== File: app\streamlit_app.py ===
-# app/streamlit_app.py  (router/bootstrap)
-from queue import SimpleQueue
-ALERT_QUEUE = SimpleQueue()
-
-# 0) Make the repo root importable BEFORE any project imports or Streamlit calls
-import sys, pathlib
-HERE = pathlib.Path(__file__).resolve()
-ROOT = HERE.parents[1]  # points to <project-root>
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-# 0.1) Load environment variables from .env (root first, then app/.env)
-from dotenv import load_dotenv
-load_dotenv(dotenv_path=ROOT / ".env", override=False)
-load_dotenv(dotenv_path=HERE.parent / ".env", override=False)  # if you also keep app/.env
-
-# 1) First Streamlit call
-import streamlit as st
-st.set_page_config(page_title="FluxPricer AI", page_icon="💹", layout="wide")
-
-# 1.1) Async background loop helper (needed for Python 3.13 in Streamlit)
-import asyncio, threading
-def _ensure_bg_loop():
-    """Create (once) a background asyncio loop and return it."""
-    if "_bg_loop" not in st.session_state:
-        loop = asyncio.new_event_loop()
-        t = threading.Thread(target=loop.run_forever, daemon=True)
-        t.start()
-        st.session_state["_bg_loop"] = loop
-    return st.session_state["_bg_loop"]
-
-# 2) Style tweaks / sidebar branding
-st.markdown("""
-    <style>
-        [data-testid="stSidebarNav"] > div:first-child { display: none; }
-    </style>
-""", unsafe_allow_html=True)
-with st.sidebar:
-    st.markdown("### FluxPricer AI")
-
-# 3) Project imports that rely on the repo root being on sys.path
-from app.session_utils import ensure_session_from_cookie
-from core.agents.alert_service import api as alerts  # <-- safe now
-
-# 4) Session setup
-ensure_session_from_cookie()
-st.session_state.setdefault("session", None)
-
-# 5) Start the alert service once (schedule onto background loop)
-if "_alerts_started" not in st.session_state:
-    loop = _ensure_bg_loop()
-    asyncio.run_coroutine_threadsafe(alerts.start(), loop)
-    st.session_state["_alerts_started"] = True
-
-# 6) Route to Home
-st.switch_page("pages/0_Home.py")
-
-=== File: app\pages\_logout.py ===
-# app/pages/_logout.py
-import streamlit as st
-from app.session_utils import ensure_session_from_cookie, cookie_mgr, clear_session_cookie
-from core.auth_service import revoke_session_token
-
-st.set_page_config(page_title="Logout — FluxPricer AI", page_icon="👋", layout="centered")
-
-# Restore from cookie if present
-ensure_session_from_cookie("logout")
-
-# Mount CookieManager so its JS can clear cookies on this page
-cm = cookie_mgr()
-
-st.header("Log out")
-st.write("Are you sure you want to log out?")
-
-col1, col2 = st.columns([1, 1])
-
-with col1:
-    if st.button("✅ Yes, log out", key="logout_yes"):
-        session = st.session_state.get("session")
-
-        if session:
-            # Revoke server-side (best effort)
-            tok = session.get("token")
-            if tok:
-                try:
-                    revoke_session_token(tok)
-                except Exception:
-                    pass
-
-            # Prevent immediate cookie-based restore and drop in-memory session
-            st.session_state.pop("session", None)
-            st.session_state["_skip_cookie_restore_once"] = True
-
-            # Clear the browser cookie (expires_at + max_age=0 + delete with exact attrs)
-            clear_session_cookie()
-
-            st.success("You’ve been logged out.")
-            st.caption("Cookie cleared. Redirecting…")
-            st.markdown('<meta http-equiv="refresh" content="1.2;url=/">', unsafe_allow_html=True)
-        else:
-            # Not logged in → send user to Login with a message
-            st.session_state["flash_info"] = "Please log in first."
-            st.switch_page("pages/1_Login.py")
-
-with col2:
-    if st.button("❌ Cancel", key="logout_cancel"):
-        # If logged in, go home; else go to Login
-        if st.session_state.get("session"):
-            st.switch_page("pages/0_Home.py")
-        else:
-            st.switch_page("pages/1_Login.py")
 
 === File: app\pages\0_Home.py ===
 from app.session_utils import COOKIE_NAME, cookie_mgr, ensure_session_from_cookie
@@ -1033,6 +287,7 @@ with s3:
 # ————————————————————————————————————————————————————————————————
 st.markdown('<div class="footer">FluxPricer AI © — demo for coursework. Not for production use.</div>', unsafe_allow_html=True)
 
+
 === File: app\pages\1_Login.py ===
 # app/pages/1_Login.py
 # --- path bootstrap ---
@@ -1122,6 +377,7 @@ if submitted:
         except Exception as e:
             st.error(str(e))
 
+
 === File: app\pages\2_Register.py ===
 # --- path bootstrap ---
 import sys, pathlib
@@ -1178,6 +434,7 @@ if submitted:
         except Exception as e:
             # Pass through the nice messages from register_user (email exists, invalid email, etc.)
             st.error(str(e))
+
 
 === File: app\pages\4_Profile.py ===
 # --- path bootstrap ---
@@ -1239,6 +496,7 @@ c1, c2 = st.columns([1, 1])
 with c2:
     if st.button("Back to Home", key="btn_back_home"):
         st.switch_page("pages/0_Home.py")
+
 
 === File: app\pages\5_Alerts_and_Notifications.py ===
 # pages/5_Alerts_and_Notifications.py
@@ -1647,6 +905,63 @@ with tab_inc:
 with st.expander("Debug: active rules"):
     st.json(run_async(alerts.list_rules()) or [])
 
+
+=== File: app\pages\_logout.py ===
+# app/pages/_logout.py
+import streamlit as st
+from app.session_utils import ensure_session_from_cookie, cookie_mgr, clear_session_cookie
+from core.auth_service import revoke_session_token
+
+st.set_page_config(page_title="Logout — FluxPricer AI", page_icon="👋", layout="centered")
+
+# Restore from cookie if present
+ensure_session_from_cookie("logout")
+
+# Mount CookieManager so its JS can clear cookies on this page
+cm = cookie_mgr()
+
+st.header("Log out")
+st.write("Are you sure you want to log out?")
+
+col1, col2 = st.columns([1, 1])
+
+with col1:
+    if st.button("✅ Yes, log out", key="logout_yes"):
+        session = st.session_state.get("session")
+
+        if session:
+            # Revoke server-side (best effort)
+            tok = session.get("token")
+            if tok:
+                try:
+                    revoke_session_token(tok)
+                except Exception:
+                    pass
+
+            # Prevent immediate cookie-based restore and drop in-memory session
+            st.session_state.pop("session", None)
+            st.session_state["_skip_cookie_restore_once"] = True
+
+            # Clear the browser cookie (expires_at + max_age=0 + delete with exact attrs)
+            clear_session_cookie()
+
+            st.success("You’ve been logged out.")
+            st.caption("Cookie cleared. Redirecting…")
+            st.markdown('<meta http-equiv="refresh" content="1.2;url=/">', unsafe_allow_html=True)
+        else:
+            # Not logged in → send user to Login with a message
+            st.session_state["flash_info"] = "Please log in first."
+            st.switch_page("pages/1_Login.py")
+
+with col2:
+    if st.button("❌ Cancel", key="logout_cancel"):
+        # If logged in, go home; else go to Login
+        if st.session_state.get("session"):
+            st.switch_page("pages/0_Home.py")
+        else:
+            st.switch_page("pages/1_Login.py")
+
+
 === File: app\pages\dashboard.py ===
 import streamlit as st
 import plotly.express as px
@@ -1920,180 +1235,151 @@ else:
     with st.expander("🔔 Incidents (live — extras)", expanded=False):
         st.info("Alerts service not available. Ensure core/agents/alert_service exists and dependencies are installed.")
 
+=== File: app\session_utils.py ===
+# app/session_utils.py
+import streamlit as st
+import extra_streamlit_components as stx
+from datetime import datetime, timedelta, timezone
+from core.auth_service import validate_session_token
+
+COOKIE_NAME = "fp_session"
+
+# Must match how the cookie is created (your row shows Lax, secure False, no domain, path "/")
+COOKIE_ATTRS = {
+    "path": "/",          # required
+    "samesite": "Lax",    # exactly as created
+    "secure": False,      # exactly as created (True only on HTTPS prod if you used it)
+    # DO NOT set "domain" for localhost (browsers ignore/forbid it)
+}
+
+def cookie_mgr() -> stx.CookieManager:
+    if "_cookie_mgr" not in st.session_state:
+        # one instance per Streamlit session; reuse everywhere
+        st.session_state["_cookie_mgr"] = stx.CookieManager(key="cookie-manager")
+    return st.session_state["_cookie_mgr"]
+
+def set_session_cookie(token: str) -> None:
+    cm = cookie_mgr()
+    cm.set(COOKIE_NAME, token, key="set_session_cookie", **COOKIE_ATTRS)
+
+def clear_session_cookie() -> None:
+    """
+    Clear fp_session using the same attributes it was created with.
+    We do: expires_at in the past, max_age=0, and delete — all three,
+    plus a hostOnly 'no-attrs' pass for older browsers.
+    """
+    cm = cookie_mgr()
+
+    # 1) expire in the past (UTC)
+    past = datetime.now(timezone.utc) - timedelta(days=1)
+    try:
+        cm.set(COOKIE_NAME, "", expires_at=past, key="expire_cookie", **COOKIE_ATTRS)
+    except TypeError:
+        cm.set(COOKIE_NAME, "", expires_at=past, key="expire_cookie")
+
+    # 2) set max_age=0
+    try:
+        cm.set(COOKIE_NAME, "", max_age=0, key="maxage_cookie", **COOKIE_ATTRS)
+    except TypeError:
+        cm.set(COOKIE_NAME, "", max_age=0, key="maxage_cookie")
+
+    # 3) explicit delete with matching attrs
+    try:
+        cm.delete(COOKIE_NAME, key="delete_cookie", **COOKIE_ATTRS)
+    except TypeError:
+        cm.delete(COOKIE_NAME)
+
+    # 4) (defensive) hostOnly delete with *no attrs* — useful on localhost
+    try:
+        cm.delete(COOKIE_NAME, key="delete_cookie_hostonly")
+    except Exception:
+        pass
+
+def ensure_session_from_cookie(page_key: str = "root") -> None:
+    if st.session_state.pop("_skip_cookie_restore_once", False):
+        return
+    if st.session_state.get("session"):
+        return
+
+    cm = cookie_mgr()
+    cookies = cm.get_all(key=f"get_all_{page_key}")
+    if cookies is None:
+        st.stop()
+
+    token = cookies.get(COOKIE_NAME)
+    if not token:
+        return
+
+    try:
+        sess = validate_session_token(token)
+    except Exception:
+        sess = None
+
+    if sess:
+        st.session_state["session"] = sess
+
+
+=== File: app\streamlit_app.py ===
+# app/streamlit_app.py  (router/bootstrap)
+from queue import SimpleQueue
+ALERT_QUEUE = SimpleQueue()
+
+# 0) Make the repo root importable BEFORE any project imports or Streamlit calls
+import sys, pathlib
+HERE = pathlib.Path(__file__).resolve()
+ROOT = HERE.parents[1]  # points to <project-root>
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+# 0.1) Load environment variables from .env (root first, then app/.env)
+from dotenv import load_dotenv
+load_dotenv(dotenv_path=ROOT / ".env", override=False)
+load_dotenv(dotenv_path=HERE.parent / ".env", override=False)  # if you also keep app/.env
+
+# 1) First Streamlit call
+import streamlit as st
+st.set_page_config(page_title="FluxPricer AI", page_icon="💹", layout="wide")
+
+# 1.1) Async background loop helper (needed for Python 3.13 in Streamlit)
+import asyncio, threading
+def _ensure_bg_loop():
+    """Create (once) a background asyncio loop and return it."""
+    if "_bg_loop" not in st.session_state:
+        loop = asyncio.new_event_loop()
+        t = threading.Thread(target=loop.run_forever, daemon=True)
+        t.start()
+        st.session_state["_bg_loop"] = loop
+    return st.session_state["_bg_loop"]
+
+# 2) Style tweaks / sidebar branding
+st.markdown("""
+    <style>
+        [data-testid="stSidebarNav"] > div:first-child { display: none; }
+    </style>
+""", unsafe_allow_html=True)
+with st.sidebar:
+    st.markdown("### FluxPricer AI")
+
+# 3) Project imports that rely on the repo root being on sys.path
+from app.session_utils import ensure_session_from_cookie
+from core.agents.alert_service import api as alerts  # <-- safe now
+
+# 4) Session setup
+ensure_session_from_cookie()
+st.session_state.setdefault("session", None)
+
+# 5) Start the alert service once (schedule onto background loop)
+if "_alerts_started" not in st.session_state:
+    loop = _ensure_bg_loop()
+    asyncio.run_coroutine_threadsafe(alerts.start(), loop)
+    st.session_state["_alerts_started"] = True
+
+# 6) Route to Home
+st.switch_page("pages/0_Home.py")
+
+
 === File: core\__init__.py ===
 
-=== File: core\auth_db.py ===
-from pathlib import Path
-from sqlalchemy import (
-    create_engine, Column, Integer, String, Boolean, DateTime, func,
-    UniqueConstraint, ForeignKey
-)
-from sqlalchemy.orm import sessionmaker, declarative_base, relationship
-
-# DB at project root (parent of 'core')
-BASE_DIR = Path(__file__).resolve().parents[1]
-DB_PATH = (BASE_DIR / "auth.db").resolve()
-
-engine = create_engine(f"sqlite:///{DB_PATH}", future=True, echo=True)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
-Base = declarative_base()
-
-
-class User(Base):
-    __tablename__ = "users"
-    __table_args__ = (UniqueConstraint("email", name="uq_users_email"),)
-
-    id = Column(Integer, primary_key=True)
-    email = Column(String(255), unique=True, nullable=False, index=True)
-    full_name = Column(String(255))
-    hashed_password = Column(String(512), nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)
-    two_factor_enabled = Column(Boolean, default=False, nullable=False)  # ✅ Fixed
-    totp_secret = Column(String(64))
-    created_at = Column(DateTime, server_default=func.now(), nullable=False)
-
-    sessions = relationship("SessionToken", back_populates="user", cascade="all, delete-orphan")
-
-
-class SessionToken(Base):
-    __tablename__ = "session_tokens"
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    token = Column(String(255), unique=True, index=True, nullable=False)
-    expires_at = Column(DateTime, nullable=False)
-    revoked = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, server_default=func.now(), nullable=False)
-
-    user = relationship("User", back_populates="sessions")
-
-
-def init_db():
-    """Create tables if they don’t exist."""
-    Base.metadata.create_all(bind=engine)
-    print(f"Database created at {DB_PATH}")
-
-
-if __name__ == "__main__":
-    init_db()
-
-=== File: core\auth_service.py ===
-from typing import Optional
-from datetime import datetime, timedelta
-import secrets
-
-from argon2 import PasswordHasher
-from email_validator import validate_email, EmailNotValidError
-from pydantic import BaseModel
-from sqlalchemy.exc import IntegrityError
-
-from .auth_db import SessionLocal, User, SessionToken
-
-ph = PasswordHasher()
-SESSION_DAYS = 7  # persistent login duration
-
-
-class RegisterIn(BaseModel):
-    email: str
-    full_name: Optional[str] = None
-    password: str
-
-
-def _hash(pw: str) -> str:
-    return ph.hash(pw)
-
-
-def _verify(pw: str, h: str) -> bool:
-    try:
-        ph.verify(h, pw)
-        return True
-    except Exception:
-        return False
-
-
-# ---------- Register ----------
-def register_user(inp: RegisterIn) -> None:
-    email_norm = (inp.email or "").strip().lower()
-    pw = (inp.password or "").strip()
-
-    # validate email
-    try:
-        validate_email(email_norm)
-    except EmailNotValidError as e:
-        raise ValueError(str(e))
-
-    if len(pw) < 10:
-        raise ValueError("Password must be at least 10 characters")
-
-    with SessionLocal() as db:
-        if db.query(User).filter(User.email == email_norm).first():
-            raise ValueError("Email already registered")
-        u = User(
-            email=email_norm,
-            full_name=(inp.full_name or "").strip() or None,
-            hashed_password=_hash(pw),
-        )
-        db.add(u)
-        db.commit()
-
-
-# ---------- Login ----------
-def authenticate(email: str, password: str) -> dict:
-    email_norm = (email or "").strip().lower()
-    pw = (password or "").strip()
-
-    with SessionLocal() as db:
-        u = db.query(User).filter(User.email == email_norm).first()
-        if not u or not getattr(u, "is_active", True):
-            raise ValueError("Invalid email or password")
-        try:
-            ph.verify(u.hashed_password, pw)
-        except Exception:
-            raise ValueError("Invalid email or password")
-
-        return {"user_id": u.id, "email": u.email, "full_name": u.full_name}
-
-
-# ---------- Profile ----------
-def get_profile(user_id: int) -> dict:
-    with SessionLocal() as db:
-        u: Optional[User] = db.get(User, user_id)
-        if not u:
-            raise ValueError("User not found")
-        return {"id": u.id, "email": u.email, "full_name": u.full_name}
-
-
-# ---------- Persistent session tokens ----------
-def create_persistent_session(user_id: int) -> tuple[str, datetime]:
-    token = secrets.token_urlsafe(32)
-    expires_at = datetime.utcnow() + timedelta(days=SESSION_DAYS)
-    with SessionLocal() as db:
-        db.add(SessionToken(user_id=user_id, token=token, expires_at=expires_at))
-        db.commit()
-    return token, expires_at
-
-
-def validate_session_token(token: str) -> dict | None:
-    now = datetime.utcnow()
-    with SessionLocal() as db:
-        row: Optional[SessionToken] = db.query(SessionToken).filter_by(token=token, revoked=False).first()
-        if not row or row.expires_at <= now:
-            return None
-
-        u: Optional[User] = db.get(User, row.user_id)
-        if not u or not getattr(u, "is_active", True):
-            return None
-
-        return {"user_id": u.id, "email": u.email, "full_name": u.full_name}
-
-
-def revoke_session_token(token: str) -> None:
-    with SessionLocal() as db:
-        row: Optional[SessionToken] = db.query(SessionToken).filter_by(token=token).first()
-        if row:
-            row.revoked = True
-            db.add(row)
-            db.commit()
 
 === File: core\agents\agent_sdk\__init__.py ===
 # core/agent_sdk/__init__.py
@@ -2115,6 +1401,7 @@ try:
     from .protocol import Topic             # noqa: F401
 except Exception as e:
     raise ImportError("core.agent_sdk.protocol not found") from e
+
 
 === File: core\agents\agent_sdk\bus_factory.py ===
 # core/agent_sdk/bus_factory.py
@@ -2150,6 +1437,7 @@ def get_bus() -> BusIface:
 
     return _bus
 
+
 === File: core\agents\agent_sdk\bus_iface.py ===
 # core/bus_iface.py
 from typing import Any, Callable
@@ -2159,6 +1447,7 @@ Handler = Callable[[Any], Any]  # may be sync or async
 class BusIface:
     def subscribe(self, topic: str, handler: Handler) -> None: ...
     async def publish(self, topic: str, payload: Any) -> None: ...
+
 
 === File: core\agents\agent_sdk\local_bus.py ===
 # core/bus.py
@@ -2209,6 +1498,7 @@ class EventBus:
 # singleton
 bus = EventBus()
 
+
 === File: core\agents\agent_sdk\protocol.py ===
 # core/protocol.py
 from enum import Enum
@@ -2218,7 +1508,9 @@ class Topic(Enum):
     PRICE_PROPOSAL = "PRICE_PROPOSAL"
     ALERT = "ALERT" 
 
+
 === File: core\agents\agent_sdk\transports\__init__.py ===
+
 
 === File: core\agents\agent_sdk\transports\nats_bus.py ===
 # core/brokers/nats_bus.py
@@ -2271,7 +1563,9 @@ class NatsBus(BusIface):
         body = json.dumps(to_jsonable(payload)).encode("utf-8")
         await self.nc.publish(topic, body)
 
+
 === File: core\agents\agent_sdk\util\__init__.py ===
+
 
 === File: core\agents\agent_sdk\util\retry.py ===
 # core/util/retry.py
@@ -2296,7 +1590,9 @@ async def retry(
             # exponential backoff with small jitter
             delay = min(cap, delay * (2 + random.random() * 0.2))
 
+
 === File: core\agents\alert_service\__init__.py ===
+
 
 === File: core\agents\alert_service\api.py ===
 from typing import Optional, Dict, Any, List
@@ -2367,6 +1663,7 @@ async def save_settings(d: Dict[str, Any]) -> bool:
     await _repo.save_channel_settings(d)
     return True
 
+
 === File: core\agents\alert_service\auth.py ===
 import hmac, hashlib, time, os
 
@@ -2387,6 +1684,7 @@ def verify_capability(token: str, scope: str):
         if time.time() - int(ts_str) > 3600: raise PermissionError("token expired")
     except Exception as e:
         raise PermissionError("invalid capability") from e
+
 
 === File: core\agents\alert_service\config.py ===
 from dataclasses import dataclass, field, asdict
@@ -2486,6 +1784,7 @@ def for_ui(cfg: ChannelSettings) -> Dict[str, Any]:
     """Return a UI-safe dict (password redacted)."""
     return cfg.as_dict(redact=True)
 
+
 === File: core\agents\alert_service\correlate.py ===
 from datetime import datetime, timedelta
 from .schemas import Alert, Incident
@@ -2500,6 +1799,7 @@ class Correlator:
             return None
         inc = await self.repo.find_or_create_incident(alert)
         return inc
+
 
 === File: core\agents\alert_service\detectors.py ===
 from typing import Dict
@@ -2529,6 +1829,7 @@ class DetectorRegistry:
         s = self.series[key].setdefault(field, EwmaZ(alpha=params.get("alpha", 0.3)))
         z = s.update(value)
         return abs(z) >= params.get("z", 2.5)
+
 
 === File: core\agents\alert_service\engine.py ===
 # core/agents/alert_service/engine.py
@@ -2650,6 +1951,7 @@ class AlertEngine:
                 continue
             await sink.send(incident, rule)
 
+
 === File: core\agents\alert_service\mcp_server.py ===
 # Minimal MCP server exposing the tools above.
 # (Works with any MCP-compatible client / other agents.)
@@ -2698,6 +2000,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 === File: core\agents\alert_service\repo.py ===
 # core/agents/alert_service/repo.py
@@ -2907,6 +2210,7 @@ class Repo:
             )
             await db.commit()
 
+
 === File: core\agents\alert_service\rules.py ===
 # core/agents/alert_service/rules.py
 from __future__ import annotations
@@ -3059,6 +2363,7 @@ class RuleRuntime:
 
         return (now - last) >= self.hold
 
+
 === File: core\agents\alert_service\schemas.py ===
 from pydantic import BaseModel, Field, AwareDatetime, validator
 from typing import Literal, List, Optional, Dict, Any
@@ -3132,37 +2437,6 @@ class Incident(BaseModel):
     title: str
     group_key: str
 
-=== File: core\agents\alert_service\tools.py ===
-from .repo import Repo
-from .schemas import RuleSpec
-from pydantic import ValidationError
-
-class Tools:
-    def __init__(self, repo: Repo): self.repo = repo
-
-    async def create_rule(self, spec_json: dict):
-        try:
-            spec = RuleSpec(**spec_json)
-        except ValidationError as e:
-            return {"ok": False, "error": e.errors()}
-        await self.repo.upsert_rule(spec)
-        return {"ok": True, "id": spec.id}
-
-    async def list_rules(self):
-        rules = await self.repo.list_rules()
-        return {"ok": True, "rules": [r.spec.dict() for r in rules]}
-
-    async def list_incidents(self, status: str|None = None):
-        rows = await self.repo.list_incidents(status)
-        return {"ok": True, "incidents": rows}
-
-    async def ack_incident(self, incident_id: str):
-        await self.repo.set_status(incident_id, "ACKED")
-        return {"ok": True}
-
-    async def resolve_incident(self, incident_id: str):
-        await self.repo.set_status(incident_id, "RESOLVED")
-        return {"ok": True}
 
 === File: core\agents\alert_service\sinks\__init__.py ===
 from __future__ import annotations
@@ -3189,6 +2463,7 @@ def get_sinks(repo: Optional[Any] = None) -> Dict[str, Any]:
     _maybe_add(sinks, "slack", "SlackSink", repo)
     _maybe_add(sinks, "webhook", "WebhookSink", repo)
     return sinks
+
 
 === File: core\agents\alert_service\sinks\email.py ===
 # core/agents/alert_service/sinks/email.py
@@ -3295,6 +2570,7 @@ class EmailSink:
                     response_json={"error": str(e)}
                 )
 
+
 === File: core\agents\alert_service\sinks\slack.py ===
 # core/agents/alert_service/sinks/slack.py
 import aiohttp
@@ -3361,6 +2637,7 @@ class SlackSink:
                     status="ERR",
                     response_json={"error": str(e)}
                 )
+
 
 === File: core\agents\alert_service\sinks\ui.py ===
 from ...agent_sdk.bus_factory import get_bus
@@ -3442,258 +2719,177 @@ class WebhookSink:
                     response_json={"error": str(e)}
                 )
 
-=== File: core\agents\simulators\__init__.py ===
 
-=== File: core\agents\simulators\demo_publishers.py ===
-# core/agents/simulators/demo_publishers.py
-import asyncio
-from dataclasses import dataclass, asdict, field
-from datetime import datetime as dt, timezone
-from typing import Optional
+=== File: core\agents\alert_service\tools.py ===
+from .repo import Repo
+from .schemas import RuleSpec
+from pydantic import ValidationError
 
-# Correct imports: use the core.agent_sdk modules directly
-from core.agents.agent_sdk.bus_factory import get_bus
-from core.agents.agent_sdk.protocol import Topic
+class Tools:
+    def __init__(self, repo: Repo): self.repo = repo
 
-# Initialize a shared bus instance
-bus = get_bus()
-
-# Minimal event shapes for the demo (engine uses getattr + dict conversion)
-@dataclass
-class MarketTick:
-    sku: str
-    our_price: float
-    competitor_price: Optional[float]
-    demand_index: float
-    ts: dt
-
-@dataclass
-class PriceProposal:
-    sku: str
-    proposed_price: float
-    cost: Optional[float] = None
-    margin: Optional[float] = None
-    # timezone-aware by default
-    ts: dt = field(default_factory=lambda: dt.now(timezone.utc))
-
-    def __post_init__(self):
-        if self.margin is None and self.cost is not None and self.proposed_price:
-            self.margin = (self.proposed_price - self.cost) / self.proposed_price
-        if self.margin is None:
-            self.margin = 0.0
-
-# Helpers to serialize if any consumer expects dict-like payloads
-def _to_dict(obj):
-    try:
-        return obj.model_dump()
-    except Exception:
-        pass
-    try:
-        return asdict(obj)
-    except Exception:
-        pass
-    return getattr(obj, "__dict__", {}) or {}
-
-async def simulate_undercut(
-    sku: str = "SKU-123",
-    our: float = 100.0,
-    comp: float = 98.0,
-    seconds: float = 30,
-    hz: float = 1.0,
-) -> None:
-    """
-    Competitor undercuts enough to satisfy rule:
-    tick.competitor_price * 1.02 < tick.our_price
-    98 * 1.02 = 99.96 < 100 -> True
-    """
-    loop = asyncio.get_running_loop()
-    end = loop.time() + float(seconds)
-    period = 1.0 / float(hz) if hz else 1.0
-    while loop.time() < end:
-        tick = MarketTick(
-            sku=sku,
-            our_price=our,
-            competitor_price=comp,
-            demand_index=0.50,
-            ts=dt.now(timezone.utc),
-        )
-        await bus.publish(Topic.MARKET_TICK.value, tick)
-        await asyncio.sleep(period)
-
-async def simulate_demand_spike(
-    sku: str = "SKU-123",
-    spike: float = 0.95,
-    seconds: float = 30,
-    hz: float = 1.0,
-) -> None:
-    """
-    Demand meets the seeded rule where="tick.demand_index >= 0.95".
-    """
-    loop = asyncio.get_running_loop()
-    end = loop.time() + float(seconds)
-    period = 1.0 / float(hz) if hz else 1.0
-    while loop.time() < end:
-        tick = MarketTick(
-            sku=sku,
-            our_price=100.0,
-            competitor_price=100.0,
-            demand_index=spike,
-            ts=dt.now(timezone.utc),
-        )
-        await bus.publish(Topic.MARKET_TICK.value, tick)
-        await asyncio.sleep(period)
-
-async def simulate_margin_breach(
-    sku: str = "SKU-123",
-    proposed: float = 90.0,
-    cost: float = 82.0,
-) -> None:
-    """
-    Violates where="pp.margin < 0.12".
-    margin = (90-82)/90 ≈ 0.089 < 0.12
-    """
-    pp = PriceProposal(sku=sku, proposed_price=proposed, cost=cost, ts=dt.now(timezone.utc))
-    await bus.publish(Topic.PRICE_PROPOSAL.value, pp)
-
-=== File: core\agents\user_interact\__init__.py ===
-
-=== File: core\agents\user_interact\user_interaction_agent.py ===
-from transformers import AutoTokenizer, AutoModelForCausalLM
-import torch
-
-class UserInteractionAgent:
-    def __init__(self, user_name, model_name="gpt2"):
-        self.user_name = user_name
-        self.model_name = model_name
-
-        # Load tokenizer and model
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModelForCausalLM.from_pretrained(model_name)
-        # Use GPU if available
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model.to(self.device)
-
-    def get_response(self, message):
+    async def create_rule(self, spec_json: dict):
         try:
-            # Encode input
-            inputs = self.tokenizer.encode(message + self.tokenizer.eos_token, return_tensors="pt").to(self.device)
-            # Generate output
-            outputs = self.model.generate(inputs, max_length=200, pad_token_id=self.tokenizer.eos_token_id)
-            # Decode
-            response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-            return response
-        except Exception as e:
-            return f"Error: {e}"
+            spec = RuleSpec(**spec_json)
+        except ValidationError as e:
+            return {"ok": False, "error": e.errors()}
+        await self.repo.upsert_rule(spec)
+        return {"ok": True, "id": spec.id}
 
-=== File: core\brokers\types.py ===
-# core/brokers/types.py
-import json
+    async def list_rules(self):
+        rules = await self.repo.list_rules()
+        return {"ok": True, "rules": [r.spec.dict() for r in rules]}
+
+    async def list_incidents(self, status: str|None = None):
+        rows = await self.repo.list_incidents(status)
+        return {"ok": True, "incidents": rows}
+
+    async def ack_incident(self, incident_id: str):
+        await self.repo.set_status(incident_id, "ACKED")
+        return {"ok": True}
+
+    async def resolve_incident(self, incident_id: str):
+        await self.repo.set_status(incident_id, "RESOLVED")
+        return {"ok": True}
+
+
+=== File: core\agents\data_collector\__init__.py ===
+# core/agents/data_collector/__init__.py
+"""
+Data Collector package for Dynamic Pricing project.
+
+Contains:
+- DataRepo: a small aiosqlite-backed repository for market ticks.
+- DataCollector: ingestion and publish logic.
+- Connectors: mock connector for development/demo.
+"""
+__all__ = ["repo", "collector", "connectors"]
+
+
+=== File: core\agents\data_collector\collector.py ===
+from __future__ import annotations
+
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Dict, Iterable, Optional
 
-def to_jsonable(obj: Any) -> Any:
-    """Make any pydantic/dataclass/obj JSON-serializable with ISO datetimes."""
-    if hasattr(obj, "model_dump"):
-        obj = obj.model_dump()
-    elif hasattr(obj, "dict"):
-        obj = obj.dict()
-    elif hasattr(obj, "__dict__"):
-        obj = obj.__dict__
-    def _conv(o):
-        if isinstance(o, datetime):
-            return o.astimezone(timezone.utc).isoformat()
-        raise TypeError(f"Not JSON serializable: {type(o)}")
-    return json.loads(json.dumps(obj, default=_conv))
+from core.agents.agent_sdk import get_bus, Topic
+from .repo import DataRepo
 
-=== File: core\graphs\alert_authoring_graph.py ===
-from langgraph.graph import StateGraph, END
-from typing import Dict, Any
-from pydantic import BaseModel, ValidationError
-from core.agents.alert_service.schemas import RuleSpec
-from core.agents.alert_service.tools import Tools
-from core.agents.alert_service.repo import Repo
+_bus = get_bus()
 
-class GState(BaseModel):
-    user_text: str
-    draft_rule: Dict[str, Any] | None = None
-    validated: bool = False
-    result: Dict[str, Any] | None = None
 
-tools = Tools(Repo())
+class DataCollector:
+    def __init__(self, repo: DataRepo):
+        self.repo = repo
 
-def nl_to_draft(state: GState) -> GState:
-    # very small deterministic parser; you can swap in an LLM with structured output
-    txt = state.user_text.lower()
-    spec = {
-        "id": "auto-undercut",
-        "source": "MARKET_TICK",
-        "where": "tick.competitor_price and tick.competitor_price * 1.02 < tick.our_price",
-        "hold_for": "5m",
-        "severity": "warn",
-        "notify": {"channels": ["ui"], "throttle": "15m"},
-        "enabled": True
-    }
-    state.draft_rule = spec
-    return state
+    async def ingest_tick(self, d: Dict[str, Any]) -> None:
+        # Normalize required fields
+        payload = {
+            "sku": d["sku"],
+            "market": d.get("market", "DEFAULT"),
+            "our_price": float(d["our_price"]),
+            "competitor_price": d.get("competitor_price"),
+            "demand_index": d.get("demand_index"),
+            "ts": d.get("ts")
+            or datetime.now(timezone.utc).isoformat(),
+            "source": d.get("source", "manual"),
+        }
+        await self.repo.insert_tick(payload)
+        # Publish MARKET_TICK for live processing/alerts
+        await _bus.publish(Topic.MARKET_TICK.value, payload)
 
-def validate_rule(state: GState) -> GState:
+    async def ingest_stream(
+        self, it: Iterable[Dict[str, Any]], delay_s: float = 1.0
+    ) -> None:
+        import asyncio
+
+        for d in it:
+            await self.ingest_tick(d)
+            await asyncio.sleep(delay_s)
+
+
+
+
+=== File: core\agents\data_collector\connectors\mock.py ===
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Dict, Any, Iterable
+
+
+def mock_ticks(
+    sku: str = "SKU-123",
+    market: str = "DEFAULT",
+    base_price: float = 100.0,
+    comp_price: float = 98.0,
+    demand: float = 0.5,
+    n: int = 5,
+) -> Iterable[Dict[str, Any]]:
+    for i in range(n):
+        yield {
+            "sku": sku,
+            "market": market,
+            "our_price": base_price,
+            "competitor_price": comp_price,
+            "demand_index": demand,
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "source": "mock",
+        }
+
+
+
+
+=== File: core\agents\data_collector\mcp_server.py ===
+from __future__ import annotations
+
+import asyncio
+from datetime import datetime, timedelta, timezone
+from typing import Dict
+
+from mcp.server.fastmcp import FastMCP
+
+from .repo import DataRepo
+from .collector import DataCollector
+
+mcp = FastMCP("data-collector-service")
+_repo = DataRepo()
+_collector = DataCollector(_repo)
+
+
+def _since_iso_from_window(window: str) -> str:
+    """
+    Parse very small subset like 'P7D', 'P1D'. Defaults to 7 days.
+    """
     try:
-        RuleSpec(**state.draft_rule)
-        state.validated = True
-    except ValidationError as e:
-        state.result = {"ok": False, "error": e.errors()}
-    return state
+        s = window.strip().upper()
+        days = int(s.replace("P", "").replace("D", "") or "7")
+    except Exception:
+        days = 7
+    return (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
-def persist_rule(state: GState) -> GState:
-    if not state.validated: return state
-    state.result = {"ok": True}
-    # call tool directly (synchronous here; wrap async in your app)
-    import asyncio
-    asyncio.get_event_loop().run_until_complete(tools.create_rule(state.draft_rule))
-    return state
 
-graph = StateGraph(GState)
-graph.add_node("parse", nl_to_draft)
-graph.add_node("validate", validate_rule)
-graph.add_node("persist", persist_rule)
-graph.add_edge("parse","validate")
-graph.add_edge("validate","persist")
-graph.set_entry_point("parse")
-graph.set_finish_point("persist")
-app = graph.compile()
+@mcp.tool()
+async def fetch_market_features(
+    sku: str, market: str = "DEFAULT", time_window: str = "P7D", freshness_sla_minutes: int = 60
+) -> Dict:
+    await _repo.init()
+    since_iso = _since_iso_from_window(time_window)
+    return await _repo.features_for(sku, market, since_iso)
 
-=== File: core\graphs\incident_triage_graph.py ===
-from langgraph.graph import StateGraph
-from pydantic import BaseModel
-from core.agents.alert_service.tools import Tools
-from core.agents.alert_service.repo import Repo
 
-class TriageState(BaseModel):
-    command: str
-    incident_id: str | None = None
-    action: str | None = None
-    result: dict | None = None
+@mcp.tool()
+async def ingest_tick(d: dict) -> Dict:
+    await _repo.init()
+    await _collector.ingest_tick(d)
+    return {"ok": True}
 
-tools = Tools(Repo())
 
-def parse_cmd(s: TriageState) -> TriageState:
-    t = s.command.lower()
-    if t.startswith("ack "): s.action, s.incident_id = "ACK", t.split()[1]
-    elif t.startswith("resolve "): s.action, s.incident_id = "RESOLVE", t.split()[1]
-    else: s.action = "LIST"
-    return s
+async def main():
+    await _repo.init()
+    await mcp.run()
 
-def act(s: TriageState) -> TriageState:
-    import asyncio
-    if s.action == "ACK": s.result = asyncio.get_event_loop().run_until_complete(tools.ack_incident(s.incident_id))
-    elif s.action == "RESOLVE": s.result = asyncio.get_event_loop().run_until_complete(tools.resolve_incident(s.incident_id))
-    else: s.result = asyncio.get_event_loop().run_until_complete(tools.list_incidents("OPEN"))
-    return s
 
-graph = StateGraph(TriageState)
-graph.add_node("parse", parse_cmd)
-graph.add_node("act", act)
-graph.add_edge("parse","act")
-graph.set_entry_point("parse")
-app = graph.compile()
+if __name__ == "__main__":
+    asyncio.run(main())
+
 
