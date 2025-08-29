@@ -227,6 +227,93 @@ def _render():
                     st.experimental_rerun()
         else:
             cols[6].markdown(f"by {p['status'].get('actor') or '-'} at {p['status'].get('ts') or '-'}")
+            # Revert action only for ACCEPTED proposals
+            if st_state == "ACCEPTED":
+                # Background revert helper
+                def _revert_price_async(sku: str, prev_price: float, proposal_id: str) -> None:
+                    def _work():
+                        # Update market.db pricing_list back to previous price, and publish PRICE_UPDATE(action=REVERT)
+                        try:
+                            connm = _open_market_db()
+                            curm = connm.cursor()
+                            curm.execute(
+                                "CREATE TABLE IF NOT EXISTS pricing_list (\n"
+                                "  id INTEGER PRIMARY KEY AUTOINCREMENT,\n"
+                                "  product_name TEXT NOT NULL,\n"
+                                "  optimized_price REAL NOT NULL,\n"
+                                "  last_update TEXT DEFAULT CURRENT_TIMESTAMP,\n"
+                                "  reason TEXT\n"
+                                ")"
+                            )
+                            curm.execute(
+                                "SELECT product_name FROM pricing_list WHERE product_name=?",
+                                (sku,),
+                            )
+                            exists_m = curm.fetchone() is not None
+                            if exists_m:
+                                curm.execute(
+                                    "UPDATE pricing_list SET optimized_price=?, last_update=CURRENT_TIMESTAMP, reason=? WHERE product_name=?",
+                                    (float(prev_price), "reverted_via_ui", sku),
+                                )
+                            else:
+                                curm.execute(
+                                    "INSERT INTO pricing_list (product_name, optimized_price, last_update, reason) VALUES (?,?,CURRENT_TIMESTAMP,?)",
+                                    (sku, float(prev_price), "reverted_via_ui"),
+                                )
+                            connm.commit()
+                        except Exception as e:
+                            try:
+                                print(f"[6_Proposals] revert upsert failed: {e}")
+                            except Exception:
+                                pass
+                        finally:
+                            try:
+                                connm.close()
+                            except Exception:
+                                pass
+
+                        payload = {
+                            "sku": sku,
+                            "new_price": float(prev_price),
+                            "actor": "local",
+                            "proposal_id": proposal_id,
+                            "action": "REVERT",
+                        }
+
+                        async def _publish():
+                            try:
+                                await _bus.publish(Topic.PRICE_UPDATE.value, payload)
+                            except Exception as e:
+                                try:
+                                    print(f"[6_Proposals] publish REVERT PRICE_UPDATE failed: {e}")
+                                except Exception:
+                                    pass
+
+                        try:
+                            loop = asyncio.get_running_loop()
+                            loop.create_task(_publish())
+                        except RuntimeError:
+                            threading.Thread(target=lambda: asyncio.run(_publish()), daemon=True).start()
+
+                    threading.Thread(target=_work, daemon=True).start()
+
+                # Render revert button and handle click
+                if cols[6].button("Revert", key=f"revert_{p['proposal_id']}"):
+                    try:
+                        # Insert REVERTED action synchronously in app DB
+                        cur = conn.cursor()
+                        cur.execute(
+                            "INSERT INTO proposal_actions (id, proposal_id, action, actor, ts) VALUES (?,?,?,?,?)",
+                            (str(uuid.uuid4()), p["proposal_id"], "REVERTED", "local", _utc_now_iso()),
+                        )
+                        conn.commit()
+                    except Exception as e:
+                        st.error(f"Failed to insert revert action: {e}")
+                    else:
+                        prev_price = p["current_price"] if p["current_price"] is not None else p["proposed_price"]
+                        _revert_price_async(p["sku"], float(prev_price), p["proposal_id"])
+                        st.success("Reverted. Restoring previous price and publishing event...")
+                        st.experimental_rerun()
 
     try:
         conn.close()
