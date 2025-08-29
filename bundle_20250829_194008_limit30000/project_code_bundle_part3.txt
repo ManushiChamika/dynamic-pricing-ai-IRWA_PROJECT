@@ -1,0 +1,1416 @@
+=== File: bundle_20250829_193935_limit30000\project_code_bundle_part2.txt ===
+=== File: bundle_20250829_165800_limit25000\project_code_bundle_part1.txt ===
+=== File: app\__init__.py ===
+
+
+=== File: app\_cookies.py ===
+# app/_cookies.py
+import streamlit as st
+import extra_streamlit_components as stx
+
+COOKIE_NAME = "fp_session"
+
+def get_cookie_manager():
+    if "cookie_manager" not in st.session_state:
+        # Create ONE component instance and reuse it
+        st.session_state["cookie_manager"] = stx.CookieManager(key="cookie-manager")
+    return st.session_state["cookie_manager"]
+
+
+=== File: app\env_bootstrap.py ===
+# app/env_bootstrap.py
+from dotenv import load_dotenv, find_dotenv
+load_dotenv(find_dotenv(), override=False)  # loads .env if present
+
+
+=== File: app\pages\0_Home.py ===
+from app.session_utils import COOKIE_NAME, cookie_mgr, ensure_session_from_cookie
+from core.auth_service import revoke_session_token
+import streamlit as st, pathlib
+
+# ————————————————————————————————————————————————————————————————
+# Page config
+# ————————————————————————————————————————————————————————————————
+st.set_page_config(
+    page_title="FluxPricer AI — Home",
+    page_icon="💹",
+    layout="wide",
+    menu_items={
+        "Get help": None,
+        "Report a bug": None,
+        "About": "FluxPricer AI — demo for coursework. Not for production use."
+    },
+)
+
+# ————————————————————————————————————————————————————————————————
+# Global Styles (Professional, Modern, Accessible)
+# ————————————————————————————————————————————————————————————————
+st.markdown(
+    """
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=Montserrat:wght@300;400;600;700&display=swap');
+
+  :root {
+    --primary: #4f46e5;      /* Indigo 600 */
+    --secondary: #7c3aed;    /* Violet 600 */
+    --accent1: #a78bfa;      /* Violet 400 */
+    --accent2: #e0e7ff;      /* Indigo 100 */
+    --dark: #111827;         /* Gray 900 */
+    --muted: #6b7280;        /* Gray 500 */
+    --light: #f9fafb;        /* Slate 50 */
+    --success: #16a34a;      /* Green 600 */
+    --warning: #f59e0b;      /* Amber 500 */
+    --danger: #ef4444;       /* Red 500 */
+    --info: #0ea5e9;         /* Sky 500 */
+    --card: #fff;
+    --border: #e5e7eb;
+    --shadow: 0 8px 24px rgba(0,0,0,0.08);
+  }
+
+  /* Base */
+  html, body, [class^="block-container"] {
+    font-family: 'Inter', 'Montserrat', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial;
+    background: linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);
+    color: var(--dark);
+  }
+
+  /* Container width */
+  section.main > div {
+    max-width: 1200px;
+    margin: auto;
+    padding-top: 1.5rem;
+  }
+
+  /* Hide default Streamlit header */
+  header[data-testid="stHeader"] { background: transparent; }
+
+  /* Smooth hover lift */
+  .lift { transition: transform .25s ease, box-shadow .25s ease; }
+  .lift:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
+
+  /* Hero */
+  .hero {
+    position: relative;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    border-radius: 24px;
+    padding: 3rem 2rem;
+    color: white;
+    text-align: center;
+    max-width: 1100px;
+    margin: auto;
+    box-shadow: 0 12px 40px rgba(79,70,229,0.25);
+  }
+  .hero h1{ font-size: 2.5rem; font-weight: 800; margin-bottom: .5rem; }
+  .hero p{ font-size: 1.125rem; opacity: .9; margin: 0 auto; max-width: 800px; }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+    transition: transform .25s ease, box-shadow .25s ease;
+  }
+  .card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+  .agent-card .icon{ font-size: 2rem; line-height: 1; color: white; background: linear-gradient(135deg, var(--primary), var(--secondary)); border-radius: 12px; width: 52px; height: 52px; display:flex; align-items:center; justify-content:center; margin-bottom: .75rem; }
+  .agent-card h4{ margin:.5rem 0; font-weight: 700; }
+  .agent-card p{ margin: 0; color: var(--muted); font-size: .925rem; }
+
+  /* Metrics */
+  .metric { text-align: center; }
+  .metric h3{ margin:.25rem 0 0; font-size: 1.75rem; font-weight:700; }
+  .kicker{ text-transform: uppercase; letter-spacing: .12em; font-size: .75rem; color: var(--muted); margin-bottom:.25rem; }
+
+  /* Buttons */
+  .stButton>button {
+    width: 100%; font-weight: 600; border-radius: 10px; border: 0; padding: .75rem 1rem;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: #fff; box-shadow: 0 8px 24px rgba(79,70,229,0.28);
+    transition: transform .2s ease, box-shadow .2s ease, opacity .2s ease;
+  }
+  .stButton>button:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(79,70,229,0.38); }
+  .stButton>button:active { transform: translateY(0); }
+
+  .btn-secondary>button { background: #fff; color: var(--primary); border: 2px solid var(--accent1); box-shadow: none; }
+  .btn-secondary>button:hover { background: #f5f3ff; }
+
+  .btn-danger>button { background: linear-gradient(135deg, var(--danger), #fb7185); box-shadow: 0 8px 24px rgba(239,68,68,.25); }
+
+  /* Modal */
+  .overlay { position: fixed; inset: 0; background: rgba(17,24,39,.55); z-index: 999; }
+  .modal { position: fixed; inset: 50% auto auto 50%; transform: translate(-50%, -50%); z-index: 1000; width: 420px; max-width: 92vw; }
+  .modal .content{ background: #fff; border-radius: 16px; padding: 1.5rem; box-shadow: 0 20px 50px rgba(0,0,0,.2); }
+
+  /* Footer */
+  .footer { text-align: center; color: var(--muted); border-top: 1px solid #e5e7eb; padding: 1.25rem 0 .5rem; font-size: .875rem; margin-top: 2rem; }
+
+  /* Utility */
+  .center { display:flex; align-items:center; justify-content:center; }
+  .mb-0{ margin-bottom:0; } .mb-2{ margin-bottom:.5rem; } .mb-3{ margin-bottom:1rem; } .mb-4{ margin-bottom:1.25rem; }
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+# ————————————————————————————————————————————————————————————————
+# Session bootstrap
+# ————————————————————————————————————————————————————————————————
+ensure_session_from_cookie("home")
+
+# ————————————————————————————————————————————————————————————————
+# HERO
+# ————————————————————————————————————————————————————————————————
+st.markdown('<div class="hero">', unsafe_allow_html=True)
+
+logo_path = pathlib.Path("assets/logo.svg")
+if logo_path.exists():
+    st.markdown('<div class="center mb-2">' + logo_path.read_text() + '</div>', unsafe_allow_html=True)
+else:
+    st.markdown('<h1 class="center mb-0">FluxPricer AI</h1>', unsafe_allow_html=True)
+
+# Main title
+st.markdown('<h1>Real-time Dynamic Pricing for Fashion & Accessories</h1>', unsafe_allow_html=True)
+
+# ✅ Show robot image (center + larger)
+robot_path = pathlib.Path("assets/robo.png")
+if robot_path.exists():
+    st.image(str(robot_path), width=560)
+
+
+# Subtitle
+st.markdown(
+    '<p style="margin-top:0.5rem; opacity:.9;">Multi-agent system delivering intelligent pricing decisions with real-time market adaptation</p>',
+    unsafe_allow_html=True
+)
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+
+# ————————————————————————————————————————————————————————————————
+# Agents Grid
+# ————————————————————————————————————————————————————————————————
+st.markdown("## 🤖 Our Intelligent Agent System")
+st.caption("Four specialized AI agents working in harmony to optimize your pricing strategy")
+
+c1, c2, c3, c4 = st.columns(4, gap="large")
+with c1:
+    st.markdown('<div class="card lift agent-card"><div class="icon">📊</div><h4>Market Data Collector</h4><p>Gathers and preprocesses competitor pricing, sales history, and external market signals in real time.</p></div>', unsafe_allow_html=True)
+with c2:
+    st.markdown('<div class="card lift agent-card"><div class="icon">🤖</div><h4>Price Optimizer</h4><p>ML models and constrained optimization converge on ideal prices across products and regions.</p></div>', unsafe_allow_html=True)
+with c3:
+    st.markdown('<div class="card lift agent-card"><div class="icon">🔔</div><h4>Alert Agent</h4><p>Monitors market shocks and notifies you of opportunities or risks instantly.</p></div>', unsafe_allow_html=True)
+with c4:
+    st.markdown('<div class="card lift agent-card"><div class="icon">👤</div><h4>User Interaction</h4><p>Intuitive dashboards, clear explanations of model decisions, and safe manual overrides.</p></div>', unsafe_allow_html=True)
+
+# ————————————————————————————————————————————————————————————————
+# Primary Actions
+# ————————————————————————————————————————————————————————————————
+st.markdown("##Get Started")
+a1, a2, a3 = st.columns(3, gap="large")
+
+if st.session_state.get("session"):
+    with a1:
+        st.markdown('<div class="card lift"><div class="kicker">Navigation</div>', unsafe_allow_html=True)
+        if st.button("Alerts & Notifications", key="btn_alerts"):
+            st.switch_page("pages/5_Alerts_and_Notifications.py")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with a2:
+        st.markdown('<div class="card lift"><div class="kicker">Account</div>', unsafe_allow_html=True)
+        if st.button("Profile", key="btn_profile"):
+            st.switch_page("pages/4_Profile.py")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with a3:
+        st.markdown('<div class="card lift"><div class="kicker">Session</div>', unsafe_allow_html=True)
+        st.markdown('<div class="stButton btn-danger">', unsafe_allow_html=True)
+        logout_clicked = st.button("Logout", key="logout_btn")
+        st.markdown('</div></div>', unsafe_allow_html=True)
+        if logout_clicked:
+            st.session_state["confirm_logout"] = True
+
+    # Logout confirmation modal
+    if st.session_state.get("confirm_logout"):
+        st.markdown('<div class="overlay"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="modal"><div class="content">', unsafe_allow_html=True)
+        st.warning("Are you sure you want to log out?")
+        mc1, mc2 = st.columns(2)
+        with mc1:
+            if st.button("✅ Yes, log out", key="logout_yes", use_container_width=True):
+                tok = st.session_state.get("session", {}).get("token")
+                if tok:
+                    try: revoke_session_token(tok)
+                    except Exception: pass
+                st.session_state.pop("session", None)
+                st.session_state["_skip_cookie_restore_once"] = True
+                st.session_state.pop("confirm_logout", None)
+                st.switch_page("pages/_logout.py")
+        with mc2:
+            st.markdown('<div class="stButton btn-secondary">', unsafe_allow_html=True)
+            if st.button("❌ Cancel", key="logout_cancel", use_container_width=True):
+                st.session_state.pop("confirm_logout", None)
+            st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div></div>', unsafe_allow_html=True)
+else:
+    with a1:
+        st.markdown('<div class="card lift"><div class="kicker">Welcome back</div>', unsafe_allow_html=True)
+        if st.button("🔑 Login", key="btn_login"):
+            st.switch_page("pages/1_Login.py")
+        st.markdown('</div>', unsafe_allow_html=True)
+    with a2:
+        st.markdown('<div class="card lift"><div class="kicker">New here?</div>', unsafe_allow_html=True)
+        st.markdown('<div class="stButton btn-secondary">', unsafe_allow_html=True)
+        if st.button("✨ Create Account", key="btn_register"):
+            st.switch_page("pages/2_Register.py")
+        st.markdown('</div></div>', unsafe_allow_html=True)
+    a3.write("")
+
+# ————————————————————————————————————————————————————————————————
+# Status Summary
+# ————————————————————————————————————————————————————————————————
+st.divider()
+
+s1, s2, s3 = st.columns(3, gap="large")
+
+auth_state = "Logged in" if st.session_state.get("session") else "Guest"
+status_color = "var(--success)" if st.session_state.get("session") else "var(--warning)"
+
+with s1:
+    st.markdown(f'<div class="card metric lift"><div class="kicker">Auth Status</div><h3 style="color:{status_color}">{auth_state}</h3></div>', unsafe_allow_html=True)
+with s2:
+    st.markdown('<div class="card metric lift"><div class="kicker">Active Agents</div><h3 style="color: var(--info)">4</h3></div>', unsafe_allow_html=True)
+with s3:
+    st.markdown('<div class="card metric lift"><div class="kicker">Monitoring</div><h3 style="color: var(--primary)">24/7</h3></div>', unsafe_allow_html=True)
+
+# ————————————————————————————————————————————————————————————————
+# Footer
+# ————————————————————————————————————————————————————————————————
+st.markdown('<div class="footer">FluxPricer AI © — demo for coursework. Not for production use.</div>', unsafe_allow_html=True)
+
+
+=== File: app\pages\1_Login.py ===
+# app/pages/1_Login.py
+# --- path bootstrap ---
+import sys, pathlib
+HERE = pathlib.Path(__file__).resolve()
+ROOT = next(p for p in [HERE, *HERE.parents] if (p / "core").exists())
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+# ----------------------
+
+import streamlit as st
+from datetime import datetime, timedelta, timezone
+
+from core.auth_db import init_db
+from core.auth_service import authenticate, create_persistent_session
+from app.session_utils import ensure_session_from_cookie, COOKIE_NAME, cookie_mgr
+
+
+
+# 1) FIRST Streamlit call
+st.set_page_config(page_title="Login — FluxPricer AI", page_icon="🔐", layout="centered")
+
+# 2) Init DB and let ensure_session_from_cookie() be the ONLY place that mounts CookieManager
+init_db()
+ensure_session_from_cookie()  # mounts component, handles first-pass None/{} and sets session if cookie valid
+
+# 3) If we were waiting for cookie commit from the previous submit:
+if st.session_state.get("_await_cookie_commit"):
+    if st.session_state.get("session"):
+        # cookie was read & validated by ensure_session_from_cookie()
+        st.session_state.pop("_await_cookie_commit", None)
+        st.session_state["_post_login_redirect_ready"] = True
+        st.rerun()
+    else:
+        st.info("Still finalizing sign-in…")
+        st.stop()
+
+# 4) Redirects
+if st.session_state.get("_post_login_redirect_ready"):
+    st.session_state.pop("_post_login_redirect_ready", None)
+    st.switch_page("pages/dashboard.py")
+
+if st.session_state.get("session"):
+    st.switch_page("pages/dashboard.py")
+
+
+# 5) UI
+st.title("🔐 Login")
+with st.form("login_form", clear_on_submit=False):
+    email = st.text_input("Email", placeholder="you@example.com")
+    password = st.text_input("Password", type="password")
+    submitted = st.form_submit_button("Login")
+
+# 6) Handle submit
+if submitted:
+    email_norm = (email or "").strip().lower()
+    pw = (password or "").strip()
+
+    if not email_norm or not pw:
+        st.error("Email and password are required.")
+    else:
+        try:
+            # 2FA removed: only email & password
+            session = authenticate(email=email_norm, password=pw)
+            st.session_state["session"] = session
+
+            # Create server-side token
+            token, _ = create_persistent_session(session["user_id"])
+
+            # Set the cookie using the ONE CookieManager instance
+            cm = cookie_mgr()  # singleton
+            expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+            cm.set(
+                COOKIE_NAME,
+                token,
+                expires_at=expires_at,   # if your stx version doesn't support expires_at, switch to expires=expires_at
+                max_age=7*24*60*60,
+                path="/",
+                same_site="Lax",
+                # secure=True,  # enable on HTTPS in prod
+            )
+
+            # Allow this render to complete so browser commits the cookie.
+            st.session_state["_await_cookie_commit"] = True
+            st.success("Welcome! Finalizing sign-in…")
+            st.stop()
+        except Exception as e:
+            st.error(str(e))
+
+
+=== File: app\pages\2_Register.py ===
+# --- path bootstrap ---
+import sys, pathlib
+HERE = pathlib.Path(__file__).resolve()
+ROOT = next(p for p in [HERE, *HERE.parents] if (p / "core").exists())
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+# ----------------------
+
+import streamlit as st
+from datetime import timedelta  # (not required, just here if you later add auto-login)
+st.set_page_config(page_title="Register — FluxPricer AI", page_icon="🪪", layout="centered")
+
+from core.auth_db import init_db
+from core.auth_service import RegisterIn, register_user
+from app.session_utils import ensure_session_from_cookie
+
+# Init + cookie-based session restore
+init_db()
+ensure_session_from_cookie()
+
+# Already logged in? Go home.
+if st.session_state.get("session"):
+    st.switch_page("pages/0_Home.py")
+    st.stop()
+
+st.title("🪪 Create Account")
+with st.form("register_form", clear_on_submit=False):
+    email = st.text_input("Email", placeholder="you@example.com")
+    full_name = st.text_input("Full name (optional)")
+    password = st.text_input("Password (≥10 chars)", type="password")
+    submitted = st.form_submit_button("Register")
+
+if submitted:
+    email_norm = (email or "").strip().lower()
+    full_name_norm = (full_name or "").strip() or None
+    pw = (password or "").strip()
+
+    # Quick client-side checks (server will re-validate anyway)
+    if not email_norm:
+        st.error("Email is required.")
+    elif len(pw) < 10:
+        st.error("Password must be at least 10 characters.")
+    else:
+        try:
+            register_user(RegisterIn(
+                email=email_norm,
+                full_name=full_name_norm,
+                password=pw,
+            ))
+            st.success("Account created. Please log in.")
+            st.switch_page("pages/1_Login.py")
+            st.stop()
+        except Exception as e:
+            # Pass through the nice messages from register_user (email exists, invalid email, etc.)
+            st.error(str(e))
+
+
+=== File: app\pages\4_Profile.py ===
+# --- path bootstrap ---
+import sys, pathlib
+HERE = pathlib.Path(__file__).resolve()
+ROOT = next(p for p in [HERE, *HERE.parents] if (p / "core").exists())
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+# ----------------------
+
+import streamlit as st
+st.set_page_config(page_title="Profile — FluxPricer AI", page_icon="👤", layout="centered")
+
+from core.auth_service import get_profile
+from app.session_utils import ensure_session_from_cookie
+
+# Restore session from cookie on refresh
+ensure_session_from_cookie()
+
+# ---- auth guard ----
+session = st.session_state.get("session")
+if not session:
+    st.warning("Please login first.")
+    st.stop()
+
+# ---- simple CSS ----
+st.markdown("""
+<style>
+.page-wrap {max-width: 820px; margin: 0 auto;}
+.card {
+  background:#111827; border:1px solid #1f2937; border-radius:16px; padding:18px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.25);
+}
+.kv {display:flex; gap:8px; align-items:center; margin:6px 0;}
+.kv label {width:140px; color:#9ca3af;}
+</style>
+""", unsafe_allow_html=True)
+
+# ---- load profile ----
+try:
+    prof = get_profile(session["user_id"])
+except Exception as e:
+    st.error(f"Could not load profile: {e}")
+    st.stop()
+
+st.markdown("<div class='page-wrap'>", unsafe_allow_html=True)
+
+st.markdown(f"""
+<div class="card">
+  <div class="kv"><label>User ID</label><div>{prof.get("id","-")}</div></div>
+  <div class="kv"><label>Email</label><div>{prof.get("email","-")}</div></div>
+  <div class="kv"><label>Name</label><div>{prof.get("full_name") or "-"}</div></div>
+</div>
+""", unsafe_allow_html=True)
+
+# Actions row
+c1, c2 = st.columns([1, 1])
+
+with c2:
+    if st.button("Back to Home", key="btn_back_home"):
+        st.switch_page("pages/0_Home.py")
+
+
+=== File: app\pages\5_Alerts_and_Notifications.py ===
+# pages/5_Alerts_and_Notifications.py
+import os, sys, pathlib, asyncio, threading, time
+from queue import SimpleQueue
+from types import SimpleNamespace
+from datetime import datetime, timezone
+
+import streamlit as st
+
+# Ensure repo root on path
+HERE = pathlib.Path(__file__).resolve()
+ROOT = next(p for p in [HERE, *HERE.parents] if (p / "core").exists())
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+# Globals
+ALERT_QUEUE = SimpleQueue()
+
+# Streamlit page config
+st.set_page_config(page_title="Alerts — FluxPricer AI", page_icon="🔔", layout="wide")
+st.title("🔔 Alerts & Notifications")
+
+# Sidebar badge
+st.session_state.setdefault("alert_unseen", 0)
+def render_sidebar_badge():
+    unseen = st.session_state.get("alert_unseen", 0)
+    st.sidebar.markdown(
+        """
+<style>
+.badge { background:#e11d48; color:#fff; border-radius:999px; padding:2px 8px; font-weight:700; font-size:12px; line-height:1.2; display:inline-block; }
+.sidebar-row { display:flex; align-items:center; gap:8px; }
+.badge.hidden { display:none; }
+</style>""",
+        unsafe_allow_html=True,
+    )
+    cls = "badge" if unseen else "badge hidden"
+    st.sidebar.markdown(f"<div class='sidebar-row'>🔔 Alerts <span class='{cls}'>{unseen}</span></div>", unsafe_allow_html=True)
+
+render_sidebar_badge()
+
+# Background loop helpers
+def _ensure_bg_loop():
+    if "_bg_loop" not in st.session_state:
+        loop = asyncio.new_event_loop()
+        t = threading.Thread(target=loop.run_forever, daemon=True)
+        t.start()
+        st.session_state["_bg_loop"] = loop
+    return st.session_state["_bg_loop"]
+
+def run_bg(coro):
+    loop = _ensure_bg_loop()
+    fut = asyncio.run_coroutine_threadsafe(coro, loop)
+    def _done(f):
+        exc = f.exception()
+        if exc:
+            try: st.toast(f"Task error: {exc}")
+            except Exception: pass
+    fut.add_done_callback(_done)
+    return fut
+
+def run_async(coro, timeout: float | None = 15.0):
+    fut = asyncio.run_coroutine_threadsafe(coro, _ensure_bg_loop())
+    return fut.result(timeout=timeout)
+
+# --- Raw SMTP test helper (STRICT) -------------------------------------------
+import smtplib, ssl
+from email.message import EmailMessage
+def _send_test_email_raw():
+    EMAIL_FROM    = os.getenv("EMAIL_FROM", "alerts@yourco.com")
+    EMAIL_TO      = [e.strip() for e in os.getenv("EMAIL_TO", "").split(",") if e.strip()]
+    SMTP_HOST     = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    SMTP_PORT     = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USER     = os.getenv("SMTP_USER", EMAIL_FROM)
+    SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+
+    if not EMAIL_TO:
+        raise RuntimeError("EMAIL_TO is empty")
+    if not SMTP_USER or not SMTP_PASSWORD:
+        raise RuntimeError("SMTP_USER / SMTP_PASSWORD missing")
+
+    msg = EmailMessage()
+    msg["From"] = EMAIL_FROM
+    msg["To"] = ", ".join(EMAIL_TO)
+    msg["Subject"] = "[TEST] SMTP connectivity"
+    msg.set_content("If you see this, SMTP works (raw test).")
+
+    ctx = ssl.create_default_context()
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as s:
+        code, banner = s.ehlo()
+        if not s.has_extn("starttls"):
+            raise RuntimeError(f"Server does not advertise STARTTLS: {banner!r}")
+        code, _ = s.starttls(context=ctx)
+        if code != 220:
+            raise RuntimeError(f"STARTTLS failed with code {code}")
+        code, _ = s.ehlo()
+        if code != 250:
+            raise RuntimeError(f"EHLO after STARTTLS failed with code {code}")
+        code, resp = s.login(SMTP_USER, SMTP_PASSWORD)
+        if code != 235:
+            raise RuntimeError(f"AUTH failed: {code} {resp}")
+        s.send_message(msg)
+
+# App imports
+from app.session_utils import ensure_session_from_cookie
+from core.agents.alert_service import api as alerts
+from core.agents.alert_service.schemas import RuleSpec
+from core.agents.agent_sdk import get_bus, Topic
+bus = get_bus()
+
+from core.agents.alert_service.sinks import get_sinks
+
+# Session/auth
+ensure_session_from_cookie()
+if "session" not in st.session_state or st.session_state["session"] is None:
+    st.warning("⚠️ You must log in first!")
+    st.stop()
+
+# Start alert engine once
+if "_alerts_started" not in st.session_state:
+    run_bg(alerts.start())
+    st.session_state["_alerts_started"] = True
+
+# Demo rules (margin breach includes email)
+DEMO_RULES = [
+    RuleSpec(
+        id="undercut_demo",
+        source="MARKET_TICK",
+        where="tick.competitor_price and tick.competitor_price * 1.02 < tick.our_price",
+        hold_for="10s",
+        severity="warn",
+        notify={"channels": ["ui"], "throttle": "0s"},
+        enabled=True,
+    ).dict(),
+    RuleSpec(
+        id="margin_breach_demo",
+        source="PRICE_PROPOSAL",
+        where="pp.margin < 0.12",
+        severity="crit",
+        notify={"channels": ["ui", "email"], "throttle": "0s"},
+        enabled=True,
+    ).dict(),
+    RuleSpec(
+        id="demand_spike_demo",
+        source="MARKET_TICK",
+        where="tick.demand_index >= 0.95",
+        severity="info",
+        notify={"channels": ["ui"], "throttle": "0s"},
+        enabled=True,
+    ).dict(),
+]
+
+def _ensure_demo_rules():
+    """Create any missing demo rules every run (idempotent)."""
+    try:
+        existing = run_async(alerts.list_rules()) or []
+        existing_ids = {
+            (r.get("id") if isinstance(r, dict) else getattr(r, "id", None))
+            for r in existing
+        }
+        to_create = [spec for spec in DEMO_RULES if spec["id"] not in existing_ids]
+        for spec in to_create:
+            run_async(alerts.create_rule(spec))
+        if to_create:
+            try: run_async(alerts.reload_rules())
+            except Exception: pass
+            st.success(f"Installed {len(to_create)} demo rule(s) ✅")
+    except Exception as e:
+        st.warning(f"Couldn’t ensure demo rules: {e}")
+
+# Ensure rules are present (not only when empty)
+_ensure_demo_rules()
+
+# Show rules + whether margin rule exists
+_rules_now = run_async(alerts.list_rules()) or []
+_has_margin = any(
+    (r.get("id") if isinstance(r, dict) else getattr(r, "id", None)) == "margin_breach_demo"
+    for r in _rules_now
+)
+st.caption(f"Rules loaded: {len(_rules_now)} • margin_breach_demo: {'✅' if _has_margin else '❌'}")
+
+# Button to force reinstall demos
+if st.sidebar.button("🧰 Reinstall demo rules"):
+    try:
+        # Try to create all; ignore duplicates
+        for spec in DEMO_RULES:
+            try: run_async(alerts.create_rule(spec))
+            except Exception: pass
+        try: run_async(alerts.reload_rules())
+        except Exception: pass
+        st.sidebar.success("Demo rules reinstalled.")
+        st.rerun()
+    except Exception as e:
+        st.sidebar.error(f"Reinstall failed: {e}")
+
+# --- Publisher that matches margin_breach_demo -------------------------------
+# Evaluator binds the PRICE_PROPOSAL payload to variable 'pp', so publish the
+# PROPOSAL as the *top-level* object with 'margin' attribute.
+async def _fire_margin_breach_proposal(sku: str, proposed: float, cost: float):
+    margin = ((proposed - cost) / proposed) if proposed else 0.0
+    await bus.publish(
+        Topic.PRICE_PROPOSAL.value,
+        SimpleNamespace(
+            ts=datetime.now(timezone.utc),
+            sku=sku,
+            margin=margin,          # the rule checks this
+            proposed=proposed,
+            cost=cost,
+            title=f"Proposed price {proposed:.2f} on cost {cost:.2f} (margin {margin:.3f})",
+        ),
+    )
+
+# Live sink subscription
+async def _ui_sink_consumer(obj):
+    try:
+        if isinstance(obj, dict):
+            ts = obj.get("last_seen") or obj.get("ts") or datetime.now(timezone.utc)
+            sku = obj.get("sku", "N/A")
+            sev = obj.get("severity", "info")
+            title = obj.get("title") or obj.get("kind", "ALERT")
+        else:
+            ts = getattr(obj, "last_seen", None) or getattr(obj, "ts", None) or datetime.now(timezone.utc)
+            sku = getattr(obj, "sku", "N/A")
+            sev = getattr(obj, "severity", "info")
+            title = getattr(obj, "title", getattr(obj, "kind", "ALERT"))
+        ALERT_QUEUE.put(f"[{ts:%H:%M:%S}] {sev.upper()} {sku} — {title}")
+    except Exception as e:
+        ALERT_QUEUE.put(f"[{datetime.now(timezone.utc):%H:%M:%S}] ERROR N/A — Live sink error: {e}")
+
+if not st.session_state.get("_alert_ui_sink_subscribed"):
+    bus.subscribe(Topic.ALERT.value, _ui_sink_consumer)
+    st.session_state["_alert_ui_sink_subscribed"] = True
+
+# Drain queue, update badge
+buf = st.session_state.setdefault("alert_lines", [])
+new_count = 0
+while not ALERT_QUEUE.empty():
+    try:
+        buf.append(ALERT_QUEUE.get_nowait()); new_count += 1
+    except Exception:
+        break
+st.session_state["alert_lines"] = buf[-300:]
+if new_count:
+    st.session_state["alert_unseen"] = st.session_state.get("alert_unseen", 0) + new_count
+    render_sidebar_badge()
+
+# Email debug tools
+SINKS = get_sinks()  # repo optional
+with st.sidebar.expander("✉️ Email debug"):
+    st.write(f"Sinks loaded: `{list(SINKS.keys())}`")
+
+    show_cfg = st.checkbox("Show SMTP config (resolved)")
+    if show_cfg:
+        st.caption("Raw SMTP (EMAIL_*)")
+        st.write({
+            "EMAIL_FROM": os.getenv("EMAIL_FROM"),
+            "EMAIL_TO": os.getenv("EMAIL_TO"),
+            "SMTP_HOST": os.getenv("SMTP_HOST"),
+            "SMTP_PORT": os.getenv("SMTP_PORT"),
+            "SMTP_USER": os.getenv("SMTP_USER"),
+            "SMTP_PASSWORD_set": bool(os.getenv("SMTP_PASSWORD")),
+        })
+        st.caption("Sinks (ALERTS_*)")
+        st.write({
+            "ALERTS_EMAIL_FROM": os.getenv("ALERTS_EMAIL_FROM"),
+            "ALERTS_EMAIL_TO": os.getenv("ALERTS_EMAIL_TO"),
+            "ALERTS_SMTP_HOST": os.getenv("ALERTS_SMTP_HOST"),
+            "ALERTS_SMTP_PORT": os.getenv("ALERTS_SMTP_PORT"),
+            "ALERTS_SMTP_USER": os.getenv("ALERTS_SMTP_USER"),
+            "ALERTS_SMTP_PASSWORD_set": bool(os.getenv("ALERTS_SMTP_PASSWORD")),
+        })
+
+    if st.button("Raw SMTP test"):
+        try:
+            _send_test_email_raw()
+            st.success("Raw SMTP test sent. Check your inbox.")
+        except Exception as e:
+            st.error(f"SMTP failed: {e}")
+
+    if st.button("Sink test (bypass rules)"):
+        email_sink = SINKS.get("email")
+        if not email_sink:
+            st.error("Email sink not loaded.")
+        else:
+            fake_incident = {
+                "id": "inc_test_email",
+                "ts": datetime.now(timezone.utc),
+                "last_seen": datetime.now(timezone.utc),
+                "sku": "TEST-SINK",
+                "severity": "warn",
+                "rule_id": "email_sink_test",
+                "title": "Sink test alert",
+                "status": "OPEN",
+                "payload": {"description": "This is a sink-only test."},
+            }
+            class _RuleSpecLike:
+                def __init__(self):
+                    self.notify = SimpleNamespace(channels=["email"])
+                    self.severity = "warn"
+            fake_rule = SimpleNamespace(spec=_RuleSpecLike())
+
+            fut = asyncio.run_coroutine_threadsafe(email_sink.send(fake_incident, fake_rule), _ensure_bg_loop())
+            try:
+                fut.result(10)
+                st.success("Sink sent. Check inbox.")
+            except Exception as e:
+                st.error(f"Sink failed: {e}")
+
+    if st.button("Pipeline test (bus → sinks)"):
+        test_alert = SimpleNamespace(
+            ts=datetime.now(timezone.utc),
+            sku="TEST-PIPE",
+            severity="warn",
+            rule_id="pipeline_test",
+            title="Pipeline test alert",
+            description="End-to-end bus → sinks.",
+            channels=["email", "ui"],
+        )
+        asyncio.run_coroutine_threadsafe(bus.publish(Topic.ALERT.value, test_alert), _ensure_bg_loop())
+        st.success("Published test alert to bus. If sinks are wired, email should arrive.")
+
+# Live / Incidents UI
+tab_live, tab_inc = st.tabs(["📡 Live stream", "🗂️ Incidents"])
+
+with tab_live:
+    st.caption("Real-time messages from the alert UI sink (plus Slack/Email/Webhook if configured).")
+    log = st.empty()
+    st.toggle("Auto-refresh live log", value=True, key="auto_live")
+
+    if st.button("Mark all as read"):
+        st.session_state["alert_unseen"] = 0
+        render_sidebar_badge()
+        st.toast("Alerts marked as read")
+
+    c1, c2 = st.columns(2)
+
+    if c1.button("🔔 Ping UI stream"):
+        ts = datetime.now(timezone.utc).strftime("%H:%M:%S")
+        buf = st.session_state.setdefault("alert_lines", [])
+        buf.append(f"[{ts}] INFO TEST — Ping from UI (local)")
+        st.session_state["alert_lines"] = buf[-300:]
+        obj = SimpleNamespace(ts=datetime.now(timezone.utc), sku="TEST", severity="info", title="Ping from UI (bus)")
+        asyncio.run_coroutine_threadsafe(bus.publish(Topic.ALERT.value, obj), _ensure_bg_loop())
+        st.toast("Ping sent")
+
+    if c2.button("🧪 Force test proposal"):
+        dyn_sku = f"SKU-{int(time.time())}"
+        run_bg(_fire_margin_breach_proposal(dyn_sku, proposed=100.0, cost=95.0))  # ~0.05 margin => guaranteed breach
+        st.toast(f"Published a margin-breach proposal for {dyn_sku}")
+
+    log.code("\n".join(st.session_state.get("alert_lines", [])) or "# Alerts will appear here…")
+
+    if st.session_state.get("auto_live", True):
+        time.sleep(1)
+        st.rerun()
+
+with tab_inc:
+    st.caption("Search, filter, and manage alert incidents (OPEN / ACKED / RESOLVED).")
+    cols = st.columns([1.2, 1, 1, 2])
+    with cols[0]:
+        status = st.selectbox("Status", ["All", "OPEN", "ACKED", "RESOLVED"], index=1)
+
+    # CHANGED: don't use on_click; call st.rerun() directly when button returns True
+    with cols[1]:
+        if st.button("🔄 Refresh"):
+            st.rerun()
+
+    with cols[2]:
+        do_ack = st.checkbox("Instant-ack buttons", value=True)
+
+    # Query incidents based on current filter
+    rows = run_async(alerts.list_incidents(None if status == "All" else status)) or []
+
+    # CHANGED: compute open count reliably
+    open_count = len(rows) if status == "OPEN" else sum(1 for r in rows if r.get("status") == "OPEN")
+    st.metric("Open incidents", open_count)
+
+    # OPTIONAL (NEW): auto-refresh the Incidents tab itself
+    auto_inc = st.toggle("Auto-refresh incidents", value=False, key="auto_inc")
+    if auto_inc:
+        time.sleep(1.5)
+        st.rerun()
+
+    if rows:
+        for r in rows:
+            with st.container(border=True):
+                c1, c2, c3, c4, c5 = st.columns([4, 1.2, 1.2, 1.6, 1.6])
+                c1.markdown(f"**{r['title']}**  \n`{r['sku']}` • **{r['severity'].upper()}** • rule=`{r['rule_id']}`")
+                c2.markdown(f"Status: **{r['status']}**")
+                c3.markdown(f"Last: `{r['last_seen']}`")
+                if do_ack and r["status"] == "OPEN":
+                    if c4.button("✅ Ack", key=f"ack_{r['id']}"):
+                        run_async(alerts.ack_incident(r["id"]))
+                        st.toast(f"Acked {r['id']}")
+                        st.rerun()  # OK here (not a callback)
+
+                if r["status"] in ("OPEN", "ACKED"):
+                    if c5.button("🟢 Resolve", key=f"res_{r['id']}"):
+                        run_async(alerts.resolve_incident(r["id"]))
+                        st.toast(f"Resolved {r['id']}")
+                        st.rerun()  # OK here (not a callback)
+    else:
+        st.info("No incidents for this filter.")
+
+
+with st.expander("Debug: active rules"):
+    st.json(run_async(alerts.list_rules()) or [])
+
+
+=== File: app\pages\_logout.py ===
+# app/pages/_logout.py
+import streamlit as st
+from app.session_utils import ensure_session_from_cookie, cookie_mgr, clear_session_cookie
+from core.auth_service import revoke_session_token
+
+st.set_page_config(page_title="Logout — FluxPricer AI", page_icon="👋", layout="centered")
+
+# Restore from cookie if present
+ensure_session_from_cookie("logout")
+
+# Mount CookieManager so its JS can clear cookies on this page
+cm = cookie_mgr()
+
+st.header("Log out")
+st.write("Are you sure you want to log out?")
+
+col1, col2 = st.columns([1, 1])
+
+with col1:
+    if st.button("✅ Yes, log out", key="logout_yes"):
+        session = st.session_state.get("session")
+
+        if session:
+            # Revoke server-side (best effort)
+            tok = session.get("token")
+            if tok:
+                try:
+                    revoke_session_token(tok)
+                except Exception:
+                    pass
+
+            # Prevent immediate cookie-based restore and drop in-memory session
+            st.session_state.pop("session", None)
+            st.session_state["_skip_cookie_restore_once"] = True
+
+            # Clear the browser cookie (expires_at + max_age=0 + delete with exact attrs)
+            clear_session_cookie()
+
+            st.success("You’ve been logged out.")
+            st.caption("Cookie cleared. Redirecting…")
+            st.markdown('<meta http-equiv="refresh" content="1.2;url=/">', unsafe_allow_html=True)
+        else:
+            # Not logged in → send user to Login with a message
+            st.session_state["flash_info"] = "Please log in first."
+            st.switch_page("pages/1_Login.py")
+
+with col2:
+    if st.button("❌ Cancel", key="logout_cancel"):
+        # If logged in, go home; else go to Login
+        if st.session_state.get("session"):
+            st.switch_page("pages/0_Home.py")
+        else:
+            st.switch_page("pages/1_Login.py")
+
+
+=== File: app\pages\dashboard.py ===
+import streamlit as st
+import plotly.express as px
+import pandas as pd
+import random
+import os
+import json
+from datetime import datetime
+import asyncio
+import threading
+from concurrent.futures import TimeoutError as FuturesTimeout
+import sys
+import pathlib
+
+# =========================
+# Optional agent dependency
+# =========================
+try:
+    from core.agents.user_interact.user_interaction_agent import UserInteractionAgent
+except Exception:
+    # Safe fallback so the app still runs if the import isn't available
+    class UserInteractionAgent:
+        def _init_(self, user_name: str = "User", model_name: str = "stub"):
+            self.user_name = user_name
+            self.model_name = model_name
+
+        def get_response(self, text: str) -> str:
+            return f"(Stub agent) Hi {self.user_name}, you asked: '{text}'. " \
+                   f"Replace this stub by installing the core agent package."
+
+# ---- Streamlit Page Config ----
+st.set_page_config(page_title="Dynamic Pricing Dashboard", page_icon="📊", layout="wide")
+
+# ---- Custom CSS (single copy) ----
+st.markdown("""
+<style>
+.stApp { background-color: #a6bdde; color: #000000; }
+.stMetric { background-color: #7da3c3; border-radius: 10px; padding: 10px; color: #000000; }
+.stSidebar { background-color: #7da3c3; color: #000000; }
+.stChatMessage { background-color: #6b92b1; color: #000000; border-radius: 10px; padding: 5px; }
+.stTextInput > div > div > input { background-color: #a6bdde; color: #000000; border: 1px solid #000000; }
+</style>
+""", unsafe_allow_html=True)
+
+# ====================
+# Simulated Data Layer
+# ====================
+def get_dynamic_pricing_data() -> pd.DataFrame:
+    products = ["A", "B", "C", "D", "E"]
+    data = []
+    for p in products:
+        price = random.randint(100, 200)
+        demand = random.randint(150, 500)
+        data.append({"Product": p, "Price": price, "Demand": demand})
+    return pd.DataFrame(data)
+
+def get_demand_trend() -> pd.DataFrame:
+    return pd.DataFrame({
+        "Date": pd.date_range(start="2025-01-01", periods=12, freq="M"),
+        "Demand": [random.randint(200, 400) for _ in range(12)]
+    })
+
+# ==========================
+# Simple User Data Persistence
+# ==========================
+DATA_FILE = "user_data.json"
+
+def load_user_data(email: str):
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, "r") as f:
+                all_data = json.load(f)
+            return all_data.get(email, {"chat_history": [], "metrics": None})
+        except json.JSONDecodeError:
+            return {"chat_history": [], "metrics": None}
+    return {"chat_history": [], "metrics": None}
+
+def save_user_data(email: str, data: dict):
+    all_data = {}
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, "r") as f:
+                all_data = json.load(f)
+        except json.JSONDecodeError:
+            all_data = {}
+    all_data[email] = data
+    with open(DATA_FILE, "w") as f:
+        json.dump(all_data, f, indent=4)
+
+# =================
+# Session Gate/Init
+# =================
+if "session" not in st.session_state or st.session_state["session"] is None:
+    st.warning("⚠ You must log in first!")
+    st.stop()
+
+user_session = st.session_state["session"]
+user_name = user_session.get("full_name", "User")
+user_email = user_session.get("email") or "anonymous@example.com"
+
+# Load persisted user data into session_state once
+if "chat_history" not in st.session_state or "metrics" not in st.session_state:
+    _loaded = load_user_data(user_email)
+    st.session_state.setdefault("chat_history", _loaded.get("chat_history", []))
+    st.session_state.setdefault("metrics", _loaded.get("metrics", None))
+
+# Initialize local agent
+agent = UserInteractionAgent(user_name=user_name, model_name="gpt2")  # or your smaller chat model
+
+# ===================
+# Dashboard Header/UI
+# ===================
+st.markdown(f"<h2 style='color:#000000;'>👋 Welcome back, <b>{user_name}</b></h2>", unsafe_allow_html=True)
+
+# ---- Metrics ----
+st.subheader("📈 Key Business Metrics")
+df = get_dynamic_pricing_data()
+
+# Example business metrics (revenue = sum of price*demand for this random snapshot)
+total_sales = int((df["Price"] * df["Demand"]).sum())
+avg_price = float(df["Price"].mean())
+units_sold = int(df["Demand"].sum())
+
+if st.session_state["metrics"] is None:
+    st.session_state["metrics"] = {
+        "total_sales": total_sales,
+        "avg_price": avg_price,
+        "units_sold": units_sold
+    }
+
+col1, col2, col3 = st.columns(3)
+col1.metric(label="💰 Total Sales", value=f"${st.session_state['metrics']['total_sales']:,}", delta="+5%")
+col2.metric(label="💵 Avg. Price", value=f"${st.session_state['metrics']['avg_price']:.2f}", delta="-2%")
+col3.metric(label="📦 Units Sold", value=f"{st.session_state['metrics']['units_sold']:,}", delta="+8%")
+
+st.markdown("---")
+
+# Persist after metrics render
+save_user_data(user_email, {
+    "chat_history": st.session_state["chat_history"],
+    "metrics": st.session_state["metrics"]
+})
+
+# ---- Charts ----
+st.subheader("📊 AI Prediction: Price vs Demand")
+fig = px.scatter(
+    df, x="Price", y="Demand", size="Demand", color="Product",
+    hover_name="Product", template="plotly_white", width=900, height=500
+)
+fig.update_layout(plot_bgcolor="#5896ed", paper_bgcolor="#5896ed", font_color="#000000")
+st.plotly_chart(fig, use_container_width=True)
+
+st.subheader("📈 AI Forecast: Demand Over Time")
+trend_df = get_demand_trend()
+fig2 = px.line(trend_df, x="Date", y="Demand", markers=True, template="plotly_white", width=900, height=400)
+fig2.update_traces(line=dict(color="#FFFFFF"))
+fig2.update_layout(plot_bgcolor="#5896ed", paper_bgcolor="#5896ed", font_color="#000000")
+st.plotly_chart(fig2, use_container_width=True)
+
+# ===============
+# Sidebar / Chat
+# ===============
+st.sidebar.title("⚙ Menu")
+st.sidebar.subheader("👤 User Info")
+st.sidebar.info(f"Name: {user_name}\n*Email:* {user_email}")
+
+# Chat history
+st.sidebar.subheader("💬 Chat History")
+chat_container = st.sidebar.container()
+for chat in st.session_state.chat_history:
+    role = chat.get("role")
+    message = chat.get("content")
+    time_str = chat.get("time", datetime.now().strftime("%H:%M:%S"))
+    if role == "user":
+        chat_container.markdown(f"🧑 [{time_str}] User: {message}")
+    else:
+        chat_container.markdown(f"🤖 [{time_str}] Bot: {message}")
+
+# Chat input + response
+user_input = st.chat_input("Ask me about pricing, demand, or sales...")
+if user_input:
+    st.session_state["chat_history"].append({
+        "role": "user",
+        "content": user_input,
+        "time": datetime.now().strftime("%H:%M:%S")
+    })
+    with st.chat_message("user"):
+        st.markdown(user_input)
+
+    response = agent.get_response(user_input)
+    st.session_state["chat_history"].append({
+        "role": "assistant",
+        "content": response,
+        "time": datetime.now().strftime("%H:%M:%S")
+    })
+    with st.chat_message("assistant"):
+        st.markdown(response)
+
+    save_user_data(user_email, {
+        "chat_history": st.session_state["chat_history"],
+        "metrics": st.session_state["metrics"]
+    })
+
+# Logout
+if st.sidebar.button("🚪 Logout"):
+    st.session_state["session"] = None
+    st.success("You have been logged out. Please refresh or go back to login.")
+    st.stop()
+
+# ============================================================================ #
+# ==================  🔧 EXTRAS: Alerts Engine & Incidents  ================== #
+# ============================================================================ #
+
+# Make 'core' package importable (only if it exists)
+try:
+    HERE = pathlib.Path(_file_).resolve()
+except NameError:
+    # Fallback for some environments where _file_ may not be defined
+    HERE = pathlib.Path.cwd()
+
+ROOT = next((p for p in [HERE, *HERE.parents] if (p / "core").exists()), None)
+if ROOT and str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+# Background asyncio loop (to call alert APIs safely from Streamlit)
+def _ensure_bg_loop():
+    if "_bg_loop" not in st.session_state:
+        loop = asyncio.new_event_loop()
+        t = threading.Thread(target=loop.run_forever, daemon=True)
+        t.start()
+        st.session_state["_bg_loop"] = loop
+    return st.session_state["_bg_loop"]
+
+def run_async(coro, timeout: float | None = 10.0):
+    loop = _ensure_bg_loop()
+    fut = asyncio.run_coroutine_threadsafe(coro, loop)
+    try:
+        return fut.result(timeout=timeout)
+    except FuturesTimeout:
+        return None
+    except Exception:
+        return None
+
+# Start alerts engine once (so incidents flow even on the dashboard)
+alerts = None
+try:
+    from core.agents.alert_service import api as _alerts
+    alerts = _alerts
+except Exception:
+    alerts = None
+
+if alerts:
+    if "_alerts_started" not in st.session_state:
+        try:
+            asyncio.run_coroutine_threadsafe(alerts.start(), _ensure_bg_loop())
+            st.session_state["_alerts_started"] = True
+        except Exception:
+            st.session_state["_alerts_started"] = False
+
+    with st.expander("🔔 Incidents (live — extras)", expanded=False):
+        try:
+            rows = run_async(alerts.list_incidents(None)) or []
+        except Exception:
+            rows = []
+        st.metric("Open incidents", sum(1 for r in rows if r.get("status") == "OPEN"))
+        if rows:
+            st.dataframe(pd.DataFrame(rows))
+        else:
+            st.info("No incidents yet — go to Alerts & Notifications and trigger a Demo scenario.")
+else:
+    with st.expander("🔔 Incidents (live — extras)", expanded=False):
+        st.info("Alerts service not available. Ensure core/agents/alert_service exists and dependencies are installed.")
+
+=== File: app\session_utils.py ===
+# app/session_utils.py
+import streamlit as st
+import extra_streamlit_components as stx
+from datetime import datetime, timedelta, timezone
+from core.auth_service import validate_session_token
+
+COOKIE_NAME = "fp_session"
+
+# Must match how the cookie is created (your row shows Lax, secure False, no domain, path "/")
+COOKIE_ATTRS = {
+    "path": "/",          # required
+    "samesite": "Lax",    # exactly as created
+    "secure": False,      # exactly as created (True only on HTTPS prod if you used it)
+    # DO NOT set "domain" for localhost (browsers ignore/forbid it)
+}
+
+def cookie_mgr() -> stx.CookieManager:
+    if "_cookie_mgr" not in st.session_state:
+        # one instance per Streamlit session; reuse everywhere
+        st.session_state["_cookie_mgr"] = stx.CookieManager(key="cookie-manager")
+    return st.session_state["_cookie_mgr"]
+
+def set_session_cookie(token: str) -> None:
+    cm = cookie_mgr()
+    cm.set(COOKIE_NAME, token, key="set_session_cookie", **COOKIE_ATTRS)
+
+def clear_session_cookie() -> None:
+    """
+    Clear fp_session using the same attributes it was created with.
+    We do: expires_at in the past, max_age=0, and delete — all three,
+    plus a hostOnly 'no-attrs' pass for older browsers.
+    """
+    cm = cookie_mgr()
+
+    # 1) expire in the past (UTC)
+    past = datetime.now(timezone.utc) - timedelta(days=1)
+    try:
+        cm.set(COOKIE_NAME, "", expires_at=past, key="expire_cookie", **COOKIE_ATTRS)
+    except TypeError:
+        cm.set(COOKIE_NAME, "", expires_at=past, key="expire_cookie")
+
+    # 2) set max_age=0
+    try:
+        cm.set(COOKIE_NAME, "", max_age=0, key="maxage_cookie", **COOKIE_ATTRS)
+    except TypeError:
+        cm.set(COOKIE_NAME, "", max_age=0, key="maxage_cookie")
+
+    # 3) explicit delete with matching attrs
+    try:
+        cm.delete(COOKIE_NAME, key="delete_cookie", **COOKIE_ATTRS)
+    except TypeError:
+        cm.delete(COOKIE_NAME)
+
+    # 4) (defensive) hostOnly delete with *no attrs* — useful on localhost
+    try:
+        cm.delete(COOKIE_NAME, key="delete_cookie_hostonly")
+    except Exception:
+        pass
+
+def ensure_session_from_cookie(page_key: str = "root") -> None:
+    if st.session_state.pop("_skip_cookie_restore_once", False):
+        return
+    if st.session_state.get("session"):
+        return
+
+    cm = cookie_mgr()
+    cookies = cm.get_all(key=f"get_all_{page_key}")
+    if cookies is None:
+        st.stop()
+
+    token = cookies.get(COOKIE_NAME)
+    if not token:
+        return
+
+    try:
+        sess = validate_session_token(token)
+    except Exception:
+        sess = None
+
+    if sess:
+        st.session_state["session"] = sess
+
+
+=== File: app\streamlit_app.py ===
+# app/streamlit_app.py  (router/bootstrap)
+from queue import SimpleQueue
+ALERT_QUEUE = SimpleQueue()
+
+# 0) Make the repo root importable BEFORE any project imports or Streamlit calls
+import sys, pathlib
+HERE = pathlib.Path(__file__).resolve()
+ROOT = HERE.parents[1]  # points to <project-root>
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+# 0.1) Load environment variables from .env (root first, then app/.env)
+from dotenv import load_dotenv
+load_dotenv(dotenv_path=ROOT / ".env", override=False)
+load_dotenv(dotenv_path=HERE.parent / ".env", override=False)  # if you also keep app/.env
+
+# 1) First Streamlit call
+import streamlit as st
+st.set_page_config(page_title="FluxPricer AI", page_icon="💹", layout="wide")
+
+# 1.1) Async background loop helper (needed for Python 3.13 in Streamlit)
+import asyncio, threading
+def _ensure_bg_loop():
+    """Create (once) a background asyncio loop and return it."""
+    if "_bg_loop" not in st.session_state:
+        loop = asyncio.new_event_loop()
+        t = threading.Thread(target=loop.run_forever, daemon=True)
+        t.start()
+        st.session_state["_bg_loop"] = loop
+    return st.session_state["_bg_loop"]
+
+# 2) Style tweaks / sidebar branding
+st.markdown("""
+    <style>
+        [data-testid="stSidebarNav"] > div:first-child { display: none; }
+    </style>
+""", unsafe_allow_html=True)
+with st.sidebar:
+    st.markdown("### FluxPricer AI")
+
+# 3) Project imports that rely on the repo root being on sys.path
+from app.session_utils import ensure_session_from_cookie
+from core.agents.alert_service import api as alerts  # <-- safe now
+
+# 4) Session setup
+ensure_session_from_cookie()
+st.session_state.setdefault("session", None)
+
+# 5) Start the alert service once (schedule onto background loop)
+if "_alerts_started" not in st.session_state:
+    loop = _ensure_bg_loop()
+    asyncio.run_coroutine_threadsafe(alerts.start(), loop)
+    st.session_state["_alerts_started"] = True
+
+# 6) Route to Home
+st.switch_page("pages/0_Home.py")
+
+
+=== File: bundle_20250829_134647_limit25000\BUNDLE_SUMMARY.txt ===
+PROJECT BUNDLE SUMMARY
+==================================================
+
+Creation Time: 20250829_134647
+Token Limit: 25,000
+Parts Created: 2
+Files Included: 66
+Files Skipped: 16355
+Errors: 0
+
+EXCLUDED DIRECTORIES:
+------------------------------
+  .git: 186 files
+  .venv: 16129 files
+  __pycache__: 25 files
+
+LARGE FILES IGNORED: 7
+(Files larger than 5MB)
+
+IGNORED FILE EXTENSIONS:
+------------------------------
+  (no extension): 2 files
+  .log: 2 files
+  .example: 1 files
+  .db: 1 files
+  .svg: 1 files
+  .png: 1 files
+
+FILES INCLUDED:
+------------------------------
+  project_code_bundle_part1.txt
+  project_code_bundle_part2.txt
+
+Log file: bundle_creation.log
