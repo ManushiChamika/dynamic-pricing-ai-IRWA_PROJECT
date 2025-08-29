@@ -27,4 +27,30 @@ ensure_session_from_cookie()
 
 # 4) Optional: init session dict and route to Home
 st.session_state.setdefault("session", None)
-st.switch_page("pages/0_Home.py")
+# Debug-safe behavior: do NOT perform an unconditional page switch.
+# Some local dev setups and Streamlit reruns can end up redirecting unexpectedly.
+# To enable the original behavior set the session flag `_auto_home_redirect = True`.
+st.session_state.setdefault("_auto_home_redirect", False)
+
+# Show a lightweight debug hint in the sidebar so we can see this file ran.
+with st.sidebar.expander("App bootstrap (debug)", expanded=False):
+    st.write({
+        "session": bool(st.session_state.get("session")),
+        "_auto_home_redirect": st.session_state.get("_auto_home_redirect"),
+    })
+
+if st.session_state.get("_auto_home_redirect"):
+    st.info("Auto-redirecting to Home (flag enabled)")
+    st.switch_page("pages/0_Home.py")
+else:
+    st.sidebar.info("Auto-redirect disabled — dashboard/pages will render directly (debug)")
+
+print("streamlit_app.py: module imported — auto_home_redirect=", st.session_state.get("_auto_home_redirect"))
+# Append a persistent runtime debug record so we can inspect logs after restarts
+try:
+    from datetime import datetime
+    import pathlib
+    logp = pathlib.Path.cwd() / "runtime_debug.log"
+    logp.write_text(f"{datetime.utcnow().isoformat()} streamlit_app imported auto_home_redirect={st.session_state.get('_auto_home_redirect')}\n", encoding="utf-8", )
+except Exception:
+    pass
