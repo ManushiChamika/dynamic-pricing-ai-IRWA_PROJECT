@@ -69,7 +69,7 @@ async def main() -> int:
     aa = AutoApplier()
     await aa.start()
 
-    # Publish a matching PriceProposal event
+    # Publish the same PriceProposal concurrently multiple times
     pp = PriceProposal(
         sku="SKU-123",
         proposed_price=101.0,
@@ -77,7 +77,9 @@ async def main() -> int:
         margin=0.20,
         algorithm="test",
     )
-    await bus.publish(Topic.PRICE_PROPOSAL.value, pp)
+    await asyncio.gather(*[
+        bus.publish(Topic.PRICE_PROPOSAL.value, pp) for _ in range(5)
+    ])
 
     # Wait for auto-apply to persist
     for _ in range(48):  # up to ~12s
@@ -91,11 +93,11 @@ async def main() -> int:
             "CREATE TABLE IF NOT EXISTS proposal_actions (id TEXT PRIMARY KEY, proposal_id TEXT, action TEXT, actor TEXT, ts TEXT)"
         )
         cur.execute(
-            "SELECT action FROM proposal_actions WHERE proposal_id=? AND action='AUTO_APPLIED' ORDER BY ts DESC LIMIT 1",
+            "SELECT COUNT(*) FROM proposal_actions WHERE proposal_id=? AND action='AUTO_APPLIED'",
             (pid,),
         )
-        r = cur.fetchone()
-        ok_actions = bool(r)
+        cnt = cur.fetchone()[0]
+        ok_actions = (cnt == 1)
         conn.close()
 
         conn2 = sqlite3.connect(market_db)
