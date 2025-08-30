@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
+import sys
 
 from core.agents.data_collector.repo import DataRepo
 from core.agents.data_collector.collector import DataCollector
@@ -21,6 +22,12 @@ async def main():
     # We inserted just now, so features_for with wide window:
     res = await repo.features_for("SKU-123", "DEFAULT", "1970-01-01T00:00:00+00:00")
     print("FEATURES:", res)
+    ok = bool(res.get("count", 0) > 0)
+    if ok:
+        print("SMOKE PASS: features count > 0")
+    else:
+        print("SMOKE FAIL: features count == 0")
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
