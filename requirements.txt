@@ -11,4 +11,8 @@ plotly
 aiosqlite
 aiohttp
 aiosmtplib
-pydantic
+# Core ML / AI dependencies
+transformers
+torch
+numpy
+pandas

@@ -12,16 +12,15 @@ import sys
 import pathlib
 
 # =========================
-# Optional agent dependency
+# User Interaction Agent
 # =========================
 try:
     from core.agents.user_interact.user_interaction_agent import UserInteractionAgent
 except Exception:
-    # Safe fallback so the app still runs if the import isn't available
+    # Fallback stub agent
     class UserInteractionAgent:
-        def _init_(self, user_name: str = "User", model_name: str = "stub"):
+        def __init__(self, user_name: str = "User"):
             self.user_name = user_name
-            self.model_name = model_name
 
         def get_response(self, text: str) -> str:
             return f"(Stub agent) Hi {self.user_name}, you asked: '{text}'. " \
@@ -30,7 +29,7 @@ except Exception:
 # ---- Streamlit Page Config ----
 st.set_page_config(page_title="Dynamic Pricing Dashboard", page_icon="📊", layout="wide")
 
-# ---- Custom CSS (single copy) ----
+# ---- Custom CSS ----
 st.markdown("""
 <style>
 .stApp { background-color: #a6bdde; color: #000000; }
@@ -103,8 +102,8 @@ if "chat_history" not in st.session_state or "metrics" not in st.session_state:
     st.session_state.setdefault("chat_history", _loaded.get("chat_history", []))
     st.session_state.setdefault("metrics", _loaded.get("metrics", None))
 
-# Initialize local agent
-agent = UserInteractionAgent(user_name=user_name, model_name="gpt2")  # or your smaller chat model
+# Initialize OpenRouter-based agent
+agent = UserInteractionAgent(user_name=user_name)
 
 # ===================
 # Dashboard Header/UI
@@ -115,7 +114,6 @@ st.markdown(f"<h2 style='color:#000000;'>👋 Welcome back, <b>{user_name}</b></
 st.subheader("📈 Key Business Metrics")
 df = get_dynamic_pricing_data()
 
-# Example business metrics (revenue = sum of price*demand for this random snapshot)
 total_sales = int((df["Price"] * df["Demand"]).sum())
 avg_price = float(df["Price"].mean())
 units_sold = int(df["Demand"].sum())
@@ -134,7 +132,7 @@ col3.metric(label="📦 Units Sold", value=f"{st.session_state['metrics']['units
 
 st.markdown("---")
 
-# Persist after metrics render
+# Persist metrics
 save_user_data(user_email, {
     "chat_history": st.session_state["chat_history"],
     "metrics": st.session_state["metrics"]
@@ -186,6 +184,7 @@ if user_input:
     with st.chat_message("user"):
         st.markdown(user_input)
 
+    # Call OpenRouter agent
     response = agent.get_response(user_input)
     st.session_state["chat_history"].append({
         "role": "assistant",
@@ -205,67 +204,3 @@ if st.sidebar.button("🚪 Logout"):
     st.session_state["session"] = None
     st.success("You have been logged out. Please refresh or go back to login.")
     st.stop()
-
-# ============================================================================ #
-# ==================  🔧 EXTRAS: Alerts Engine & Incidents  ================== #
-# ============================================================================ #
-
-# Make 'core' package importable (only if it exists)
-try:
-    HERE = pathlib.Path(_file_).resolve()
-except NameError:
-    # Fallback for some environments where _file_ may not be defined
-    HERE = pathlib.Path.cwd()
-
-ROOT = next((p for p in [HERE, *HERE.parents] if (p / "core").exists()), None)
-if ROOT and str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-# Background asyncio loop (to call alert APIs safely from Streamlit)
-def _ensure_bg_loop():
-    if "_bg_loop" not in st.session_state:
-        loop = asyncio.new_event_loop()
-        t = threading.Thread(target=loop.run_forever, daemon=True)
-        t.start()
-        st.session_state["_bg_loop"] = loop
-    return st.session_state["_bg_loop"]
-
-def run_async(coro, timeout: float | None = 10.0):
-    loop = _ensure_bg_loop()
-    fut = asyncio.run_coroutine_threadsafe(coro, loop)
-    try:
-        return fut.result(timeout=timeout)
-    except FuturesTimeout:
-        return None
-    except Exception:
-        return None
-
-# Start alerts engine once (so incidents flow even on the dashboard)
-alerts = None
-try:
-    from core.agents.alert_service import api as _alerts
-    alerts = _alerts
-except Exception:
-    alerts = None
-
-if alerts:
-    if "_alerts_started" not in st.session_state:
-        try:
-            asyncio.run_coroutine_threadsafe(alerts.start(), _ensure_bg_loop())
-            st.session_state["_alerts_started"] = True
-        except Exception:
-            st.session_state["_alerts_started"] = False
-
-    with st.expander("🔔 Incidents (live — extras)", expanded=False):
-        try:
-            rows = run_async(alerts.list_incidents(None)) or []
-        except Exception:
-            rows = []
-        st.metric("Open incidents", sum(1 for r in rows if r.get("status") == "OPEN"))
-        if rows:
-            st.dataframe(pd.DataFrame(rows))
-        else:
-            st.info("No incidents yet — go to Alerts & Notifications and trigger a Demo scenario.")
-else:
-    with st.expander("🔔 Incidents (live — extras)", expanded=False):
-        st.info("Alerts service not available. Ensure core/agents/alert_service exists and dependencies are installed.")
