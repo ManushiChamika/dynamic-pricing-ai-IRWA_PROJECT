@@ -66,8 +66,7 @@ def ensure_session_from_cookie(page_key: str = "root") -> None:
     cm = cookie_mgr()
     cookies = cm.get_all(key=f"get_all_{page_key}")
     if cookies is None:
-        # Don't stop execution - let pages handle no session gracefully
-        return
+        st.stop()
 
     token = cookies.get(COOKIE_NAME)
     if not token:
