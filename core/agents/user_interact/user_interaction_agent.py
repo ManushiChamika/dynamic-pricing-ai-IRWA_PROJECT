@@ -1,26 +1,46 @@
-from transformers import AutoTokenizer, AutoModelForCausalLM
-import torch
+from __future__ import annotations
+
+from typing import Optional, List, Dict
+
+try:
+    # Reuse app's lightweight LLM client if available
+    from app.llm_client import get_llm_client
+except Exception:
+    get_llm_client = None  # type: ignore
+
 
 class UserInteractionAgent:
-    def __init__(self, user_name, model_name="gpt2"):
+    """Simple wrapper around an LLM to handle dashboard chat.
+
+    If no LLM is configured/installed, falls back to a polite stub response.
+    """
+
+    def __init__(self, user_name: str = "User", model_name: str = "gpt-4o-mini"):
         self.user_name = user_name
         self.model_name = model_name
+        self._llm = None
+        if get_llm_client:
+            try:
+                self._llm = get_llm_client()
+            except Exception:
+                self._llm = None
 
-        # Load tokenizer and model
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModelForCausalLM.from_pretrained(model_name)
-        # Use GPU if available
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model.to(self.device)
+    def get_response(self, text: str) -> str:
+        if self._llm and self._llm.is_available():
+            try:
+                msgs: List[Dict[str, str]] = [
+                    {"role": "system", "content": (
+                        "You are a concise pricing assistant. Answer briefly, "
+                        "with 1-2 actionable insights about dynamic pricing, demand, or sales."
+                    )},
+                    {"role": "user", "content": f"{self.user_name} asks: {text}"},
+                ]
+                return self._llm.chat(msgs, max_tokens=180, temperature=0.2)
+            except Exception:
+                pass
 
-    def get_response(self, message):
-        try:
-            # Encode input
-            inputs = self.tokenizer.encode(message + self.tokenizer.eos_token, return_tensors="pt").to(self.device)
-            # Generate output
-            outputs = self.model.generate(inputs, max_length=200, pad_token_id=self.tokenizer.eos_token_id)
-            # Decode
-            response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-            return response
-        except Exception as e:
-            return f"Error: {e}"
+        # Fallback stub
+        return (
+            f"Hi {self.user_name}, you asked: '{text}'. "
+            f"The core LLM isn't configured; please set OPENROUTER_API_KEY or OPENAI_API_KEY in .env to enable AI answers."
+        )

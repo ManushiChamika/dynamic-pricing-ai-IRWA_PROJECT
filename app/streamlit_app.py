@@ -42,8 +42,12 @@ with st.sidebar:
 from app.session_utils import ensure_session_from_cookie
 from core.agents.alert_service import api as alerts  # <-- safe now
 
-# 4) Session setup
-ensure_session_from_cookie()
+# 4) Session setup (do not force-stop if cookie manager hasn't initialized yet)
+try:
+    ensure_session_from_cookie()
+except Exception:
+    # If cookie manager hasn't rendered yet, continue; Home/Login will handle
+    pass
 st.session_state.setdefault("session", None)
 
 # 5) Start the alert service once (schedule onto background loop)
