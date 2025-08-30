@@ -23,6 +23,7 @@ _pycache_/
 venv/
 env/
 .venv/
+.bundle_env/
 
 # ---------- IDE / Editor ----------
 # Editor specific settings are personal or machine-specific.
@@ -95,3 +96,7 @@ bundle_*/
 ########################################################
 # End of explanatory comments
 ########################################################
+
+# Cleanup additions (auto)
+.bundle_env/
+*.pyc
