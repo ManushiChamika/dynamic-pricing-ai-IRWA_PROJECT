@@ -226,6 +226,7 @@ if st.session_state.get("session"):
                 st.session_state.pop("confirm_logout", None)
             st.markdown('</div>', unsafe_allow_html=True)
         st.markdown('</div></div>', unsafe_allow_html=True)
+
 else:
     with a1:
         st.markdown('<div class="card lift"><div class="kicker">Welcome back</div>', unsafe_allow_html=True)
