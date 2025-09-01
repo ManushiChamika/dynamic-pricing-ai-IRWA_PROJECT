@@ -276,6 +276,131 @@ class LLMBrain:
 		if price is None:
 			return err("calculation returned no price")
 
+		# Hybrid publish + persist of PriceProposal (non-blocking)
+		# - Read current_price and cost from app/data.db product_catalog if available
+		# - Compute margin, build PriceProposal, publish to global bus, and persist
+		#   to app/data.db price_proposals in the background.
+		try:
+			from pathlib import Path as _Path
+			import sqlite3 as _sqlite3
+			import asyncio as _asyncio
+			import threading as _threading
+			from core.models import PriceProposal as _PriceProposal
+			from core.bus import bus as _bus
+			from core.protocol import Topic as _Topic
+
+			_root = _Path(__file__).resolve().parents[2]
+			_app_db = _root / "app" / "data.db"
+
+			current_price_val = None
+			cost_val = None
+			try:
+				_conn2 = _sqlite3.connect(_app_db.as_posix(), check_same_thread=False)
+				_cur2 = _conn2.cursor()
+				_cur2.execute(
+					"CREATE TABLE IF NOT EXISTS product_catalog (\n"
+					"  sku TEXT PRIMARY KEY,\n"
+					"  title TEXT, currency TEXT, current_price REAL, cost REAL,\n"
+					"  stock INTEGER, updated_at TEXT\n"
+					")"
+				)
+				_cur2.execute(
+					"SELECT current_price, cost FROM product_catalog WHERE sku=? LIMIT 1",
+					(product_name,),
+				)
+				_row = _cur2.fetchone()
+				if _row:
+					current_price_val = float(_row[0]) if _row[0] is not None else None
+					cost_val = float(_row[1]) if _row[1] is not None else None
+			finally:
+				try:
+					_conn2.close()
+				except Exception:
+					pass
+
+			# Compute margin
+			if cost_val is not None and price > 0:
+				margin_val = (float(price) - float(cost_val)) / float(price)
+			else:
+				margin_val = 1.0
+
+			pp = _PriceProposal(
+				sku=product_name,
+				proposed_price=float(price),
+				current_price=(current_price_val if current_price_val is not None else float(price)),
+				margin=float(margin_val),
+				algorithm=str(algo),
+			)
+
+			# Non-blocking publish to global bus
+			async def _publish_async():
+				try:
+					await _bus.publish(_Topic.PRICE_PROPOSAL.value, pp)
+				except Exception as _e:
+					try:
+						print(f"[pricing_optimizer] publish PriceProposal failed: {_e}")
+					except Exception:
+						pass
+
+			try:
+				_loop = _asyncio.get_running_loop()
+				_loop.create_task(_publish_async())
+			except RuntimeError:
+				# No running loop; publish in a background thread
+				_threading.Thread(target=lambda: _asyncio.run(_publish_async()), daemon=True).start()
+
+			# Background persistence into app/data.db
+			def _persist_sync():
+				try:
+					connp = _sqlite3.connect(_app_db.as_posix(), check_same_thread=False)
+					curp = connp.cursor()
+					curp.execute(
+						"""
+						CREATE TABLE IF NOT EXISTS price_proposals (
+						  id TEXT PRIMARY KEY,
+						  sku TEXT,
+						  proposed_price REAL,
+						  current_price REAL,
+						  margin REAL,
+						  algorithm TEXT,
+						  ts TEXT
+						)
+						"""
+					)
+					# Generate a simple UUID id and insert
+					import uuid as _uuid
+					curp.execute(
+						"INSERT INTO price_proposals (id, sku, proposed_price, current_price, margin, algorithm, ts)\n"
+						"VALUES (?,?,?,?,?,?,?)",
+						(
+							str(_uuid.uuid4()),
+							pp.sku,
+							pp.proposed_price,
+							pp.current_price,
+							pp.margin,
+							pp.algorithm,
+							pp.timestamp.isoformat() if hasattr(pp, "timestamp") and pp.timestamp else datetime.utcnow().isoformat(),
+						),
+					)
+					connp.commit()
+				except Exception as _e2:
+					try:
+						print(f"[pricing_optimizer] persist PriceProposal failed: {_e2}")
+					except Exception:
+						pass
+				finally:
+					try:
+						connp.close()
+					except Exception:
+						pass
+
+			_threading.Thread(target=_persist_sync, daemon=True).start()
+		except Exception as _ep:
+			try:
+				print(f"[pricing_optimizer] PriceProposal hybrid flow error: {_ep}")
+			except Exception:
+				pass
+
 		# Step 5: Update database (insert or update)
 		try:
 			cursor.execute("SELECT product_name FROM pricing_list WHERE product_name=?", (product_name,))

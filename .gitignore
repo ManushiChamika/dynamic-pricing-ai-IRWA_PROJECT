@@ -83,6 +83,10 @@ scripts/collect_project_code.ps1
 /files.txt
 /all_code_files_pricing_optimizer1_default.txt
 
+# Local working notes (root-only)
+/imasha_compare_restore_vs_backup.txt
+/summary.md
+
 # ---------- Local code bundles (ignore large generated bundles) ----------
 bundle_*/
 
