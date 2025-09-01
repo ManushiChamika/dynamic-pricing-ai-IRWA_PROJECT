@@ -93,8 +93,16 @@ if "session" not in st.session_state or st.session_state["session"] is None:
     st.stop()
 
 user_session = st.session_state["session"]
-user_name = user_session.get("full_name", "User")
+# Get user-friendly name
 user_email = user_session.get("email") or "anonymous@example.com"
+full_name = user_session.get("full_name", "").strip()
+
+if full_name:
+    user_name = full_name
+else:
+    # Extract part before @ from email
+    user_name = user_email.split("@")[0]
+
 
 # Load persisted user data into session_state once
 if "chat_history" not in st.session_state or "metrics" not in st.session_state:
@@ -204,3 +212,68 @@ if st.sidebar.button("🚪 Logout"):
     st.session_state["session"] = None
     st.success("You have been logged out. Please refresh or go back to login.")
     st.stop()
+
+
+# ============================================================================ #
+# ==================  🔧 EXTRAS: Alerts Engine & Incidents  ================== #
+# ============================================================================ #
+
+# Make 'core' package importable (only if it exists)
+try:
+    HERE = pathlib.Path(_file_).resolve()
+except NameError:
+    # Fallback for some environments where _file_ may not be defined
+    HERE = pathlib.Path.cwd()
+
+ROOT = next((p for p in [HERE, *HERE.parents] if (p / "core").exists()), None)
+if ROOT and str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+# Background asyncio loop (to call alert APIs safely from Streamlit)
+def _ensure_bg_loop():
+    if "_bg_loop" not in st.session_state:
+        loop = asyncio.new_event_loop()
+        t = threading.Thread(target=loop.run_forever, daemon=True)
+        t.start()
+        st.session_state["_bg_loop"] = loop
+    return st.session_state["_bg_loop"]
+
+def run_async(coro, timeout: float | None = 10.0):
+    loop = _ensure_bg_loop()
+    fut = asyncio.run_coroutine_threadsafe(coro, loop)
+    try:
+        return fut.result(timeout=timeout)
+    except FuturesTimeout:
+        return None
+    except Exception:
+        return None
+
+# Start alerts engine once (so incidents flow even on the dashboard)
+alerts = None
+try:
+    from core.agents.alert_service import api as _alerts
+    alerts = _alerts
+except Exception:
+    alerts = None
+
+if alerts:
+    if "_alerts_started" not in st.session_state:
+        try:
+            asyncio.run_coroutine_threadsafe(alerts.start(), _ensure_bg_loop())
+            st.session_state["_alerts_started"] = True
+        except Exception:
+            st.session_state["_alerts_started"] = False
+
+    with st.expander("🔔 Incidents (live — extras)", expanded=False):
+        try:
+            rows = run_async(alerts.list_incidents(None)) or []
+        except Exception:
+            rows = []
+        st.metric("Open incidents", sum(1 for r in rows if r.get("status") == "OPEN"))
+        if rows:
+            st.dataframe(pd.DataFrame(rows))
+        else:
+            st.info("No incidents yet — go to Alerts & Notifications and trigger a Demo scenario.")
+else:
+    with st.expander("🔔 Incidents (live — extras)", expanded=False):
+        st.info("Alerts service not available. Ensure core/agents/alert_service exists and dependencies are installed.")
