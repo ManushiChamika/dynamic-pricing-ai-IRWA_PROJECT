@@ -55,7 +55,7 @@ st.markdown(
   /* Base */
   html, body, [class^="block-container"] {
     font-family: 'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial;
-    background: linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);
+    background: linear-gradient(180deg, #6366f1 0%, #ec4899 100%);
     color: var(--dark);
     scroll-behavior: smooth;
   }
@@ -399,10 +399,10 @@ st.markdown(
 )
 
 # ✅ Show robot image (center + larger)
-robot_path = pathlib.Path("assets/robo.png")
+robot_path = pathlib.Path("assets/home_pricing2.png")
 if robot_path.exists():
     st.markdown('<div class="center mt-4">', unsafe_allow_html=True)
-    st.image(str(robot_path), width=580)
+    st.image(str(robot_path), width=1000, use_column_width=False)
     st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
@@ -441,7 +441,7 @@ with c3:
         <div class="icon-container">
             <div class="icon">🔔</div>
         </div>
-        <h4>Alert Agent</h4>
+        <h4>Alert & Notification Agent</h4>
         <p>Monitors market shocks and notifies you of opportunities or risks instantly.</p>
     </div>
     """, unsafe_allow_html=True)
@@ -562,22 +562,7 @@ with s3:
 # ————————————————————————————————————————————————————————————————
 # Incidents (live — extras)
 # ————————————————————————————————————————————————————————————————
-st.markdown('<h2 class="section-header">🔔 Incidents (live — extras)</h2>', unsafe_allow_html=True)
-
-incidents_text = '''helloThe U.S. Department of Justice has filed a lawsuit against the company that owns the video game company, Electronic Arts, alleging that the company violated antitrust laws by selling the game to a third party.
-
-The lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.
-
-The lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the Computer Fraud and Abuse Act by selling the game to a third party.
-
-The lawsuit, filed in U.S. District Court in San Francisco, alleges that Electronic Arts violated the Sherman Antitrust Act by selling the game to a third party, and that the company violated the'''
-
-with st.expander("View incident details", expanded=False):
-  st.markdown('<div class="card" style="background: var(--card-dark);">', unsafe_allow_html=True)
-  st.write(incidents_text)
-  st.markdown('</div>', unsafe_allow_html=True)
-
 # ————————————————————————————————————————————————————————————————
 # Footer
 # ————————————————————————————————————————————————————————————————
-st.markdown('<div class="footer">FluxPricer AI © — demo for coursework. Not for production use.</div>', unsafe_allow_html=True)
+st.markdown('<div class="footer">FluxPricer AI ©</div>', unsafe_allow_html=True)

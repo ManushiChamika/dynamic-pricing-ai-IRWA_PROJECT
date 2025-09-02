@@ -321,8 +321,12 @@ class LLMBrain:
 			# Compute margin
 			if cost_val is not None and price > 0:
 				margin_val = (float(price) - float(cost_val)) / float(price)
+			elif current_price_val is not None and price > 0:
+				# fallback: treat uplift vs current as margin so guardrails can still fire
+				margin_val = (float(price) - float(current_price_val)) / float(price)
 			else:
-				margin_val = 1.0
+				margin_val = 0.0  # safest fallback so notifier can still trigger on low margin
+
 
 			pp = _PriceProposal(
 				sku=product_name,
@@ -453,12 +457,9 @@ class LLMBrain:
 
 		return result
 
-
-
 # Pricing Optimizer Agent = LLMBrain
 # The LLMBrain now IS the Pricing Optimizer Agent. Keep the name for compatibility.
 PricingOptimizerAgent = LLMBrain
-
 
 # --- Example run loop using the unified agent ---
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, AwareDatetime, validator
+from pydantic import BaseModel, Field, AwareDatetime, field_validator, model_validator
 from typing import Literal, List, Optional, Dict, Any
 
 Severity = Literal["info", "warn", "crit"]
@@ -26,23 +26,22 @@ class NotifySpec(BaseModel):
 class RuleSpec(BaseModel):
     id: str
     source: Literal["MARKET_TICK","PRICE_PROPOSAL"]
-    # either boolean expression or detector
     where: Optional[str] = None
     detector: Optional[str] = None
     field: Optional[str] = None
     params: Dict[str, Any] = {}
-    hold_for: Optional[str] = None  # "5m"
+    hold_for: Optional[str] = None
     severity: Severity = "warn"
     dedupe: str = "sku"
     group_by: List[str] = []
     notify: NotifySpec = NotifySpec()
     enabled: bool = True
 
-    @validator("where", always=True)
-    def where_or_detector(cls, v, values):
-        if not v and not values.get("detector"):
+    @model_validator(mode="after")
+    def _where_or_detector(self):
+        if not self.where and not self.detector:
             raise ValueError("Provide either 'where' or 'detector'.")
-        return v
+        return self
 
 class RuleRecord(BaseModel):
     id: str

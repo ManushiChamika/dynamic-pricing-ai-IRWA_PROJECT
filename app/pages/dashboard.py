@@ -10,17 +10,19 @@ import threading
 from concurrent.futures import TimeoutError as FuturesTimeout
 import sys
 import pathlib
+from core.agents.user_interact.hub import OptimizerHub
 
 # =========================
-# User Interaction Agent
+# Optional agent dependency
 # =========================
 try:
     from core.agents.user_interact.user_interaction_agent import UserInteractionAgent
 except Exception:
-    # Fallback stub agent
+    # Safe fallback so the app still runs if the import isn't available
     class UserInteractionAgent:
-        def __init__(self, user_name: str = "User"):
+        def __init__(self, user_name: str = "User", model_name: str = "stub"):
             self.user_name = user_name
+            self.model_name = model_name
 
         def get_response(self, text: str) -> str:
             return f"(Stub agent) Hi {self.user_name}, you asked: '{text}'. " \
@@ -29,7 +31,7 @@ except Exception:
 # ---- Streamlit Page Config ----
 st.set_page_config(page_title="Dynamic Pricing Dashboard", page_icon="📊", layout="wide")
 
-# ---- Custom CSS ----
+# ---- Custom CSS (single copy) ----
 st.markdown("""
 <style>
 .stApp { background-color: #a6bdde; color: #000000; }
@@ -54,7 +56,7 @@ def get_dynamic_pricing_data() -> pd.DataFrame:
 
 def get_demand_trend() -> pd.DataFrame:
     return pd.DataFrame({
-        "Date": pd.date_range(start="2025-01-01", periods=12, freq="M"),
+        "Date": pd.date_range(start="2025-01-01", periods=12, freq="ME"),
         "Demand": [random.randint(200, 400) for _ in range(12)]
     })
 
@@ -93,16 +95,8 @@ if "session" not in st.session_state or st.session_state["session"] is None:
     st.stop()
 
 user_session = st.session_state["session"]
-# Get user-friendly name
+user_name = user_session.get("full_name", "User")
 user_email = user_session.get("email") or "anonymous@example.com"
-full_name = user_session.get("full_name", "").strip()
-
-if full_name:
-    user_name = full_name
-else:
-    # Extract part before @ from email
-    user_name = user_email.split("@")[0]
-
 
 # Load persisted user data into session_state once
 if "chat_history" not in st.session_state or "metrics" not in st.session_state:
@@ -110,8 +104,14 @@ if "chat_history" not in st.session_state or "metrics" not in st.session_state:
     st.session_state.setdefault("chat_history", _loaded.get("chat_history", []))
     st.session_state.setdefault("metrics", _loaded.get("metrics", None))
 
-# Initialize OpenRouter-based agent
-agent = UserInteractionAgent(user_name=user_name)
+# Initialize local agent
+# Initialize agent (works with both the real class and the stub)
+try:
+    agent = UserInteractionAgent(user_name=user_name)
+except TypeError:
+    # Some stubs or older versions may require positional only
+    agent = UserInteractionAgent(user_name)
+
 
 # ===================
 # Dashboard Header/UI
@@ -122,6 +122,7 @@ st.markdown(f"<h2 style='color:#000000;'>👋 Welcome back, <b>{user_name}</b></
 st.subheader("📈 Key Business Metrics")
 df = get_dynamic_pricing_data()
 
+# Example business metrics (revenue = sum of price*demand for this random snapshot)
 total_sales = int((df["Price"] * df["Demand"]).sum())
 avg_price = float(df["Price"].mean())
 units_sold = int(df["Demand"].sum())
@@ -140,7 +141,7 @@ col3.metric(label="📦 Units Sold", value=f"{st.session_state['metrics']['units
 
 st.markdown("---")
 
-# Persist metrics
+# Persist after metrics render
 save_user_data(user_email, {
     "chat_history": st.session_state["chat_history"],
     "metrics": st.session_state["metrics"]
@@ -192,8 +193,19 @@ if user_input:
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    # Call OpenRouter agent
-    response = agent.get_response(user_input)
+    response = None
+    if hasattr(agent, "get_response"):
+        response = agent.get_response(user_input)
+    elif hasattr(agent, "handle"):
+        res = agent.handle(user_input)
+        if asyncio.iscoroutine(res):
+            # reuse your run_async helper already defined below
+            response = run_async(res, timeout=20) or "Sorry, the agent timed out."
+        else:
+            response = res
+    else:
+        response = "(No compatible agent method found.)"
+
     st.session_state["chat_history"].append({
         "role": "assistant",
         "content": response,
@@ -212,7 +224,6 @@ if st.sidebar.button("🚪 Logout"):
     st.session_state["session"] = None
     st.success("You have been logged out. Please refresh or go back to login.")
     st.stop()
-
 
 # ============================================================================ #
 # ==================  🔧 EXTRAS: Alerts Engine & Incidents  ================== #
@@ -237,6 +248,13 @@ def _ensure_bg_loop():
         t.start()
         st.session_state["_bg_loop"] = loop
     return st.session_state["_bg_loop"]
+
+if "_ui_hub" not in st.session_state:
+    st.session_state["_ui_hub"] = OptimizerHub()
+    asyncio.run_coroutine_threadsafe(
+        st.session_state["_ui_hub"].start(),
+        _ensure_bg_loop()
+    )
 
 def run_async(coro, timeout: float | None = 10.0):
     loop = _ensure_bg_loop()

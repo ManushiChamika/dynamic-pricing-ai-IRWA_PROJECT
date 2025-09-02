@@ -1,36 +1,50 @@
+# scripts/smoke_data_collector.py
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
-import sys
+from datetime import datetime
+from typing import Dict, Iterable
 
-from core.agents.data_collector.repo import DataRepo
+from core.db import init_db, SessionLocal
+from core.models import MarketTick
 from core.agents.data_collector.collector import DataCollector
-from core.agents.data_collector.connectors.mock import mock_ticks
+
+
+def mock_ticks(n: int = 5) -> Iterable[Dict]:
+    """
+    Simple sync iterable of dicts in a flexible shape (sym/px/src);
+    the collector normalizes these.
+    """
+    for i in range(n):
+        yield {
+            "sym": f"SKU-{i+1}",                  # 'sym' is OK (collector maps to symbol)
+            "px": 10.0 + i,                       # 'px' is OK (collector maps to price)
+            "src": "smoke",                       # 'src' is OK (collector maps to source)
+            "ts": datetime.utcnow().isoformat(),  # optional
+        }
 
 
 async def main():
-    repo = DataRepo()  # uses DATA_DB or app/data.db
-    await repo.init()
-    dc = DataCollector(repo)
+    # Ensure tables exist
+    init_db()
 
-    # Ingest a few mock ticks
-    await dc.ingest_stream(mock_ticks(n=3), delay_s=0.1)
+    # Collector uses TickRepo under the hood
+    dc = DataCollector()
 
-    # Fetch features for the last day
-    since_iso = (datetime.now(timezone.utc)).isoformat()
-    # We inserted just now, so features_for with wide window:
-    res = await repo.features_for("SKU-123", "DEFAULT", "1970-01-01T00:00:00+00:00")
-    print("FEATURES:", res)
-    ok = bool(res.get("count", 0) > 0)
-    if ok:
-        print("SMOKE PASS: features count > 0")
-    else:
-        print("SMOKE FAIL: features count == 0")
-        raise SystemExit(1)
+    # Ingest a few mock ticks (sync iterable is fine)
+    inserted = await dc.ingest_stream(mock_ticks(n=5), delay_s=0.05)
+    print(f"[smoke] Inserted {inserted} ticks via DataCollector")
+
+    # Verify we actually wrote rows
+    with SessionLocal() as db:
+        count = db.query(MarketTick).filter(MarketTick.source == "smoke").count()
+        print(f"[smoke] Rows with source='smoke': {count}")
+        if count > 0:
+            print("SMOKE PASS ✅")
+        else:
+            print("SMOKE FAIL ❌")
+            raise SystemExit(1)
 
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-

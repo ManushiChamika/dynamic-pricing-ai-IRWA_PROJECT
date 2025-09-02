@@ -1,371 +1,241 @@
+# core/agents/data_collector/repo.py
 from __future__ import annotations
 
 import os
-from pathlib import Path
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional, List
-
-import aiosqlite
 import uuid
-import sqlite3
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+import asyncio
+import aiosqlite
 
-
-def _utc_now_iso() -> str:
+def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
-
 class DataRepo:
-    """
-    Minimal repo for market ticks. Uses SQLite at DATA_DB or app/data.db.
-    """
+    def __init__(self, db_path: Optional[str] = None, *, connect_timeout: float = 30.0) -> None:
+        self.db_path = db_path or os.getenv("DATA_DB", os.path.join("app", "data.db"))
+        self.connect_timeout = float(connect_timeout)
+        self._init_lock = asyncio.Lock()
 
-    def __init__(self, path: Optional[str] = None) -> None:
-        db_env = os.getenv("DATA_DB", "app/data.db")
-        self.path = Path(path or db_env)
+    async def _column_exists(self, db: aiosqlite.Connection, table: str, column: str) -> bool:
+        cur = await db.execute(f"PRAGMA table_info({table})")
+        cols = await cur.fetchall()
+        return any(r[1] == column for r in cols)
+
+    async def _ensure_ingested_at(self, db: aiosqlite.Connection) -> None:
+        """
+        Ensure market_ticks.ingested_at exists.
+        For existing DBs, add the column WITHOUT a default and backfill from ts (or now()).
+        """
+        exists = await self._column_exists(db, "market_ticks", "ingested_at")
+        if not exists:
+            # 1) add column w/o default (SQLite allows this)
+            await db.execute("ALTER TABLE market_ticks ADD COLUMN ingested_at TEXT")
+            # 2) backfill: prefer ts, else now
+            await db.execute(
+                "UPDATE market_ticks SET ingested_at = COALESCE(ts, datetime('now')) WHERE ingested_at IS NULL"
+            )
+
+    def _db_dir_make(self) -> None:
+        db_dir = os.path.dirname(self.db_path)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
 
     async def init(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        async with aiosqlite.connect(self.path.as_posix()) as db:
-            await db.executescript(
+        async with self._init_lock:
+            self._db_dir_make()
+            async with aiosqlite.connect(self.db_path, timeout=self.connect_timeout) as db:
+                await db.execute("PRAGMA journal_mode=WAL;")
+                await db.execute("PRAGMA synchronous=NORMAL;")
+                await db.execute("PRAGMA busy_timeout=10000;")
+                await db.executescript(
+                    """
+                    CREATE TABLE IF NOT EXISTS products(
+                      id INTEGER PRIMARY KEY,
+                      sku TEXT NOT NULL,
+                      market TEXT NOT NULL,
+                      name TEXT,
+                      cost REAL,
+                      base_price REAL,
+                      currency TEXT,
+                      updated_at TEXT NOT NULL,
+                      UNIQUE(sku, market)
+                    );
+
+                    CREATE TABLE IF NOT EXISTS market_ticks(
+                      id INTEGER PRIMARY KEY,
+                      sku TEXT NOT NULL,
+                      market TEXT NOT NULL,
+                      our_price REAL NOT NULL,
+                      competitor_price REAL,
+                      demand_index REAL,
+                      source TEXT NOT NULL,
+                      ts TEXT NOT NULL,
+                      ingested_at TEXT  -- note: created without default to avoid ALTER default issue
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_ticks_sku_ts ON market_ticks(sku, ts);
+
+                    CREATE TABLE IF NOT EXISTS jobs(
+                      id TEXT PRIMARY KEY,
+                      sku TEXT NOT NULL,
+                      market TEXT NOT NULL,
+                      connector TEXT NOT NULL,
+                      depth INTEGER NOT NULL,
+                      status TEXT NOT NULL,
+                      error TEXT,
+                      created_at TEXT NOT NULL,
+                      started_at TEXT,
+                      finished_at TEXT
+                    );
+                    """
+                )
+                # If DB was created earlier without ingested_at, add + backfill now:
+                await self._ensure_ingested_at(db)
+                await db.commit()
+
+    # --- everywhere you open a connection, keep the same timeout ---
+    async def upsert_products(self, products: List[Dict[str, Any]]) -> Dict[str, Any]:
+        if not isinstance(products, list):
+            raise TypeError("products must be a list of dicts")
+
+        now_iso = _utcnow_iso()
+        rows = []
+        for p in products:
+            sku = p.get("sku")
+            if not sku:
+                continue
+            market = p.get("market") or "DEFAULT"
+            rows.append(
+                (str(sku), str(market), p.get("name"), p.get("cost"),
+                 p.get("base_price"), p.get("currency"), p.get("updated_at") or now_iso)
+            )
+
+        if not rows:
+            return {"ok": True, "count": 0}
+
+        async with aiosqlite.connect(self.db_path, timeout=self.connect_timeout) as db:
+            await db.executemany(
                 """
-                PRAGMA journal_mode=WAL;
-
-                CREATE TABLE IF NOT EXISTS market_ticks (
-                  id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  sku TEXT NOT NULL,
-                  market TEXT NOT NULL,
-                  our_price REAL NOT NULL,
-                  competitor_price REAL,
-                  demand_index REAL,
-                  ts TEXT NOT NULL,
-                  source TEXT,
-                  ingested_at TEXT NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS ix_ticks_sku_market_ts
-                  ON market_ticks (sku, market, ts);
-
-                -- Additive tables for product catalog, jobs, and proposals
-                CREATE TABLE IF NOT EXISTS product_catalog (
-                  sku TEXT PRIMARY KEY,
-                  title TEXT,
-                  currency TEXT,
-                  current_price REAL,
-                  cost REAL,
-                  stock INTEGER,
-                  updated_at TEXT
-                );
-
-                CREATE TABLE IF NOT EXISTS ingestion_jobs (
-                  id TEXT PRIMARY KEY,
-                  sku TEXT,
-                  market TEXT,
-                  connector TEXT,
-                  depth INTEGER,
-                  status TEXT,
-                  error TEXT,
-                  created_at TEXT,
-                  started_at TEXT,
-                  finished_at TEXT
-                );
-
-                CREATE TABLE IF NOT EXISTS price_proposals (
-                  id TEXT PRIMARY KEY,
-                  sku TEXT,
-                  proposed_price REAL,
-                  current_price REAL,
-                  margin REAL,
-                  algorithm TEXT,
-                  ts TEXT
-                );
-                """
+                INSERT INTO products (sku, market, name, cost, base_price, currency, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(sku, market) DO UPDATE SET
+                  name       = excluded.name,
+                  cost       = excluded.cost,
+                  base_price = excluded.base_price,
+                  currency   = excluded.currency,
+                  updated_at = excluded.updated_at
+                """,
+                rows,
             )
             await db.commit()
+        return {"ok": True, "count": len(rows)}
 
-    async def insert_tick(self, d: Dict[str, Any]) -> None:
-        # Expect ISO ts; if missing, use now
-        ts = d.get("ts") or _utc_now_iso()
-        async with aiosqlite.connect(self.path.as_posix()) as db:
+    async def list_products(self, market: Optional[str] = None) -> List[Dict[str, Any]]:
+        query = "SELECT sku, market, name, cost, base_price, currency, updated_at FROM products"
+        params: tuple[Any, ...] = ()
+        if market:
+            query += " WHERE market = ?"
+            params = (market,)
+
+        async with aiosqlite.connect(self.db_path, timeout=self.connect_timeout) as db:
+            db.row_factory = aiosqlite.Row
+            cur = await db.execute(query, params)
+            rows = await cur.fetchall()
+        return [dict(r) for r in rows]
+
+    async def insert_tick(
+        self,
+        *,
+        sku: str,
+        our_price: float,
+        source: str = "mock",
+        market: str = "DEFAULT",
+        competitor_price: Optional[float] = None,
+        demand_index: Optional[float] = None,
+        ts: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        when = ts or _utcnow_iso()
+        ingested = when
+        async with aiosqlite.connect(self.db_path, timeout=self.connect_timeout) as db:
             await db.execute(
                 """
                 INSERT INTO market_ticks
-                  (sku, market, our_price, competitor_price, demand_index, ts,
-                   source, ingested_at)
-                VALUES (?,?,?,?,?,?,?,?)
+                  (sku, market, our_price, competitor_price, demand_index, source, ts, ingested_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (
-                    d["sku"],
-                    d.get("market", "DEFAULT"),
-                    float(d["our_price"]),
-                    d.get("competitor_price"),
-                    d.get("demand_index"),
-                    ts,
-                    d.get("source", "unknown"),
-                    _utc_now_iso(),
-                ),
+                (sku, market, our_price, competitor_price, demand_index, source, when, ingested),
             )
             await db.commit()
-
-    async def features_for(
-        self, sku: str, market: str, since_iso: str
-    ) -> Dict[str, Any]:
-        """
-        Return simple recent features for a window: latest values + basic gap.
-        """
-        q = """
-        SELECT our_price, competitor_price, demand_index, ts
-        FROM market_ticks
-        WHERE sku=? AND market=? AND ts>=?
-        ORDER BY ts DESC
-        LIMIT 100
-        """
-        async with aiosqlite.connect(self.path.as_posix()) as db:
-            cur = await db.execute(q, (sku, market, since_iso))
-            rows = await cur.fetchall()
-
-        if not rows:
-            return {
-                "snapshot_id": None,
-                "as_of": None,
-                "features": {},
-                "provenance": [],
-                "count": 0,
-            }
-
-        # Latest row
-        our_latest, comp_latest, dem_latest, as_of = rows[0]
-        gap_pct = None
-        if our_latest and comp_latest is not None:
-            try:
-                gap_pct = (our_latest - comp_latest) / our_latest if our_latest else None
-            except ZeroDivisionError:
-                gap_pct = None
 
         return {
-            "snapshot_id": f"snap:{sku}:{market}:{as_of}",
-            "as_of": as_of,
-            "features": {
-                "our_price": our_latest,
-                "competitor_price": comp_latest,
-                "demand_index": dem_latest,
-                "price_gap_pct": gap_pct,
-            },
-            "provenance": ["market_ticks"],
-            "count": len(rows),
+            "sku": sku, "market": market, "our_price": our_price,
+            "competitor_price": competitor_price, "demand_index": demand_index,
+            "source": source, "ts": when, "ingested_at": ingested,
         }
 
-
-    async def upsert_products(self, rows: List[Dict[str, Any]]) -> int:
-        """Upsert a list of product rows into product_catalog.
-
-        Uses INSERT ... ON CONFLICT(sku) DO UPDATE for efficiency; if not
-        supported, falls back to INSERT/UPDATE per-row. Returns number of
-        processed rows.
-        """
-        if not rows:
-            return 0
-
-        # Normalize and validate rows; build parameter tuples
-        params = []
-        for r in rows:
-            sku = str(r["sku"]).strip()
-            if not sku:
-                continue
-            title = r.get("title")
-            currency = r.get("currency")
-            current_price = r.get("current_price")
-            cost = r.get("cost")
-            stock = r.get("stock")
-            updated_at = r.get("updated_at") or _utc_now_iso()
-            params.append(
-                (sku, title, currency, current_price, cost, stock, updated_at)
-            )
-
-        if not params:
-            return 0
-
-        insert_sql = (
-            """
-            INSERT INTO product_catalog
-              (sku, title, currency, current_price, cost, stock, updated_at)
-            VALUES (?,?,?,?,?,?,?)
-            ON CONFLICT(sku) DO UPDATE SET
-              title=excluded.title,
-              currency=excluded.currency,
-              current_price=excluded.current_price,
-              cost=excluded.cost,
-              stock=excluded.stock,
-              updated_at=excluded.updated_at
-            """
+    async def insert_tick_dict(self, tick: Dict[str, Any]) -> Dict[str, Any]:
+        return await self.insert_tick(
+            sku=str(
+                tick.get("sku") or tick.get("symbol") or
+                tick.get("sym") or tick.get("product_id") or tick.get("ticker")
+            ),
+            our_price=float(tick.get("our_price") or tick.get("price") or tick.get("px") or tick.get("unit_price")),
+            source=str(tick.get("source") or tick.get("src") or "mock"),
+            market=str(tick.get("market") or "DEFAULT"),
+            competitor_price=tick.get("competitor_price"),
+            demand_index=tick.get("demand_index"),
+            ts=tick.get("ts"),
         )
 
-        async with aiosqlite.connect(self.path.as_posix()) as db:
-            try:
-                await db.executemany(insert_sql, params)
-                await db.commit()
-                return len(params)
-            except Exception:
-                # Fallback lightweight upsert if ON CONFLICT not available
-                processed = 0
-                for p in params:
-                    try:
-                        await db.execute(
-                            """
-                            INSERT INTO product_catalog
-                              (sku, title, currency, current_price, cost, stock,
-                               updated_at)
-                            VALUES (?,?,?,?,?,?,?)
-                            """,
-                            p,
-                        )
-                        processed += 1
-                    except sqlite3.IntegrityError:
-                        # Update existing row by sku
-                        sku = p[0]
-                        title, currency, current_price, cost, stock, updated_at = (
-                            p[1], p[2], p[3], p[4], p[5], p[6]
-                        )
-                        await db.execute(
-                            """
-                            UPDATE product_catalog
-                            SET title=?, currency=?, current_price=?, cost=?,
-                                stock=?, updated_at=?
-                            WHERE sku=?
-                            """,
-                            (
-                                title,
-                                currency,
-                                current_price,
-                                cost,
-                                stock,
-                                updated_at,
-                                sku,
-                            ),
-                        )
-                        processed += 1
-                await db.commit()
-                return processed
-
-    async def create_job(
-        self, sku: str, market: str, connector: str, depth: int
-    ) -> str:
-        """Create an ingestion job and return its job id (uuid4)."""
-        job_id = str(uuid.uuid4())
-        now = _utc_now_iso()
-        async with aiosqlite.connect(self.path.as_posix()) as db:
-            await db.execute(
-                """
-                INSERT INTO ingestion_jobs
-                  (id, sku, market, connector, depth, status, error,
-                   created_at, started_at, finished_at)
-                VALUES (?,?,?,?,?,?,?, ?, ?, ?)
-                """,
-                (
-                    job_id,
-                    sku,
-                    market,
-                    connector,
-                    int(depth),
-                    "QUEUED",
-                    None,
-                    now,
-                    None,
-                    None,
-                ),
-            )
-            await db.commit()
-        return job_id
-
-    async def mark_job_running(self, job_id: str) -> None:
-        """Mark an ingestion job as RUNNING and set started_at timestamp."""
-        async with aiosqlite.connect(self.path.as_posix()) as db:
-            await db.execute(
-                """
-                UPDATE ingestion_jobs
-                SET status=?, started_at=?
-                WHERE id=?
-                """,
-                ("RUNNING", _utc_now_iso(), job_id),
-            )
-            await db.commit()
-
-    async def mark_job_done(self, job_id: str) -> None:
-        """Mark an ingestion job as DONE and set finished_at timestamp."""
-        async with aiosqlite.connect(self.path.as_posix()) as db:
-            await db.execute(
-                """
-                UPDATE ingestion_jobs
-                SET status=?, finished_at=?
-                WHERE id=?
-                """,
-                ("DONE", _utc_now_iso(), job_id),
-            )
-            await db.commit()
-
-    async def mark_job_failed(self, job_id: str, error: str) -> None:
-        """Mark an ingestion job as FAILED with an error message."""
-        async with aiosqlite.connect(self.path.as_posix()) as db:
-            await db.execute(
-                """
-                UPDATE ingestion_jobs
-                SET status=?, error=?, finished_at=?
-                WHERE id=?
-                """,
-                ("FAILED", str(error), _utc_now_iso(), job_id),
-            )
-            await db.commit()
-
-    async def get_job(self, job_id: str) -> Optional[Dict[str, Any]]:
-        """Return a job row as a dict, or None if not found."""
-        async with aiosqlite.connect(self.path.as_posix()) as db:
+    async def latest(self, sku: str, limit: int = 50) -> List[Dict[str, Any]]:
+        async with aiosqlite.connect(self.db_path, timeout=self.connect_timeout) as db:
+            db.row_factory = aiosqlite.Row
             cur = await db.execute(
                 """
-                SELECT id, sku, market, connector, depth, status, error,
-                       created_at, started_at, finished_at
-                FROM ingestion_jobs
-                WHERE id=?
+                SELECT sku, market, our_price, competitor_price, demand_index, source, ts, ingested_at
+                FROM market_ticks
+                WHERE sku = ?
+                ORDER BY ts DESC
+                LIMIT ?
                 """,
-                (job_id,),
+                (sku, limit),
+            )
+            rows = await cur.fetchall()
+        return [dict(r) for r in rows]
+
+    async def features_for(self, sku: str, market: str, since_iso: str) -> Dict[str, Any]:
+        async with aiosqlite.connect(self.db_path, timeout=self.connect_timeout) as db:
+            db.row_factory = aiosqlite.Row
+            cur = await db.execute(
+                """
+                SELECT COUNT(*) AS cnt
+                FROM market_ticks
+                WHERE sku = ? AND market = ? AND ts >= ?
+                """,
+                (sku, market, since_iso),
             )
             row = await cur.fetchone()
-        if not row:
-            return None
-        keys = [
-            "id",
-            "sku",
-            "market",
-            "connector",
-            "depth",
-            "status",
-            "error",
-            "created_at",
-            "started_at",
-            "finished_at",
-        ]
-        return {k: row[i] for i, k in enumerate(keys)}
+            count = int(row["cnt"]) if row else 0
 
-    async def insert_price_proposal(self, pp: Dict[str, Any]) -> None:
-        """Insert a price proposal row.
-
-        If 'id' or 'ts' are missing, they will be generated.
-        """
-        pid = pp.get("id") or str(uuid.uuid4())
-        ts = pp.get("ts") or _utc_now_iso()
-        async with aiosqlite.connect(self.path.as_posix()) as db:
-            await db.execute(
+            cur2 = await db.execute(
                 """
-                INSERT INTO price_proposals
-                  (id, sku, proposed_price, current_price, margin, algorithm, ts)
-                VALUES (?,?,?,?,?,?,?)
+                SELECT our_price
+                FROM market_ticks
+                WHERE sku = ? AND market = ?
+                ORDER BY ts DESC
+                LIMIT 1
                 """,
-                (
-                    pid,
-                    pp["sku"],
-                    pp["proposed_price"],
-                    pp["current_price"],
-                    pp["margin"],
-                    pp["algorithm"],
-                    ts,
-                ),
+                (sku, market),
             )
-            await db.commit()
+            row2 = await cur2.fetchone()
+            last_price = float(row2["our_price"]) if row2 else None
+
+        return {
+            "snapshot_id": None,
+            "as_of": _utcnow_iso(),
+            "features": {"last_price": last_price},
+            "provenance": [],
+            "count": count,
+        }
+
+    # jobs … (unchanged)

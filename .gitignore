@@ -96,6 +96,7 @@ bundle_*/
 # ---------- Tracked exceptions ----------
 # Keep example env files tracked so new contributors know required vars.
 !.env.example
+.env
 
 ########################################################
 # End of explanatory comments

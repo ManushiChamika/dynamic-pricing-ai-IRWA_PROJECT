@@ -1,96 +1,135 @@
-from dataclasses import dataclass, field, asdict
-from typing import Optional, List, Dict, Any
-import os, json
-from urllib.parse import urlparse
+# core/agents/alert_service/config.py
+from __future__ import annotations
 
-# If running on Streamlit Cloud, we can read st.secrets
-try:
-    import streamlit as st  # type: ignore
-    _SECRETS = dict(st.secrets)  # copy to plain dict
-except Exception:
-    _SECRETS = {}
+import os
+from typing import Any, Dict, Optional, Mapping, TYPE_CHECKING
 
-@dataclass
-class ChannelSettings:
-    # Slack
-    slack_webhook_url: Optional[str] = None
-    # Email (SMTP)
-    email_from: Optional[str] = None
-    email_to: List[str] = field(default_factory=list)
-    smtp_host: Optional[str] = None
-    smtp_port: int = 587
-    smtp_user: Optional[str] = None
-    smtp_password: Optional[str] = None
-    # Generic webhook
-    webhook_url: Optional[str] = None
+# NOTE: type-only import to avoid circular import with repo.py
+if TYPE_CHECKING:
+    from .repo import Repo
 
-    def as_dict(self, *, redact: bool = False) -> Dict[str, Any]:
-        d = asdict(self)
-        if redact:
-            d["smtp_password"] = None  # never echo secret back to UI
-        return d
+# Keep your existing environment/secret wiring
+from core.config import ENV, ALERTS_CAP_SECRET
 
-def _get(key: str, default: Any = None) -> Any:
-    # Prefer Streamlit Secrets if present; fallback to env
-    if key in _SECRETS:
-        return _SECRETS.get(key, default)
-    return os.getenv(key, default)
+if not ALERTS_CAP_SECRET:
+    if ENV != "dev":
+        raise RuntimeError("ALERTS_CAP_SECRET must be set in non-dev environments")
+    SECRET = "dev-secret"
+else:
+    SECRET = ALERTS_CAP_SECRET
 
-def _json_list(val: Optional[str]) -> list:
-    if val in (None, ""):
-        return []
-    # Accept JSON array or comma-separated string
+# Optional: scopes used by your UI/API guardrails
+SCOPES = {"read", "write", "create_rule"}
+
+# --------- helpers ---------
+def _mask_secret(value: Optional[str]) -> Optional[str]:
+    """Return a masked value for UI (keep last 4 chars)."""
+    if not value:
+        return value
+    tail = value[-4:]
+    return f"••••••••{tail}"
+
+def _coerce_bool(val: Optional[str], default: bool = False) -> bool:
+    if val is None:
+        return default
+    return str(val).strip().lower() in {"1", "true", "yes", "y", "on"}
+
+def _coerce_int(val: Optional[str], default: int) -> int:
     try:
-        v = json.loads(val) if isinstance(val, str) else val
-        if isinstance(v, list):
-            return [str(x).strip() for x in v if str(x).strip()]
+        return int(val) if val is not None else default
     except Exception:
-        pass
-    return [s.strip() for s in str(val).split(",") if s.strip()]
+        return default
 
-def load_runtime_defaults() -> ChannelSettings:
-    """Read defaults from st.secrets or env (loaded via .env)."""
-    return ChannelSettings(
-        slack_webhook_url=_get("ALERTS_SLACK_WEBHOOK"),
-        email_from=_get("ALERTS_EMAIL_FROM"),
-        email_to=_json_list(_get("ALERTS_EMAIL_TO")),
-        smtp_host=_get("ALERTS_SMTP_HOST"),
-        smtp_port=int(_get("ALERTS_SMTP_PORT", 587)),
-        smtp_user=_get("ALERTS_SMTP_USER"),
-        smtp_password=_get("ALERTS_SMTP_PASSWORD"),
-        webhook_url=_get("ALERTS_GENERIC_WEBHOOK"),
-    )
+# --------- public API expected by api.py ---------
+def load_runtime_defaults() -> Dict[str, Any]:
+    """
+    Read channel/runtime defaults from environment variables.
+    These are used when there is nothing in the DB or as base values
+    that the DB can override on a per-field basis.
+    """
+    return {
+        "throttle": {
+            # time-window to suppress duplicate alerts per fingerprint
+            "window": os.getenv("ALERTS_THROTTLE_WINDOW", "5m"),
+            # whether throttled hits should still update last_seen
+            "touch_on_throttle": _coerce_bool(os.getenv("ALERTS_THROTTLE_TOUCH"), True),
+        },
+        "email": {
+            "enabled": _coerce_bool(os.getenv("SMTP_ENABLED"), False),
+            "host": os.getenv("SMTP_HOST"),
+            "port": _coerce_int(os.getenv("SMTP_PORT"), 587),
+            "user": os.getenv("SMTP_USER"),
+            "password": os.getenv("SMTP_PASSWORD"),
+            "from": os.getenv("SMTP_FROM", os.getenv("EMAIL_FROM")),
+            "use_tls": _coerce_bool(os.getenv("SMTP_USE_TLS"), True),
+            "use_ssl": _coerce_bool(os.getenv("SMTP_USE_SSL"), False),
+        },
+        "slack": {
+            "enabled": _coerce_bool(os.getenv("SLACK_ENABLED"), False),
+            "bot_token": os.getenv("SLACK_BOT_TOKEN"),
+            "default_channel": os.getenv("SLACK_DEFAULT_CHANNEL", "#alerts"),
+        },
+        "twilio": {
+            "enabled": _coerce_bool(os.getenv("TWILIO_ENABLED"), False),
+            "account_sid": os.getenv("TWILIO_ACCOUNT_SID"),
+            "auth_token": os.getenv("TWILIO_AUTH_TOKEN"),
+            "from_number": os.getenv("TWILIO_FROM"),
+        },
+        "webhook": {
+            "enabled": _coerce_bool(os.getenv("WEBHOOK_ENABLED"), False),
+            "url": os.getenv("WEBHOOK_URL"),
+            "auth_header": os.getenv("WEBHOOK_AUTH_HEADER"),
+        },
+    }
 
-def merge_defaults_db(defaults: ChannelSettings, db_cfg: dict | None) -> ChannelSettings:
-    """DB overrides > defaults (env/secrets)."""
-    if not db_cfg:
-        _validate(defaults)
-        return defaults
-    merged = asdict(defaults)
-    for k, v in db_cfg.items():
-        if v not in (None, "", [], {}):
-            merged[k] = v
-    cfg = ChannelSettings(**merged)
-    _validate(cfg)
+async def merge_defaults_db(repo: "Repo") -> Dict[str, Any]:
+    """
+    Merge runtime defaults with DB overrides (DB wins field-by-field).
+    The repo is passed in by the caller to avoid import cycles.
+    """
+    base = load_runtime_defaults()
+    db_cfg = await repo.get_channel_settings() or {}
+    # shallow merge per channel key
+    merged: Dict[str, Any] = {}
+    keys = set(base.keys()) | set(db_cfg.keys())
+    for k in keys:
+        a = base.get(k, {})
+        b = db_cfg.get(k, {})
+        if isinstance(a, Mapping) and isinstance(b, Mapping):
+            merged[k] = {**a, **b}
+        else:
+            merged[k] = b if k in db_cfg else a
+    return merged
+
+def for_ui(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Return a UI-safe copy of configuration with secrets masked.
+    Use this to show settings in Streamlit without leaking credentials.
+    """
+    cfg = {**cfg}
+
+    # email
+    if "email" in cfg:
+        c = dict(cfg["email"])
+        c["password"] = _mask_secret(c.get("password"))
+        cfg["email"] = c
+
+    # slack
+    if "slack" in cfg:
+        c = dict(cfg["slack"])
+        c["bot_token"] = _mask_secret(c.get("bot_token"))
+        cfg["slack"] = c
+
+    # twilio
+    if "twilio" in cfg:
+        c = dict(cfg["twilio"])
+        c["auth_token"] = _mask_secret(c.get("auth_token"))
+        cfg["twilio"] = c
+
+    # webhook
+    if "webhook" in cfg:
+        c = dict(cfg["webhook"])
+        c["auth_header"] = _mask_secret(c.get("auth_header"))
+        cfg["webhook"] = c
+
     return cfg
-
-def _validate(cfg: ChannelSettings) -> None:
-    def _ok_url(u: Optional[str]) -> bool:
-        if not u:
-            return True
-        try:
-            p = urlparse(u)
-            return p.scheme in ("http", "https")
-        except Exception:
-            return False
-
-    if not _ok_url(cfg.slack_webhook_url):
-        raise ValueError("Invalid Slack webhook URL")
-    if not _ok_url(cfg.webhook_url):
-        raise ValueError("Invalid generic webhook URL")
-    if cfg.smtp_port and (int(cfg.smtp_port) <= 0 or int(cfg.smtp_port) > 65535):
-        raise ValueError("Invalid SMTP port")
-
-def for_ui(cfg: ChannelSettings) -> Dict[str, Any]:
-    """Return a UI-safe dict (password redacted)."""
-    return cfg.as_dict(redact=True)

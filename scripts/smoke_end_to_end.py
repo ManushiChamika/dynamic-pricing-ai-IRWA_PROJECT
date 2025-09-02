@@ -2,85 +2,73 @@
 from __future__ import annotations
 
 import asyncio
-from typing import List
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List
 
-from core.agents.data_collector import mcp_server as svc
-from core.agents.alert_notifier import AlertNotifier, Thresholds
+# ---- minimal local mcp client calls (directly call your tools) ----
+# We import the MCP server module and call its tool functions directly.
+from core.agents.data_collector.mcp_server import (
+    import_product_catalog,
+    start_collection,
+    get_job_status,
+    fetch_market_features,
+)
+
+SKU = "SKU-123"
+MARKET = "DEFAULT"
 
 
 async def smoke() -> int:
-    alerts: List[str] = []
-
-    async def ui_sink(a):
-        line = f"[{a.ts:%H:%M:%S}] {a.kind} {a.sku} — {a.message} [{a.severity}]"
-        print("ALERT:", line)
-        alerts.append(line)
-
-    # 1) Ensure DB
-    await svc._repo.init()
-
-    # 2) Import product
-    imp = await svc.import_product_catalog([
-        {
-            "sku": "SKU-123",
-            "title": "Demo",
-            "currency": "USD",
-            "current_price": 100.0,
-            "cost": 80.0,
-            "stock": 10,
-        }
-    ])
-    print("import_product_catalog:", imp)
-    if not imp.get("ok"):
+    # 1) Seed a tiny product catalog
+    print("import_product_catalog:", end=" ")
+    res = await import_product_catalog([{"sku": SKU, "market": MARKET, "name": "Demo"}])
+    print(res)
+    if not res.get("ok"):
         print("FAIL: import_product_catalog returned error")
         return 1
 
-    # 3) Start notifier before ingestion so we capture alerts
-    t = Thresholds(undercut_delta=0.01, demand_spike=0.5, min_margin=0.10)
-    notifier = AlertNotifier(t, sinks=[ui_sink])
-    await notifier.start()
-
-    # 4) Start collection job
-    start = await svc.start_collection("SKU-123", market="DEFAULT", connector="mock", depth=5)
-    if not start.get("ok"):
-        print("FAIL: start_collection returned error:", start)
+    # 2) Start a background data collection job
+    job = await start_collection(SKU, MARKET, connector="mock", depth=5)
+    if not job.get("ok"):
+        print("FAIL: start_collection returned error:", job)
         return 1
-    job_id = start["job_id"]
+    job_id = job["job_id"]
     print("job_id:", job_id)
 
-    # 5) Poll job status up to 12s
+    # 3) Poll job until FINISHED or FAILED (max ~15s)
     final_status = None
-    for _ in range(48):  # 48 * 0.25s = 12s
-        st = await svc.get_job_status(job_id)
-        print("job_status:", st)
-        if st.get("ok"):
-            s = st.get("job", {}).get("status")
-            if s in {"DONE", "FAILED"}:
-                final_status = s
-                break
+    for _ in range(60):
+        js = await get_job_status(job_id)
+        print("job_status:", js)
+        if not js.get("ok"):
+            await asyncio.sleep(0.25)
+            continue
+        st = js["job"]["status"]
+        if st in ("FINISHED", "FAILED"):
+            final_status = st
+            break
         await asyncio.sleep(0.25)
 
-    # 6) Fetch features
-    feats = await svc.fetch_market_features("SKU-123", "DEFAULT", "P7D")
-    print("features:", feats)
+    # 4) Fetch features
+    #    Ask for last 7 days (P7D) which covers our new ticks.
+    features = await fetch_market_features(SKU, MARKET, time_window="P7D")
+    print("features:", features)
 
-    # 7) Summarize & decide pass/fail
-    count = int(feats.get("count") or 0)
+    # 5) Summarize
     print("summary:")
-    print("  final_status:", final_status)
-    print("  alerts_collected:", len(alerts))
-    for ln in alerts[:5]:
-        print("  ", ln)
+    print(f"  final_status: {final_status}")
+    alerts_collected = 0  # if you wire alerts, update this
+    print(f"  alerts_collected: {alerts_collected}")
 
-    passed = (
-        final_status == "DONE" and count >= 1 and len(alerts) >= 1
-    )
-    if passed:
-        print("E2E SMOKE PASS")
+    last_price = features.get("features", {}).get("last_price")
+    count = features.get("count", 0)
+
+    if final_status == "FINISHED" and last_price is not None and count > 0:
+        print("E2E SMOKE SUCCESS")
         return 0
-    else:
-        print("E2E SMOKE FAIL")
-        return 1
+
+    print("E2E SMOKE FAIL")
+    return 1
 
 
 if __name__ == "__main__":

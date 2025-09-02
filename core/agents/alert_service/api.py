@@ -1,14 +1,16 @@
+# core/agents/alert_service/api.py
 from typing import Optional, Dict, Any, List
 
 from .repo import Repo
 from .engine import AlertEngine
 from .schemas import RuleSpec
-from .config import load_runtime_defaults, merge_defaults_db, for_ui
+from .config import merge_defaults_db, for_ui  # load_runtime_defaults no longer needed
 
 # Singletons for this process
 _repo = Repo()
 _engine = AlertEngine(_repo)
 _started = False  # idempotent start guard
+
 
 def _dump(model):
     fn = getattr(model, "model_dump", None)
@@ -57,10 +59,12 @@ async def list_rules() -> List[Dict[str, Any]]:
 
 # ---------- Channel Settings ----------
 async def get_settings() -> Dict[str, Any]:
-    defaults = load_runtime_defaults()
-    db_cfg = await _repo.get_channel_settings()
-    merged = merge_defaults_db(defaults, db_cfg)
-    return for_ui(merged)               # redact smtp_password
+    """
+    Merge env-based defaults with DB overrides (DB wins),
+    then return a UI-safe (secrets-masked) dict.
+    """
+    merged = await merge_defaults_db(_repo)
+    return for_ui(merged)
 
 async def save_settings(d: Dict[str, Any]) -> bool:
     await _repo.save_channel_settings(d)

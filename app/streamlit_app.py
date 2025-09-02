@@ -1,7 +1,9 @@
 # app/streamlit_app.py  (router/bootstrap)
+from core.db import init_db
 from queue import SimpleQueue
 ALERT_QUEUE = SimpleQueue()
 
+init_db()
 # 0) Make the repo root importable BEFORE any project imports or Streamlit calls
 import sys, pathlib
 HERE = pathlib.Path(__file__).resolve()

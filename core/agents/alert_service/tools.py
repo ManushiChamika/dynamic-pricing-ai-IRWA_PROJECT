@@ -15,7 +15,7 @@ class Tools:
 
     async def list_rules(self):
         rules = await self.repo.list_rules()
-        return {"ok": True, "rules": [r.spec.dict() for r in rules]}
+        return {"ok": True, "rules": [r.spec.model_dump() for r in rules]}
 
     async def list_incidents(self, status: str|None = None):
         rows = await self.repo.list_incidents(status)

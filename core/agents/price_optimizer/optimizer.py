@@ -1,66 +1,50 @@
-from __future__ import annotations
+import asyncio
+from typing import Optional
+from core.models import MarketTick, PriceProposal
+from core.message_bus import MessageBus
+from core.topics import Topic
+from core.repositories.proposal_repo import ProposalRepo
 
-from dataclasses import dataclass
-from typing import Optional, Dict, Any
-
-
-@dataclass
-class Features:
-    sku: str
-    our_price: float
-    competitor_price: Optional[float] = None
-    demand_index: Optional[float] = None
-    cost: Optional[float] = None
-
-
-def optimize(
-    f: Features,
-    min_price: float,
-    max_price: float,
-    min_margin: float = 0.12,
-) -> Dict[str, Any]:
+class Optimizer:
     """
-    Heuristic v0:
-    - Start from our_price.
-    - If competitor undercuts by >= ~2%, reduce slightly (to 99% of competitor) within bounds.
-    - Enforce margin floor if cost provided.
-    - Clamp to [min_price, max_price].
+    Subscribes to MARKET_TICK events and proposes new prices.
+    Simple strategy (example): follow competitor by small offset weighted by demand.
     """
-    base = float(f.our_price)
-    rationale = []
 
-    # Competitor undercut heuristic
-    if f.competitor_price is not None:
-        try:
-            if f.competitor_price * 1.02 < f.our_price:
-                base = max(f.competitor_price * 0.99, min_price)
-                rationale.append("Competitor undercut → reduce slightly")
-        except Exception:
-            pass
+    def __init__(self, bus: MessageBus, repo: Optional[ProposalRepo] = None):
+        self.bus = bus
+        self.repo = repo or ProposalRepo()
 
-    # Enforce margin floor
-    if f.cost is not None:
-        try:
-            floor = f.cost / (1.0 - float(min_margin))
-            if base < floor:
-                base = floor
-                rationale.append("Margin floor enforced")
-        except Exception:
-            pass
+    async def run(self):
+        q = self.bus.subscribe(Topic.MARKET_TICK)
+        while True:
+            tick: MarketTick = await q.get()
+            # compute proposal
+            proposed = self._propose(tick)
+            # persist + publish
+            self.repo.insert_proposal(proposed.dict())
+            await self.bus.publish(Topic.PRICE_PROPOSAL, proposed)
 
-    # Clamp to bounds
-    base = min(max(base, min_price), max_price)
+    def _propose(self, tick: MarketTick) -> PriceProposal:
+        base = tick.our_price
+        comp = tick.competitor_price
+        if comp is None:
+            # Nudge by demand: if demand high -> small up, else down slightly
+            adj = (0.02 if tick.demand_index > 0.6 else -0.01)
+            new_price = max(0.01, base * (1.0 + adj))
+        else:
+            # Blend toward competitor with demand tilt
+            weight = 0.7 if tick.demand_index < 0.4 else 0.3
+            target = comp * (1.0 + (0.01 if tick.demand_index > 0.6 else -0.005))
+            new_price = (1 - weight) * base + weight * target
 
-    return {
-        "recommended_price": round(base, 2),
-        "confidence": 0.6,  # placeholder
-        "rationale": "; ".join(rationale) or "No change",
-        "constraints_evaluation": {
-            "min_price": min_price,
-            "max_price": max_price,
-            "min_margin": min_margin,
-        },
-    }
-
-
-
+        # pseudo margin (if we don't know cost yet just compute vs base as proxy)
+        margin = max(0.0, (new_price - (base * 0.85)) / new_price)
+        return PriceProposal(
+            sku=tick.sku,
+            proposed_price=round(new_price, 2),
+            current_price=base,
+            margin=margin,
+            algorithm="simple",
+            ts=tick.ts,
+        )
