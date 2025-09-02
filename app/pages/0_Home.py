@@ -399,7 +399,7 @@ st.markdown(
 )
 
 # ✅ Show robot image (center + larger)
-robot_path = pathlib.Path("assets/home_pricing2.png")
+robot_path = pathlib.Path("assets/home_pricing1.png")
 if robot_path.exists():
     st.markdown('<div class="center mt-4">', unsafe_allow_html=True)
     st.image(str(robot_path), width=1000, use_column_width=False)
