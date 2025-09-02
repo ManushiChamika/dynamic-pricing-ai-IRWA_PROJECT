@@ -1054,6 +1054,56 @@
                 "role": "user",
                 "content": "give the 5 top trending products",
                 "time": "22:16:15"
+            },
+            {
+                "role": "user",
+                "content": "give the 5 top trending products",
+                "time": "22:33:59"
+            },
+            {
+                "role": "user",
+                "content": " trending products",
+                "time": "22:34:10"
+            },
+            {
+                "role": "user",
+                "content": "give me the most expensive product\n",
+                "time": "22:34:37"
+            },
+            {
+                "role": "assistant",
+                "content": "Most expensive product: **Samsung 49-Inch CHG90 144Hz Curved Gaming Monitor (LC49HG90DMNXZA) \u2013 Super Ultrawide Screen QLED ** (FS-14) at 1090.84",
+                "time": "22:34:37"
+            },
+            {
+                "role": "user",
+                "content": "give me the most cheapest product",
+                "time": "22:34:54"
+            },
+            {
+                "role": "assistant",
+                "content": "Cheapest product: **White Gold Plated Princess** (FS-7) at 7.72",
+                "time": "22:34:54"
+            },
+            {
+                "role": "user",
+                "content": "2 cheapest products",
+                "time": "22:35:14"
+            },
+            {
+                "role": "assistant",
+                "content": "Cheapest product: **White Gold Plated Princess** (FS-7) at 7.72",
+                "time": "22:35:14"
+            },
+            {
+                "role": "user",
+                "content": "give me 2 cheapest products",
+                "time": "22:35:32"
+            },
+            {
+                "role": "assistant",
+                "content": "Cheapest product: **White Gold Plated Princess** (FS-7) at 7.72",
+                "time": "22:35:32"
             }
         ],
         "metrics": {
