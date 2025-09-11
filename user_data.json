@@ -6,5 +6,154 @@
             "avg_price": 154.6,
             "units_sold": 1452
         }
+    },
+    "sasindu@gmail.com": {
+        "chat_history": [
+            {
+                "role": "user",
+                "content": "test 01",
+                "time": "17:33:36"
+            },
+            {
+                "role": "assistant",
+                "content": "I'm only able to respond to queries related to the dynamic pricing system.",
+                "time": "17:33:36"
+            },
+            {
+                "role": "user",
+                "content": "hello",
+                "time": "17:33:43"
+            },
+            {
+                "role": "assistant",
+                "content": "I'm only able to respond to queries related to the dynamic pricing system.",
+                "time": "17:33:43"
+            },
+            {
+                "role": "user",
+                "content": "ai you ai",
+                "time": "17:34:12"
+            },
+            {
+                "role": "assistant",
+                "content": "I'm only able to respond to queries related to the dynamic pricing system.",
+                "time": "17:34:12"
+            },
+            {
+                "role": "user",
+                "content": "ejbkawjg",
+                "time": "17:49:24"
+            },
+            {
+                "role": "assistant",
+                "content": "I'm only able to respond to queries related to the dynamic pricing system.",
+                "time": "17:49:24"
+            },
+            {
+                "role": "user",
+                "content": "eGG",
+                "time": "17:49:39"
+            },
+            {
+                "role": "assistant",
+                "content": "I'm only able to respond to queries related to the dynamic pricing system.",
+                "time": "17:49:39"
+            },
+            {
+                "role": "user",
+                "content": "jnfs",
+                "time": "17:50:14"
+            },
+            {
+                "role": "assistant",
+                "content": "I'm only able to respond to queries related to the dynamic pricing system.",
+                "time": "17:50:14"
+            },
+            {
+                "role": "user",
+                "content": "tesh",
+                "time": "01:51:14"
+            },
+            {
+                "role": "assistant",
+                "content": "[non-LLM assistant] I'm only able to respond to queries related to the dynamic pricing system.",
+                "time": "01:51:14"
+            },
+            {
+                "role": "user",
+                "content": "asrhjjtkd",
+                "time": "01:53:39"
+            },
+            {
+                "role": "assistant",
+                "content": "[non-LLM assistant] I'm only able to respond to queries related to the dynamic pricing system.",
+                "time": "01:53:39"
+            },
+            {
+                "role": "user",
+                "content": "zdsfjdk",
+                "time": "01:54:57"
+            },
+            {
+                "role": "assistant",
+                "content": "[non-LLM assistant] I'm only able to respond to queries related to the dynamic pricing system.",
+                "time": "01:54:57"
+            },
+            {
+                "role": "user",
+                "content": "sfhjdkfylug",
+                "time": "01:55:35"
+            },
+            {
+                "role": "assistant",
+                "content": "[non-LLM assistant] I'm only able to respond to queries related to the dynamic pricing system.",
+                "time": "01:55:35"
+            },
+            {
+                "role": "user",
+                "content": "sfhdgj",
+                "time": "01:56:22"
+            },
+            {
+                "role": "assistant",
+                "content": "[non-LLM assistant] I'm only able to respond to queries related to the dynamic pricing system.",
+                "time": "01:56:22"
+            },
+            {
+                "role": "user",
+                "content": "egHRW",
+                "time": "01:56:59"
+            },
+            {
+                "role": "assistant",
+                "content": "[non-LLM assistant] I'm only able to respond to queries related to the dynamic pricing system.",
+                "time": "01:56:59"
+            },
+            {
+                "role": "user",
+                "content": "ZDB",
+                "time": "01:57:44"
+            },
+            {
+                "role": "assistant",
+                "content": "[non-LLM assistant] I'm only able to respond to queries related to the dynamic pricing system.",
+                "time": "01:57:44"
+            },
+            {
+                "role": "user",
+                "content": "esrydtjf",
+                "time": "02:02:28"
+            },
+            {
+                "role": "assistant",
+                "content": "I notice your message appears to contain random characters. As a specialized assistant for dynamic pricing systems, I can only provide responses related to pricing strategies, discounts, offers, demand/supply, and related financial metrics.\n\nDo you have a question about any of these topics? I'd be happy to help with pricing optimization, discount structures, or other financial aspects of your business.",
+                "time": "02:02:52"
+            }
+        ],
+        "metrics": {
+            "total_sales": 275732,
+            "avg_price": 160.6,
+            "units_sold": 1697
+        }
     }
 }
