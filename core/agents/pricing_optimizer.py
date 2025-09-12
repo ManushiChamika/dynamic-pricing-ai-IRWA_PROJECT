@@ -263,6 +263,15 @@ class LLMBrain:
 				except Exception:
 					return None
 
+		# Optional: activity log (best-effort)
+		try:
+			from core.agents.agent_sdk.activity_log import activity_log as _act
+		except Exception:
+			_act = None  # type: ignore
+
+		if _act:
+			_act.log("pricing_optimizer", "workflow.start", "in_progress", message=f"request='{user_request}' sku='{product_name}'")
+
 		# Step 1 & 2: Check data freshness and request update if needed
 		records = fetch_records()
 		stale = False
@@ -282,6 +291,8 @@ class LLMBrain:
 			# send market data collect request (simulated)
 			msg = f"UPDATE market_data for {product_name}"
 			print(msg)
+			if _act:
+				_act.log("pricing_optimizer", "market.request_update", "info", message=msg)
 			# Poll DB for confirmation (simulated) up to max_wait_attempts
 			attempt = 0
 			while attempt < max_wait_attempts:
@@ -310,6 +321,8 @@ class LLMBrain:
 		selection = self.decide_tool(user_request, TOOLS)
 		tool_name = selection.get("tool_name") if isinstance(selection, dict) else None
 		arguments = selection.get("arguments", {}) if isinstance(selection, dict) else {}
+		if _act:
+			_act.log("llm_brain", "decide_tool", "completed", message=f"tool={tool_name}", details={"args": arguments})
 
 		# Optional pre-step: run scraper to augment data
 		if tool_name == "fetch_competitor_price" and TOOLS.get("fetch_competitor_price"):
@@ -333,8 +346,12 @@ class LLMBrain:
 							conn.commit()
 						except Exception:
 							pass
+						if _act:
+							_act.log("web_scraper", "fetch_competitor_price", "completed", message=f"price={res['price']}", details={"url": url})
 				except Exception as e_scrape:
 					print(f"[pricing_optimizer] scraper tool failed: {e_scrape}")
+					if _act:
+						_act.log("web_scraper", "fetch_competitor_price", "failed", message=str(e_scrape), details={"url": url})
 
 		# Ensure we have some data before pricing
 		if not records:
@@ -362,6 +379,8 @@ class LLMBrain:
 			return err(f"calculation failed: {e}")
 		if price is None:
 			return err("calculation returned no price")
+		if _act:
+			_act.log("pricing_optimizer", "compute_price", "completed", message=f"algo={algo} price={price}")
 
 		# Hybrid publish + persist of PriceProposal (non-blocking)
 		# - Read current_price and cost from app/data.db product_catalog if available
@@ -515,6 +534,8 @@ class LLMBrain:
 				print("Failed to call notify_alert_fn")
 		else:
 			print(notify_msg)
+		if _act:
+			_act.log("alert_notifier", "notify", "info", message=notify_msg)
 
 		result = {"product": product_name, "price": price, "algorithm": algo, "status": "success"}
 
@@ -538,6 +559,8 @@ class LLMBrain:
 					# re-run once
 					return self.process_full_workflow(user_request, product_name, db_path=db_path, notify_alert_fn=notify_alert_fn, wait_seconds=wait_seconds, max_wait_attempts=max_wait_attempts, monitor_timeout=0)
 
+		if _act:
+			_act.log("pricing_optimizer", "workflow.end", "completed", message=f"sku='{product_name}' status=success")
 		return result
 
 

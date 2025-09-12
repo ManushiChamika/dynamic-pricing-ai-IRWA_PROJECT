@@ -277,3 +277,29 @@ if alerts:
 else:
     with st.expander("🔔 Incidents (live — extras)", expanded=False):
         st.info("Alerts service not available. Ensure core/agents/alert_service exists and dependencies are installed.")
+
+# =============================
+# 🔎 Activity Feed (High-Level)
+# =============================
+st.markdown("---")
+st.subheader("🧠 Under-the-hood Activity")
+try:
+    from core.agents.agent_sdk.activity_log import activity_log
+    items = activity_log.recent(50)
+    if not items:
+        st.info("No recent activity yet. Ask a pricing question to see the steps here.")
+    else:
+        for ev in items:
+            status = ev.get("status", "info")
+            badge = "🟢" if status == "completed" else ("🟡" if status == "in_progress" else ("🔴" if status == "failed" else "🔵"))
+            with st.container():
+                st.markdown(f"{badge} [{ev.get('ts')}] <b>{ev.get('agent')}</b> — {ev.get('action')} ", unsafe_allow_html=True)
+                msg = ev.get("message")
+                if msg:
+                    st.caption(msg)
+                details = ev.get("details")
+                if details:
+                    with st.expander("Details", expanded=False):
+                        st.json(details)
+except Exception:
+    st.info("Activity feed unavailable. It will appear once the activity logger module is loaded.")

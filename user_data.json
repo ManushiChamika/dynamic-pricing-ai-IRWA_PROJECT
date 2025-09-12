@@ -148,6 +148,16 @@
                 "role": "assistant",
                 "content": "I notice your message appears to contain random characters. As a specialized assistant for dynamic pricing systems, I can only provide responses related to pricing strategies, discounts, offers, demand/supply, and related financial metrics.\n\nDo you have a question about any of these topics? I'd be happy to help with pricing optimization, discount structures, or other financial aspects of your business.",
                 "time": "02:02:52"
+            },
+            {
+                "role": "user",
+                "content": "\"What is the competitor price for iPhone 15 on https://smartmobile.lk/apple-iphone-price-list-in-sri-lanka/apple-iphone-16-plus-128gb Please optimize our price for maximum profit.\"",
+                "time": "13:54:26"
+            },
+            {
+                "role": "assistant",
+                "content": "",
+                "time": "13:54:39"
             }
         ],
         "metrics": {
