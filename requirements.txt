@@ -16,3 +16,5 @@ transformers
 torch
 numpy
 pandas
+requests
+beautifulsoup4

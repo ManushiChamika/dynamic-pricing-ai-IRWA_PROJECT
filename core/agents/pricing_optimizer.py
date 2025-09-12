@@ -8,6 +8,8 @@ async def run_pricing_optimizer():
 # core/agents/pricing_optimizer.py
 
 import os
+import re
+import json
 import sqlite3
 import time
 import importlib
@@ -86,11 +88,21 @@ def profit_maximization(records):
 
 
 # Toolbox mapping (dictionary of available tools)
+try:
+	# Lazy import; if bs4/requests missing in env, optimizer still works without this tool
+	from core.agents.data_collector.connectors.web_scraper import fetch_competitor_price
+except Exception:
+	fetch_competitor_price = None  # type: ignore
+
+
 TOOLS = {
 	"rule_based": rule_based,
 	"ml_model": ml_model,
 	"profit_maximization": profit_maximization,
 }
+
+if fetch_competitor_price is not None:
+	TOOLS["fetch_competitor_price"] = fetch_competitor_price
 
 
 # --- Step 2: LLM Brain ---
@@ -131,44 +143,78 @@ class LLMBrain:
 		else:
 			print("⚠️ No OpenRouter/OpenAI API key set; LLMBrain will use deterministic fallback")
 
-	def decide_tool(self, user_intent, n_records):
+	def decide_tool(self, user_intent: str, available_tools: dict[str, object]):
 		"""
-		Ask the LLM which tool to use.
-		"""
-		prompt = f"""
-		You are the brain of a Pricing Optimizer Agent.
-		User intent: {user_intent}
-		Number of competitor records: {n_records}
+		General-purpose tool selector. Returns a dict like:
+		{"tool_name": str, "arguments": { ... }}
 
-		Available tools:
-		- rule_based: use average competitor price - 2%
-		- ml_model: use machine learning for large datasets
-		- profit_maximization: maximize profit with markup
-
-		Decide the best tool. Answer with only one word:
-		rule_based, ml_model, or profit_maximization.
+		If no LLM available, uses simple heuristics:
+		- If URL present, choose fetch_competitor_price with that url
+		- Else if intent mentions profit, choose profit_maximization
+		- Else if few records (heuristic not available here), default rule_based
 		"""
+		# Build concise descriptions for the prompt
+		descriptions = []
+		for name in available_tools.keys():
+			if name == "fetch_competitor_price":
+				descriptions.append({"name": name, "description": "Fetches a competitor price from a product page URL."})
+			elif name == "rule_based":
+				descriptions.append({"name": name, "description": "Average competitor price minus 2%."})
+			elif name == "ml_model":
+				descriptions.append({"name": name, "description": "Machine learning model for pricing."})
+			elif name == "profit_maximization":
+				descriptions.append({"name": name, "description": "+10% markup over average competitor price."})
+			else:
+				descriptions.append({"name": name, "description": "Tool"})
+
+		prompt = (
+			"You are an AI agent brain. Based on the user's request, select the best tool to use from the "
+			"following list and determine its arguments.\n\n" \
+			f"User Request: \"{user_intent}\"\n\n" \
+			f"Available Tools:\n{descriptions}\n\n" \
+			"Respond with only a JSON object specifying the tool name and its arguments. "
+			"Example: {\"tool_name\": \"fetch_competitor_price\", \"arguments\": {\"url\": \"http://example.com\"}}"
+		)
+
+		def _extract_first_url(text: str) -> str | None:
+			if not text:
+				return None
+			m = re.search(r"https?://\S+", text)
+			return m.group(0) if m else None
+
+		def _default_selection():
+			intent = (user_intent or "").lower()
+			url = _extract_first_url(user_intent or "")
+			if url and "fetch_competitor_price" in available_tools:
+				return {"tool_name": "fetch_competitor_price", "arguments": {"url": url}}
+			if "profit" in intent or "maximize" in intent:
+				return {"tool_name": "profit_maximization", "arguments": {}}
+			# fallback
+			return {"tool_name": "rule_based", "arguments": {}}
+
 		try:
-			# If no client, use deterministic rule: prefer ml_model for large n, profit if intent contains profit
 			if not self.client:
-				intent = (user_intent or "").lower()
-				if "profit" in intent or "maximize" in intent:
-					return "profit_maximization"
-				if n_records >= 50:
-					return "ml_model"
-				return "rule_based"
+				return _default_selection()
 
 			resp = self.client.chat.completions.create(
 				model=self.model,
 				messages=[{"role": "user", "content": prompt}],
-				max_tokens=5,
+				max_tokens=200,
 				temperature=0.0,
 			)
-			choice = resp.choices[0].message.content.strip().lower()
-			return choice if choice in TOOLS else "rule_based"
+			raw = resp.choices[0].message.content or ""
+			# extract JSON
+			start = raw.find("{")
+			end = raw.rfind("}")
+			parsed = json.loads(raw[start : end + 1]) if start != -1 and end != -1 else {}
+			name = parsed.get("tool_name") if isinstance(parsed, dict) else None
+			args = parsed.get("arguments", {}) if isinstance(parsed, dict) else {}
+			if name in available_tools:
+				return {"tool_name": name, "arguments": args if isinstance(args, dict) else {}}
+			return _default_selection()
 		except Exception as e:
 			print("❌ LLM error:", e)
-			return "rule_based"
+			return _default_selection()
 
 	def process_full_workflow(self, user_request: str, product_name: str, db_path: str = "market.db", notify_alert_fn=None, wait_seconds: int = 3, max_wait_attempts: int = 5, monitor_timeout: int = 0):
 		"""
@@ -254,21 +300,62 @@ class LLMBrain:
 			if attempt >= max_wait_attempts and (not records or latest is None or (datetime.now() - latest) > timedelta(hours=24)):
 				return err("market data not refreshed after request")
 
-		# Step 3: Process data & choose algorithm per rules
+		# Step 3: Process data & choose tool/algorithm using agentic selection
 		records = fetch_records()
+		if not records:
+			# We still allow a scrape-first workflow if requested
+			records = []
+
+		# First decision: may be scraper or an algorithm
+		selection = self.decide_tool(user_request, TOOLS)
+		tool_name = selection.get("tool_name") if isinstance(selection, dict) else None
+		arguments = selection.get("arguments", {}) if isinstance(selection, dict) else {}
+
+		# Optional pre-step: run scraper to augment data
+		if tool_name == "fetch_competitor_price" and TOOLS.get("fetch_competitor_price"):
+			url = arguments.get("url") if isinstance(arguments, dict) else None
+			# fallback URL extraction from user text
+			if not url:
+				m = re.search(r"https?://\S+", user_request or "")
+				url = m.group(0) if m else None
+			if url:
+				try:
+					res = TOOLS["fetch_competitor_price"](url)
+					if isinstance(res, dict) and res.get("status") == "success" and "price" in res:
+						# Append a synthetic record with current timestamp
+						records.append((float(res["price"]), datetime.utcnow().isoformat()))
+						# Also persist to market_data to be traceable
+						try:
+							cursor.execute(
+								"INSERT INTO market_data (product_name, price, features, update_time) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
+								(product_name, float(res["price"]), "scraped"),
+							)
+							conn.commit()
+						except Exception:
+							pass
+				except Exception as e_scrape:
+					print(f"[pricing_optimizer] scraper tool failed: {e_scrape}")
+
+		# Ensure we have some data before pricing
 		if not records:
 			return err("no market data available")
 
-		n = len(records)
-		intent = (user_request or "").lower()
-		if "max" in intent and "profit" in intent or "maximize" in intent:
-			algo = "profit_maximization"
-		elif n < 100:
-			algo = "rule_based"
-		else:
-			algo = "ml_model"
+		# Second decision: choose pricing algorithm (limit tools to algorithms)
+		algo_tools = {k: v for k, v in TOOLS.items() if k in ("rule_based", "ml_model", "profit_maximization")}
+		selection2 = self.decide_tool(user_request, algo_tools)
+		algo = selection2.get("tool_name") if isinstance(selection2, dict) else None
+		if algo not in algo_tools:
+			# simple heuristic fallback
+			n = len(records)
+			intent = (user_request or "").lower()
+			if ("max" in intent and "profit" in intent) or ("maximize" in intent):
+				algo = "profit_maximization"
+			elif n < 100:
+				algo = "rule_based"
+			else:
+				algo = "ml_model"
 
-		# Step 4: Calculate price
+		# Step 4: Calculate price using selected algorithm
 		try:
 			price = TOOLS[algo](records)
 		except Exception as e:
