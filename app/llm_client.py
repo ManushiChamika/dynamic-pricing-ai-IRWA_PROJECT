@@ -13,7 +13,8 @@ import os
 import importlib
 import logging
 from pathlib import Path
-from typing import Optional, Any, Dict, List
+from typing import Optional, Any, Dict, List, Callable
+import json
 
 
 def _load_dotenv_if_present() -> None:
@@ -175,6 +176,115 @@ class LLMClient:
         except Exception as e:
             self._log.error("LLM error: %s", e)
             raise RuntimeError(f"LLM error: {e}")
+
+    def chat_with_tools(
+        self,
+        messages: List[Dict[str, Any]],
+        tools: List[Dict[str, Any]],
+        functions_map: Dict[str, Callable[..., Any]],
+        tool_choice: Optional[str] = "auto",
+        max_rounds: int = 3,
+        max_tokens: int = 256,
+        temperature: float = 0.2,
+    ) -> str:
+        """OpenAI-style tool calling loop.
+
+        - Sends tools schema to the model.
+        - If the model returns tool_calls, executes mapped Python functions.
+        - Appends tool outputs as messages with role="tool" and continues.
+        - Returns final assistant content when no further tool_calls are present.
+        """
+        if not self._client:
+            raise RuntimeError("LLM client unavailable (missing key or package)")
+        local_msgs: List[Dict[str, Any]] = list(messages)
+        for round_i in range(max_rounds):
+            try:
+                self._log.debug(
+                    "Tool round %d | provider=%s model=%s msgs=%d tools=%d",
+                    round_i + 1, self._provider, self.model, len(local_msgs), len(tools)
+                )
+                resp = self._client.chat.completions.create(
+                    model=self.model,
+                    messages=local_msgs,
+                    tools=tools,
+                    **({"tool_choice": tool_choice} if tool_choice else {}),
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                )
+            except Exception as e:
+                # Provider/model may not support tools; surface error to caller
+                self._log.error("LLM tools error: %s", e)
+                raise RuntimeError(f"LLM tools error: {e}")
+
+            choice = resp.choices[0]
+            msg = choice.message
+            # Safely access properties across SDK variants
+            content = getattr(msg, "content", None)
+            tool_calls = getattr(msg, "tool_calls", None) or []
+
+            assistant_msg: Dict[str, Any] = {"role": "assistant"}
+            if content is not None:
+                assistant_msg["content"] = content
+            if tool_calls:
+                # Normalize tool_calls structure
+                normalized_calls = []
+                for tc in tool_calls:
+                    try:
+                        normalized_calls.append({
+                            "id": tc.id,
+                            "type": getattr(tc, "type", "function"),
+                            "function": {
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments,
+                            },
+                        })
+                    except Exception:
+                        # Fallback best-effort
+                        normalized_calls.append(json.loads(json.dumps(tc)))
+                assistant_msg["tool_calls"] = normalized_calls
+
+            local_msgs.append(assistant_msg)
+
+            if not tool_calls:
+                # Final content
+                return (content or "").strip()
+
+            # Execute tools and append their outputs
+            for tc in assistant_msg["tool_calls"]:
+                fn_name = tc.get("function", {}).get("name")
+                raw_args = tc.get("function", {}).get("arguments") or "{}"
+                call_id = tc.get("id") or "tool_call"
+                try:
+                    args = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
+                except Exception:
+                    args = {}
+                result: Any
+                if fn_name in functions_map:
+                    try:
+                        result = functions_map[fn_name](**args)
+                    except TypeError:
+                        # In case function expects a dict
+                        result = functions_map[fn_name](args)
+                    except Exception as e:
+                        result = {"error": str(e)}
+                else:
+                    result = {"error": f"unknown tool: {fn_name}"}
+
+                # Ensure string content
+                try:
+                    content_str = result if isinstance(result, str) else json.dumps(result, ensure_ascii=False)
+                except Exception:
+                    content_str = str(result)
+
+                local_msgs.append({
+                    "role": "tool",
+                    "tool_call_id": call_id,
+                    "name": fn_name,
+                    "content": content_str,
+                })
+
+        # Safety: if max rounds exhausted, return whatever we have in last assistant content
+        return (assistant_msg.get("content") or "").strip()
 
 
 def get_llm_client() -> LLMClient:

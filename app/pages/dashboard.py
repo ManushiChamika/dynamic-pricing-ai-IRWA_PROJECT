@@ -6,6 +6,7 @@ import os
 import json
 from datetime import datetime
 import asyncio
+import uuid
 import threading
 from concurrent.futures import TimeoutError as FuturesTimeout
 import sys
@@ -64,16 +65,61 @@ def get_demand_trend() -> pd.DataFrame:
 DATA_FILE = "user_data.json"
 
 def load_user_data(email: str):
+    """Load user data. Backward compatible with older schema that only had chat_history.
+
+    Returns a dict with keys:
+    - threads: {thread_id: {"title": str, "messages": [ {role, content, time} ] }}
+    - current_thread_id: str
+    - metrics: any
+    - chat_history: maintained for backward compatibility (current thread messages)
+    """
+    empty = {"threads": {}, "current_thread_id": None, "metrics": None, "chat_history": []}
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, "r") as f:
                 all_data = json.load(f)
-            return all_data.get(email, {"chat_history": [], "metrics": None})
+            user = all_data.get(email)
+            if not user:
+                return empty
+            # New schema present
+            if "threads" in user:
+                threads = user.get("threads", {}) or {}
+                current = user.get("current_thread_id")
+                if not threads:
+                    # Create an empty default thread
+                    tid = str(uuid.uuid4())
+                    threads = {tid: {"title": "New chat", "messages": []}}
+                    current = tid
+                if not current or current not in threads:
+                    current = next(iter(threads.keys()))
+                # Back-compat mirror
+                ch = threads[current]["messages"]
+                return {
+                    "threads": threads,
+                    "current_thread_id": current,
+                    "metrics": user.get("metrics"),
+                    "chat_history": ch,
+                }
+            # Old schema: migrate one linear chat_history into a default thread
+            old_ch = user.get("chat_history", []) or []
+            tid = str(uuid.uuid4())
+            threads = {tid: {"title": "Chat 1", "messages": old_ch}}
+            return {
+                "threads": threads,
+                "current_thread_id": tid,
+                "metrics": user.get("metrics"),
+                "chat_history": old_ch,
+            }
         except json.JSONDecodeError:
-            return {"chat_history": [], "metrics": None}
-    return {"chat_history": [], "metrics": None}
+            return empty
+    return empty
 
 def save_user_data(email: str, data: dict):
+    """Save user data with backward compatibility.
+
+    Expects keys in data: threads, current_thread_id, metrics.
+    Also stores chat_history mirror of the current thread for older readers.
+    """
     all_data = {}
     if os.path.exists(DATA_FILE):
         try:
@@ -81,7 +127,26 @@ def save_user_data(email: str, data: dict):
                 all_data = json.load(f)
         except json.JSONDecodeError:
             all_data = {}
-    all_data[email] = data
+
+    threads = data.get("threads") or {}
+    current = data.get("current_thread_id")
+    if not threads:
+        tid = str(uuid.uuid4())
+        threads = {tid: {"title": "New chat", "messages": []}}
+        current = tid
+    if not current or current not in threads:
+        current = next(iter(threads.keys()))
+
+    current_messages = threads[current]["messages"]
+    payload = {
+        "threads": threads,
+        "current_thread_id": current,
+        "metrics": data.get("metrics"),
+        # Back-compat mirror
+        "chat_history": current_messages,
+    }
+
+    all_data[email] = payload
     with open(DATA_FILE, "w") as f:
         json.dump(all_data, f, indent=4)
 
@@ -104,14 +169,40 @@ else:
     user_name = user_email.split("@")[0]
 
 
-# Load persisted user data into session_state once
-if "chat_history" not in st.session_state or "metrics" not in st.session_state:
+# Load persisted user data into session_state once (threads-aware)
+if any(k not in st.session_state for k in ("threads", "current_thread_id", "metrics")):
     _loaded = load_user_data(user_email)
-    st.session_state.setdefault("chat_history", _loaded.get("chat_history", []))
+    st.session_state.setdefault("threads", _loaded.get("threads", {}))
+    st.session_state.setdefault("current_thread_id", _loaded.get("current_thread_id"))
     st.session_state.setdefault("metrics", _loaded.get("metrics", None))
+    # Backward-compat mirror of current thread
+    cur = st.session_state.get("current_thread_id")
+    cur_msgs = []
+    if cur and cur in st.session_state["threads"]:
+        cur_msgs = st.session_state["threads"][cur]["messages"]
+    st.session_state.setdefault("chat_history", cur_msgs)
 
-# Initialize OpenRouter-based agent
-agent = UserInteractionAgent(user_name=user_name)
+# Initialize agent once per user session and seed with prior chat history
+AGENT_KEY = "agent"
+AGENT_USER_KEY = "agent_user_email"
+if (
+    AGENT_KEY not in st.session_state
+    or st.session_state.get(AGENT_USER_KEY) != user_email
+):
+    agent = UserInteractionAgent(user_name=user_name)
+    # Seed agent memory from persisted chat history so LLM sees full context
+    for msg in st.session_state.get("chat_history", []):
+        role = msg.get("role")
+        content = msg.get("content")
+        if role in ("user", "assistant") and isinstance(content, str):
+            try:
+                agent.add_to_memory(role, content)
+            except Exception:
+                pass
+    st.session_state[AGENT_KEY] = agent
+    st.session_state[AGENT_USER_KEY] = user_email
+else:
+    agent = st.session_state[AGENT_KEY]
 
 # ===================
 # Dashboard Header/UI
@@ -142,8 +233,9 @@ st.markdown("---")
 
 # Persist metrics
 save_user_data(user_email, {
-    "chat_history": st.session_state["chat_history"],
-    "metrics": st.session_state["metrics"]
+    "threads": st.session_state.get("threads", {}),
+    "current_thread_id": st.session_state.get("current_thread_id"),
+    "metrics": st.session_state["metrics"],
 })
 
 # ---- Charts ----
@@ -170,9 +262,52 @@ st.sidebar.subheader("👤 User Info")
 st.sidebar.info(f"Name: {user_name}\n*Email:* {user_email}")
 
 # Chat history
-st.sidebar.subheader("💬 Chat History")
+st.sidebar.subheader("💬 Chats")
+# Thread selection and management
+threads = st.session_state.get("threads", {})
+current_thread_id = st.session_state.get("current_thread_id")
+if not threads:
+    # Ensure at least one thread exists
+    tid = str(uuid.uuid4())
+    threads[tid] = {"title": "New chat", "messages": []}
+    st.session_state["threads"] = threads
+    st.session_state["current_thread_id"] = tid
+    current_thread_id = tid
+
+# Dropdown to pick thread
+options = [(tid, data.get("title") or f"Chat {i+1}") for i, (tid, data) in enumerate(threads.items())]
+labels = {tid: title for tid, title in options}
+tid_list = [tid for tid, _ in options]
+if current_thread_id not in threads:
+    current_thread_id = tid_list[0]
+selected = st.sidebar.selectbox(
+    "Select conversation",
+    options=tid_list,
+    index=tid_list.index(current_thread_id),
+    format_func=lambda tid: labels.get(tid, tid),
+)
+if selected != current_thread_id:
+    st.session_state["current_thread_id"] = selected
+    # Mirror chat_history for back-compat
+    st.session_state["chat_history"] = st.session_state["threads"][selected]["messages"]
+
+with st.sidebar.expander("Manage chats", expanded=False):
+    c1, c2 = st.columns([2, 1])
+    with c1:
+        new_title = st.text_input("Rename current", value=labels.get(selected, ""), key="rename_thread")
+    with c2:
+        if st.button("Save", key="rename_thread_btn"):
+            st.session_state["threads"][selected]["title"] = new_title or labels.get(selected)
+    if st.button("New chat", key="new_thread_btn"):
+        tid = str(uuid.uuid4())
+        st.session_state["threads"][tid] = {"title": f"Chat {len(threads)+1}", "messages": []}
+        st.session_state["current_thread_id"] = tid
+        st.session_state["chat_history"] = []
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("🗨️ Messages")
 chat_container = st.sidebar.container()
-for chat in st.session_state.chat_history:
+for chat in st.session_state.get("threads", {}).get(st.session_state.get("current_thread_id"), {}).get("messages", []):
     role = chat.get("role")
     message = chat.get("content")
     time_str = chat.get("time", datetime.now().strftime("%H:%M:%S"))
@@ -184,27 +319,51 @@ for chat in st.session_state.chat_history:
 # Chat input + response
 user_input = st.chat_input("Ask me about pricing, demand, or sales...")
 if user_input:
-    st.session_state["chat_history"].append({
+    msg_user = {
         "role": "user",
         "content": user_input,
         "time": datetime.now().strftime("%H:%M:%S")
-    })
+    }
+    # Write to current thread + mirror
+    cur = st.session_state.get("current_thread_id")
+    if cur and cur in st.session_state["threads"]:
+        st.session_state["threads"][cur]["messages"].append(msg_user)
+        st.session_state["chat_history"] = st.session_state["threads"][cur]["messages"]
+    else:
+        st.session_state["chat_history"].append(msg_user)
+    # Keep agent memory in sync for immediate context
+    try:
+        agent.add_to_memory("user", user_input)
+    except Exception:
+        pass
     with st.chat_message("user"):
         st.markdown(user_input)
 
     # Call OpenRouter agent
     response = agent.get_response(user_input)
-    st.session_state["chat_history"].append({
+    msg_bot = {
         "role": "assistant",
         "content": response,
         "time": datetime.now().strftime("%H:%M:%S")
-    })
+    }
+    # Write to current thread + mirror
+    cur = st.session_state.get("current_thread_id")
+    if cur and cur in st.session_state["threads"]:
+        st.session_state["threads"][cur]["messages"].append(msg_bot)
+        st.session_state["chat_history"] = st.session_state["threads"][cur]["messages"]
+    else:
+        st.session_state["chat_history"].append(msg_bot)
+    try:
+        agent.add_to_memory("assistant", response)
+    except Exception:
+        pass
     with st.chat_message("assistant"):
         st.markdown(response)
 
     save_user_data(user_email, {
-        "chat_history": st.session_state["chat_history"],
-        "metrics": st.session_state["metrics"]
+        "threads": st.session_state.get("threads", {}),
+        "current_thread_id": st.session_state.get("current_thread_id"),
+        "metrics": st.session_state["metrics"],
     })
 
 # Logout

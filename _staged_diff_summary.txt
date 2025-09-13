@@ -1,0 +1,72 @@
+---
+# Diff of all staged changes (feat/ui-activity-feed vs last commit)
+
+# app/llm_client.py
+# - Added chat_with_tools: OpenAI-style tool-calling loop, executes Python functions for tool_calls, returns final assistant content.
+
+# app/pages/dashboard.py
+# - Migrated chat UI to support threads (multi-chat), thread selection, rename, and new chat creation in sidebar.
+# - User data persistence now stores threads, current_thread_id, and chat_history for backward compatibility.
+# - Agent is seeded from current thread's messages for persistent memory.
+# - Chat input/output writes to the current thread and keeps agent memory in sync.
+
+# core/agents/user_interact/user_interaction_agent.py
+# - Added SQLite-backed tools: list_inventory_items, get_inventory_item, list_pricing_list, list_price_proposals.
+# - get_response now uses chat_with_tools for OpenAI-style tool-calling, passing tool schemas and function map.
+# - DB paths resolved in __init__.
+
+# user_data.json
+# - User data migrated to threads-based schema for chat history, with per-thread messages and current_thread_id.
+# - Example threads and messages shown for two users.
+
+---
+
+# app/llm_client.py
+- Added chat_with_tools method to LLMClient, supporting OpenAI-style tool-calling with multi-round execution.
+- Handles tool_calls, executes mapped Python functions, and appends tool outputs as tool messages.
+- Returns final assistant content when no further tool_calls are present.
+
+# app/pages/dashboard.py
+- Chat UI now supports multiple threads (conversations) in the sidebar.
+- Users can select, rename, and create new chat threads.
+- User data is persisted as threads, current_thread_id, and metrics, with chat_history for backward compatibility.
+- Agent is seeded from the selected thread's messages for persistent memory.
+- Chat input/output writes to the current thread and keeps agent memory in sync.
+
+# core/agents/user_interact/user_interaction_agent.py
+- Added SQLite-backed tools for inventory and pricing:
+  - list_inventory_items: Lists items from app/data.db/product_catalog.
+  - get_inventory_item: Gets a single item by SKU.
+  - list_pricing_list: Lists entries from market.db/pricing_list.
+  - list_price_proposals: Lists recent price proposals from app/data.db/price_proposals.
+- get_response uses chat_with_tools, passing tool schemas and function map.
+- DB paths are resolved in __init__ for portability.
+
+# user_data.json
+- User data migrated to threads-based schema for chat history, with per-thread messages and current_thread_id.
+- Example threads and messages shown for two users, including inventory and pricing queries.
+
+---
+
+# Summary
+This commit introduces OpenAI-style tool-calling to the LLM agent, enabling the assistant to answer inventory and pricing queries using live data from SQLite databases. The chat UI is upgraded to support multiple threads (conversations), with per-thread persistence and backward compatibility. The agent is seeded from the selected thread's messages for persistent memory, and all chat input/output is thread-aware. User data is now stored in a threads-based schema, and the agent can answer factual queries about inventory and pricing using the new tool-calling path.
+
+# Details
+- LLMClient (app/llm_client.py) now supports chat_with_tools, a multi-round tool-calling loop compatible with OpenAI's function-calling API.
+- UserInteractionAgent (core/agents/user_interact/user_interaction_agent.py) defines SQLite-backed tools for inventory and pricing, and uses chat_with_tools to answer queries.
+- The dashboard (app/pages/dashboard.py) supports chat threads, thread management, and thread-aware persistence.
+- user_data.json is migrated to the new threads schema, with example data for two users.
+
+# Impact
+- The assistant can now answer queries like "What are the items I have?" or "Show competitor prices for iPhone 15" using live DB data.
+- Chat UI is more realistic and user-friendly, supporting multiple conversations per user.
+- All changes are backward compatible with previous user data.
+
+# Migration
+- Existing user_data.json is automatically migrated to the new threads schema on load.
+- No manual DB migration is required; tool functions handle missing tables gracefully.
+
+# Next Steps
+- Add more tools as needed (e.g., create_item, update_price) for richer agent capabilities.
+- Add tests for tool functions and agent responses.
+- Optional: UI polish and memory summarization for long threads.
