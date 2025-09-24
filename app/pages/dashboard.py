@@ -255,66 +255,156 @@ fig2.update_layout(plot_bgcolor="#5896ed", paper_bgcolor="#5896ed", font_color="
 st.plotly_chart(fig2, use_container_width=True)
 
 # ===============
-# Sidebar / Chat
+# Sidebar / Thread Management
 # ===============
-st.sidebar.title("⚙ Menu")
+st.sidebar.title("💬 FluxPricer AI")
 st.sidebar.subheader("👤 User Info")
 st.sidebar.info(f"Name: {user_name}\n*Email:* {user_email}")
 
-# Chat history
-st.sidebar.subheader("💬 Chats")
-# Thread selection and management
+# New conversation button prominently placed
+if st.sidebar.button("➕ New Chat", key="new_thread_btn"):
+    tid = str(uuid.uuid4())
+    st.session_state["threads"][tid] = {"title": "New Chat", "messages": []}
+    st.session_state["current_thread_id"] = tid
+    st.session_state["chat_history"] = []
+    st.rerun()
+
+# Thread list with better UI
+st.sidebar.subheader("Your Chats")
 threads = st.session_state.get("threads", {})
 current_thread_id = st.session_state.get("current_thread_id")
+
 if not threads:
     # Ensure at least one thread exists
     tid = str(uuid.uuid4())
-    threads[tid] = {"title": "New chat", "messages": []}
+    threads[tid] = {"title": "New Chat", "messages": []}
     st.session_state["threads"] = threads
     st.session_state["current_thread_id"] = tid
     current_thread_id = tid
 
-# Dropdown to pick thread
-options = [(tid, data.get("title") or f"Chat {i+1}") for i, (tid, data) in enumerate(threads.items())]
-labels = {tid: title for tid, title in options}
-tid_list = [tid for tid, _ in options]
-if current_thread_id not in threads:
-    current_thread_id = tid_list[0]
-selected = st.sidebar.selectbox(
-    "Select conversation",
-    options=tid_list,
-    index=tid_list.index(current_thread_id),
-    format_func=lambda tid: labels.get(tid, tid),
-)
-if selected != current_thread_id:
-    st.session_state["current_thread_id"] = selected
-    # Mirror chat_history for back-compat
-    st.session_state["chat_history"] = st.session_state["threads"][selected]["messages"]
+# Create a selectbox for thread selection instead of multiple buttons to avoid conflicts
+thread_options = {}
+for tid, data in threads.items():
+    # Get preview of last message
+    messages = data.get("messages", [])
+    last_message = messages[-1]["content"] if messages else "No messages yet"
+    last_message_preview = last_message[:30] + "..." if len(last_message) > 30 else last_message
+    thread_title = data.get("title", f"Chat {list(threads.keys()).index(tid) + 1}")
+    thread_options[tid] = f"{thread_title} - {last_message_preview}"
 
-with st.sidebar.expander("Manage chats", expanded=False):
-    c1, c2 = st.columns([2, 1])
-    with c1:
-        new_title = st.text_input("Rename current", value=labels.get(selected, ""), key="rename_thread")
-    with c2:
-        if st.button("Save", key="rename_thread_btn"):
-            st.session_state["threads"][selected]["title"] = new_title or labels.get(selected)
-    if st.button("New chat", key="new_thread_btn"):
+# Selectbox for thread switching
+selected_thread_id = st.sidebar.selectbox(
+    "Select a conversation:",
+    options=list(thread_options.keys()),
+    format_func=lambda x: thread_options[x],
+    key="thread_selector",
+    index=list(thread_options.keys()).index(current_thread_id) if current_thread_id in thread_options else 0
+)
+
+# Update current thread if selection changes
+if selected_thread_id != current_thread_id:
+    st.session_state["current_thread_id"] = selected_thread_id
+    st.session_state["chat_history"] = st.session_state["threads"][selected_thread_id]["messages"]
+
+# Make sure current thread exists in session state
+if current_thread_id and current_thread_id not in st.session_state.get("threads", {}):
+    if st.session_state.get("threads"):
+        # Pick the first available thread
+        first_thread_id = next(iter(st.session_state["threads"]))
+        st.session_state["current_thread_id"] = first_thread_id
+        st.session_state["chat_history"] = st.session_state["threads"][first_thread_id]["messages"]
+    else:
+        # Create a new thread if none exist
         tid = str(uuid.uuid4())
-        st.session_state["threads"][tid] = {"title": f"Chat {len(threads)+1}", "messages": []}
+        st.session_state["threads"][tid] = {"title": "New Chat", "messages": []}
         st.session_state["current_thread_id"] = tid
         st.session_state["chat_history"] = []
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("🗨️ Messages")
-chat_container = st.sidebar.container()
-for chat in st.session_state.get("threads", {}).get(st.session_state.get("current_thread_id"), {}).get("messages", []):
-    role = chat.get("role")
-    message = chat.get("content")
-    time_str = chat.get("time", datetime.now().strftime("%H:%M:%S"))
-    if role == "user":
-        chat_container.markdown(f"🧑 [{time_str}] User: {message}")
-    else:
-        chat_container.markdown(f"🤖 [{time_str}] Bot: {message}")
+# Thread management options
+if current_thread_id and current_thread_id in threads:
+    with st.sidebar.expander("Manage Current Chat", expanded=False):
+        # Rename current thread
+        current_title = threads[current_thread_id].get("title", f"Chat {len(threads)}")
+        new_title = st.text_input("Rename chat", value=current_title, key="rename_thread")
+        if st.button("Save Title", key="rename_thread_btn"):
+            st.session_state["threads"][current_thread_id]["title"] = new_title or current_title
+        
+        # Delete current thread
+        if st.button("🗑️ Delete Chat", key="delete_thread_btn"):
+            del st.session_state["threads"][current_thread_id]
+            # Switch to another thread or create a new one
+            remaining_threads = list(st.session_state["threads"].keys())
+            if remaining_threads:
+                st.session_state["current_thread_id"] = remaining_threads[0]
+                st.session_state["chat_history"] = st.session_state["threads"][remaining_threads[0]]["messages"]
+            else:
+                tid = str(uuid.uuid4())
+                st.session_state["threads"][tid] = {"title": "New Chat", "messages": []}
+                st.session_state["current_thread_id"] = tid
+                st.session_state["chat_history"] = []
+            st.rerun()
+
+# Main chat display area
+st.subheader("💬 Conversation")
+
+# Display chat messages for the current thread
+current_thread_messages = st.session_state.get("threads", {}).get(st.session_state.get("current_thread_id"), {}).get("messages", [])
+chat_container = st.container()
+
+# Style for chat bubbles using the existing theme colors
+st.markdown("""
+<style>
+.user-message {
+    background-color: #7da3c3;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin: 8px 0;
+    max-width: 80%;
+    margin-left: auto;
+    margin-right: 0;
+    color: #000000;
+}
+.assistant-message {
+    background-color: #a6bdde;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin: 8px 0;
+    max-width: 80%;
+    margin-left: 0;
+    margin-right: auto;
+    color: #000000;
+}
+.message-header {
+    font-weight: bold;
+    margin-bottom: 4px;
+    font-size: 0.9em;
+}
+.message-content {
+    margin: 0;
+}
+</style>
+""", unsafe_allow_html=True)
+
+with chat_container:
+    for msg in current_thread_messages:
+        role = msg.get("role")
+        content = msg.get("content")
+        time_str = msg.get("time", datetime.now().strftime("%H:%M:%S"))
+        
+        if role == "user":
+            st.markdown(f"""
+            <div class="user-message">
+                <div class="message-header">👤 You · {time_str}</div>
+                <div class="message-content">{content}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div class="assistant-message">
+                <div class="message-header">🤖 Assistant · {time_str}</div>
+                <div class="message-content">{content}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
 # Chat input + response
 user_input = st.chat_input("Ask me about pricing, demand, or sales...")
@@ -336,11 +426,20 @@ if user_input:
         agent.add_to_memory("user", user_input)
     except Exception:
         pass
-    with st.chat_message("user"):
-        st.markdown(user_input)
+    
+    # Display user message
+    st.markdown(f"""
+    <div class="user-message">
+        <div class="message-header">👤 You · {msg_user['time']}</div>
+        <div class="message-content">{msg_user['content']}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    # Call OpenRouter agent
-    response = agent.get_response(user_input)
+    # Show loading indicator while processing
+    with st.spinner("Thinking..."):
+        # Call OpenRouter agent
+        response = agent.get_response(user_input)
+    
     msg_bot = {
         "role": "assistant",
         "content": response,
@@ -357,8 +456,14 @@ if user_input:
         agent.add_to_memory("assistant", response)
     except Exception:
         pass
-    with st.chat_message("assistant"):
-        st.markdown(response)
+    
+    # Display assistant message
+    st.markdown(f"""
+    <div class="assistant-message">
+        <div class="message-header">🤖 Assistant · {msg_bot['time']}</div>
+        <div class="message-content">{msg_bot['content']}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
     save_user_data(user_email, {
         "threads": st.session_state.get("threads", {}),
