@@ -19,3 +19,4 @@ pandas
 requests
 beautifulsoup4
 pyarrow
+playsound

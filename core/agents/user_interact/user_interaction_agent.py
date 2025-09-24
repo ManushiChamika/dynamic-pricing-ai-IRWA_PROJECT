@@ -5,6 +5,8 @@ import re
 import requests
 from dotenv import load_dotenv
 from typing import Any, Dict, List, Optional
+import subprocess
+import platform
 
 # Load .env variables
 load_dotenv()
@@ -39,6 +41,18 @@ class UserInteractionAgent:
             "pressure": self._intent_price_pressure,
             "stats": self._intent_stats,
         }
+
+    def _play_completion_sound(self):
+        """Play a sound to indicate task completion."""
+        try:
+            if platform.system() == 'Windows':
+                subprocess.call(['powershell', '-c', '[console]::beep(800, 1200)'], shell=True)
+            elif platform.system() == 'Darwin':  # macOS
+                subprocess.call(['afplay', '/System/Library/Sounds/Glass.aiff'])
+            elif platform.system() == 'Linux':
+                subprocess.call(['beep', '-f', '800', '-l', '1200'])
+        except Exception:
+            pass  # Silent failure if sound not available
 
     # ---------- Deterministic intent helpers ----------
     def _handle_intents(self, message: str) -> Optional[str]:
@@ -277,6 +291,7 @@ class UserInteractionAgent:
         intent_answer = self._handle_intents(message)
         if intent_answer:
             self.add_to_memory("assistant", intent_answer)
+            self._play_completion_sound()
             return intent_answer
 
         # Build system prompt focused on dynamic pricing
@@ -461,6 +476,7 @@ class UserInteractionAgent:
                         )
                         # Add assistant reply to memory
                         self.add_to_memory("assistant", answer)
+                        self._play_completion_sound()
                         return answer
                     except Exception:
                         # Fall through to explicit non-LLM fallback
@@ -472,6 +488,7 @@ class UserInteractionAgent:
 
         # LLM not available or failed. Use keyword guard to determine messaging; but mark as non-LLM.
         if not self.is_dynamic_pricing_related(message):
+            self._play_completion_sound()
             return "[non-LLM assistant] I'm only able to respond to queries related to the dynamic pricing system."
 
         # As a last resort, attempt the previous direct HTTP OpenRouter path (preserves compatibility)
@@ -499,9 +516,12 @@ class UserInteractionAgent:
             if response.status_code == 200:
                 answer = response.json()["choices"][0]["message"]["content"]
                 self.add_to_memory("assistant", answer)
+                self._play_completion_sound()
                 return answer
             else:
+                self._play_completion_sound()
                 return f"[non-LLM assistant] Error {response.status_code}: {response.text}"
 
         except Exception as e:
+            self._play_completion_sound()
             return f"[non-LLM assistant] Exception: {str(e)}"
