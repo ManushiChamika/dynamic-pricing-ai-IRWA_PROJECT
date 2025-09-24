@@ -3,13 +3,17 @@ import sqlite3
 from pathlib import Path
 import re
 import requests
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except Exception:
+    load_dotenv = None
 from typing import Any, Dict, List, Optional
 import subprocess
 import platform
 
-# Load .env variables
-load_dotenv()
+# Load .env variables if available
+if 'load_dotenv' in globals() and callable(load_dotenv):
+    load_dotenv()
 
 # Optional LLM helper
 try:
@@ -27,6 +31,8 @@ class UserInteractionAgent:
             "price", "pricing", "discount", "offer", "demand", "supply",
             "cost", "profit", "margin", "dynamic pricing", "price optimization"
         ]
+        # Feature flags
+        self.enable_sound = os.getenv("SOUND_NOTIFICATIONS", "0").strip() in {"1", "true", "True", "yes", "on"}
         # Memory to store conversation history
         self.memory = []
         # Resolve DB paths
@@ -43,7 +49,9 @@ class UserInteractionAgent:
         }
 
     def _play_completion_sound(self):
-        """Play a sound to indicate task completion."""
+        """Play a sound to indicate task completion (guarded by feature flag)."""
+        if not getattr(self, "enable_sound", False):
+            return
         try:
             if platform.system() == 'Windows':
                 subprocess.call(['powershell', '-c', '[console]::beep(800, 1200)'], shell=True)
