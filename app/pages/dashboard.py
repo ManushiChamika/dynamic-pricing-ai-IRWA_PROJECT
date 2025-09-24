@@ -160,7 +160,7 @@ if "session" not in st.session_state or st.session_state["session"] is None:
 user_session = st.session_state["session"]
 # Get user-friendly name
 user_email = user_session.get("email") or "anonymous@example.com"
-full_name = user_session.get("full_name", "").strip()
+full_name = (user_session.get("full_name") or "").strip()
 
 if full_name:
     user_name = full_name

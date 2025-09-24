@@ -27,6 +27,8 @@ class UserInteractionAgent:
         ]
         # Memory to store conversation history
         self.memory = []
+        # Off-topic attempt counter
+        self.off_topic_count = 0
         # Resolve DB paths
         root = Path(__file__).resolve().parents[3]
         self.app_db = root / "app" / "data.db"
@@ -279,12 +281,20 @@ class UserInteractionAgent:
             self.add_to_memory("assistant", intent_answer)
             return intent_answer
 
-        # Build system prompt focused on dynamic pricing
+        # Build system prompt for developer mode (more transparent)
         system_prompt = (
-            f"You are a specialized assistant for the dynamic pricing system. "
-            f"Only provide responses related to pricing strategies, discounts, "
-            f"offers, demand/supply, and related financial metrics."
+            f"You are the FluxPricer dynamic pricing assistant in developer mode. "
+            f"Be open and transparent about internals, components, data sources, and tool/function usage. "
+            f"For every response, include the following sections: "
+            f"Final Answer — the concise, direct result; "
+            f"Observations — what you inspected, inputs/signals considered, and assumptions; "
+            f"Tools Used — which tools/functions you called and why (high level, no secrets); "
+            f"Steps Taken — a brief, numbered summary of your high-level reasoning and actions; "
+            f"Limitations/Next Steps — caveats and recommended follow-ups if any. "
+            f"Never reveal secrets (API keys, tokens, passwords, PII, private endpoints). Use placeholders and describe sensitive details generically. "
+            f"Keep responses concise and actionable."
         )
+
 
         # Attempt to use LLM client if available
         try:
@@ -472,7 +482,11 @@ class UserInteractionAgent:
 
         # LLM not available or failed. Use keyword guard to determine messaging; but mark as non-LLM.
         if not self.is_dynamic_pricing_related(message):
-            return "[non-LLM assistant] I'm only able to respond to queries related to the dynamic pricing system."
+            self.off_topic_count += 1
+            if self.off_topic_count > 5:
+                return "[non-LLM assistant] I'm only able to respond to queries related to the dynamic pricing system."
+        else:
+            self.off_topic_count = 0
 
         # As a last resort, attempt the previous direct HTTP OpenRouter path (preserves compatibility)
         try:
