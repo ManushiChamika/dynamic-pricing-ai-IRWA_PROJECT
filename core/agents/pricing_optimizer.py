@@ -139,9 +139,9 @@ class LLMBrain:
 						pass
 					self.client = openai_mod
 			except ModuleNotFoundError:
-				print("⚠️ openai package not installed; LLMBrain will use deterministic fallback")
+				print("WARNING: openai package not installed; LLMBrain will use deterministic fallback")
 		else:
-			print("⚠️ No OpenRouter/OpenAI API key set; LLMBrain will use deterministic fallback")
+			print("WARNING: No OpenRouter/OpenAI API key set; LLMBrain will use deterministic fallback")
 
 	def decide_tool(self, user_intent: str, available_tools: dict[str, object]):
 		"""
@@ -213,7 +213,7 @@ class LLMBrain:
 				return {"tool_name": name, "arguments": args if isinstance(args, dict) else {}}
 			return _default_selection()
 		except Exception as e:
-			print("❌ LLM error:", e)
+			print("ERROR: LLM error:", e)
 			return _default_selection()
 
 	def process_full_workflow(self, user_request: str, product_name: str, db_path: str = "market.db", notify_alert_fn=None, wait_seconds: int = 3, max_wait_attempts: int = 5, monitor_timeout: int = 0):
@@ -271,6 +271,10 @@ class LLMBrain:
 
 		if _act:
 			_act.log("pricing_optimizer", "workflow.start", "in_progress", message=f"request='{user_request}' sku='{product_name}'")
+			# Surface scraper availability in the activity feed for transparency
+			if "fetch_competitor_price" not in TOOLS:
+				_act.log("web_scraper", "tool.unavailable", "info", message="fetch_competitor_price not available (dependency missing or import error)")
+
 
 		# Step 1 & 2: Check data freshness and request update if needed
 		records = fetch_records()
@@ -308,7 +312,7 @@ class LLMBrain:
 					if latest and (datetime.now() - latest) <= timedelta(hours=24):
 						break
 				attempt += 1
-			if attempt >= max_wait_attempts and (not records or latest is None or (datetime.now() - latest) > timedelta(hours=24)):
+			if attempt >= max_wait_attempts and (not records or latest is None or (datetime.now() - (latest or datetime.min)) > timedelta(hours=24)):
 				return err("market data not refreshed after request")
 
 		# Step 3: Process data & choose tool/algorithm using agentic selection
@@ -318,7 +322,7 @@ class LLMBrain:
 			records = []
 
 		# First decision: may be scraper or an algorithm
-		selection = self.decide_tool(user_request, TOOLS)
+		selection = self.decide_tool(user_request, dict(TOOLS))
 		tool_name = selection.get("tool_name") if isinstance(selection, dict) else None
 		arguments = selection.get("arguments", {}) if isinstance(selection, dict) else {}
 		if _act:
@@ -359,7 +363,7 @@ class LLMBrain:
 
 		# Second decision: choose pricing algorithm (limit tools to algorithms)
 		algo_tools = {k: v for k, v in TOOLS.items() if k in ("rule_based", "ml_model", "profit_maximization")}
-		selection2 = self.decide_tool(user_request, algo_tools)
+		selection2 = self.decide_tool(user_request, dict(algo_tools))
 		algo = selection2.get("tool_name") if isinstance(selection2, dict) else None
 		if algo not in algo_tools:
 			# simple heuristic fallback
@@ -391,12 +395,13 @@ class LLMBrain:
 			import sqlite3 as _sqlite3
 			import asyncio as _asyncio
 			import threading as _threading
-			from core.models import PriceProposal as _PriceProposal
-			from core.bus import bus as _bus
-			from core.protocol import Topic as _Topic
+			from core.agents.agent_sdk.events_models import PriceProposal as _PriceProposal
+			from core.agents.agent_sdk.bus_factory import get_bus as _get_bus
+			from core.agents.agent_sdk.protocol import Topic as _Topic
 
 			_root = _Path(__file__).resolve().parents[2]
 			_app_db = _root / "app" / "data.db"
+
 
 			current_price_val = None
 			cost_val = None
@@ -420,7 +425,7 @@ class LLMBrain:
 					cost_val = float(_row[1]) if _row[1] is not None else None
 			finally:
 				try:
-					_conn2.close()
+					_conn2.close()  # type: ignore[name-defined]
 				except Exception:
 					pass
 
@@ -428,7 +433,10 @@ class LLMBrain:
 			if cost_val is not None and price > 0:
 				margin_val = (float(price) - float(cost_val)) / float(price)
 			else:
-				margin_val = 1.0
+				# Conservative margin when cost/current unavailable
+				# Aligns with safer behavior to avoid false positives in alerts
+				margin_val = 0.0
+
 
 			pp = _PriceProposal(
 				sku=product_name,
@@ -441,12 +449,14 @@ class LLMBrain:
 			# Non-blocking publish to global bus
 			async def _publish_async():
 				try:
-					await _bus.publish(_Topic.PRICE_PROPOSAL.value, pp)
+					_bus_local = _get_bus()
+					await _bus_local.publish(_Topic.PRICE_PROPOSAL.value, pp)
 				except Exception as _e:
 					try:
 						print(f"[pricing_optimizer] publish PriceProposal failed: {_e}")
 					except Exception:
 						pass
+
 
 			try:
 				_loop = _asyncio.get_running_loop()
@@ -496,7 +506,7 @@ class LLMBrain:
 						pass
 				finally:
 					try:
-						connp.close()
+						connp.close()  # type: ignore[name-defined]
 					except Exception:
 						pass
 

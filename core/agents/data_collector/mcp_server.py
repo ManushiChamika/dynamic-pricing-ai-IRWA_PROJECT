@@ -2,7 +2,21 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional
 
-from mcp.server.fastmcp import FastMCP
+try:
+    from mcp.server.fastmcp import FastMCP  # type: ignore
+except Exception:  # minimal fallback shim
+    class FastMCP:  # type: ignore
+        def __init__(self, name: str):
+            self.name = name
+            self._tools = {}
+        def tool(self):
+            def deco(fn):
+                self._tools[fn.__name__] = fn
+                return fn
+            return deco
+        async def run(self):
+            # No-op in fallback
+            print(f"[FastMCP fallback] {self.name} started with tools: {list(self._tools)}")
 
 from .repo import DataRepo
 from .collector import DataCollector

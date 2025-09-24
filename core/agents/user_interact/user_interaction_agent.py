@@ -1,6 +1,7 @@
 import os
 import sqlite3
 from pathlib import Path
+import re
 import requests
 from dotenv import load_dotenv
 from typing import Any, Dict, List, Optional
@@ -30,6 +31,229 @@ class UserInteractionAgent:
         root = Path(__file__).resolve().parents[3]
         self.app_db = root / "app" / "data.db"
         self.market_db = root / "market.db"
+        # Lightweight intent handlers (deterministic) for common queries
+        self._intents = {
+            "cheapest": self._intent_cheapest,
+            "most_expensive": self._intent_most_expensive,
+            "trending": self._intent_trending,
+            "pressure": self._intent_price_pressure,
+            "stats": self._intent_stats,
+        }
+
+    # ---------- Deterministic intent helpers ----------
+    def _handle_intents(self, message: str) -> Optional[str]:
+        text = (message or "").lower()
+        # Map patterns to intent keys; simple heuristic routing
+        patterns = [
+            (r"\bcheapest\b|\blow(est)? price\b|\bmin(imum)? price\b", "cheapest"),
+            (r"\bmost\s+expensive\b|\bhighest\b|\bmax(imum)? price\b", "most_expensive"),
+            (r"\btrend(ing)?\b|\brecent\b|\blatest\b", "trending"),
+            (r"\bpressure\b|\bundercut\b|\bdemand spike\b|\bbreach\b", "pressure"),
+            (r"\bstats?\b|\boverview\b|\bsummary\b", "stats"),
+        ]
+        for pat, key in patterns:
+            if re.search(pat, text):
+                handler = self._intents.get(key)
+                if handler:
+                    try:
+                        return handler(text)
+                    except Exception as e:
+                        return f"[non-LLM assistant] intent '{key}' failed: {e}"
+        return None
+
+    def _intent_cheapest(self, _: str) -> str:
+        # Try market.pricing_list first
+        try:
+            with sqlite3.connect(str(self.market_db)) as conn:
+                conn.row_factory = sqlite3.Row
+                cur = conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                    ("pricing_list",),
+                )
+                if cur.fetchone():
+                    rows = conn.execute(
+                        "SELECT product_name, optimized_price, last_update FROM pricing_list ORDER BY optimized_price ASC LIMIT 5"
+                    ).fetchall()
+                    if rows:
+                        lines = [
+                            f"- {r['product_name']}: {r['optimized_price']} (as of {r['last_update']})"
+                            for r in rows
+                        ]
+                        return "Cheapest items by optimized price:\n" + "\n".join(lines)
+        except Exception:
+            pass
+        # Fallback to product_catalog current_price
+        try:
+            with sqlite3.connect(str(self.app_db)) as conn:
+                conn.row_factory = sqlite3.Row
+                cur = conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                    ("product_catalog",),
+                )
+                if cur.fetchone():
+                    rows = conn.execute(
+                        "SELECT sku, title, current_price, updated_at FROM product_catalog WHERE current_price IS NOT NULL ORDER BY current_price ASC LIMIT 5"
+                    ).fetchall()
+                    if rows:
+                        lines = [
+                            f"- {r['sku']} ({r['title']}): {r['current_price']} (as of {r['updated_at']})"
+                            for r in rows
+                        ]
+                        return "Cheapest items by current price:\n" + "\n".join(lines)
+        except Exception:
+            pass
+        return "[non-LLM assistant] No pricing data available yet."
+
+    def _intent_most_expensive(self, _: str) -> str:
+        # Try market.pricing_list first
+        try:
+            with sqlite3.connect(str(self.market_db)) as conn:
+                conn.row_factory = sqlite3.Row
+                cur = conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                    ("pricing_list",),
+                )
+                if cur.fetchone():
+                    rows = conn.execute(
+                        "SELECT product_name, optimized_price, last_update FROM pricing_list ORDER BY optimized_price DESC LIMIT 5"
+                    ).fetchall()
+                    if rows:
+                        lines = [
+                            f"- {r['product_name']}: {r['optimized_price']} (as of {r['last_update']})"
+                            for r in rows
+                        ]
+                        return "Most expensive items by optimized price:\n" + "\n".join(lines)
+        except Exception:
+            pass
+        # Fallback to product_catalog current_price
+        try:
+            with sqlite3.connect(str(self.app_db)) as conn:
+                conn.row_factory = sqlite3.Row
+                cur = conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                    ("product_catalog",),
+                )
+                if cur.fetchone():
+                    rows = conn.execute(
+                        "SELECT sku, title, current_price, updated_at FROM product_catalog WHERE current_price IS NOT NULL ORDER BY current_price DESC LIMIT 5"
+                    ).fetchall()
+                    if rows:
+                        lines = [
+                            f"- {r['sku']} ({r['title']}): {r['current_price']} (as of {r['updated_at']})"
+                            for r in rows
+                        ]
+                        return "Most expensive items by current price:\n" + "\n".join(lines)
+        except Exception:
+            pass
+        return "[non-LLM assistant] No pricing data available yet."
+
+    def _intent_trending(self, _: str) -> str:
+        try:
+            with sqlite3.connect(str(self.market_db)) as conn:
+                conn.row_factory = sqlite3.Row
+                cur = conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                    ("market_data",),
+                )
+                if cur.fetchone():
+                    rows = conn.execute(
+                        "SELECT product_name, COUNT(*) as cnt, MAX(update_time) as last_update FROM market_data GROUP BY product_name ORDER BY last_update DESC LIMIT 5"
+                    ).fetchall()
+                    if rows:
+                        lines = [
+                            f"- {r['product_name']}: {r['cnt']} updates (last {r['last_update']})"
+                            for r in rows
+                        ]
+                        return "Trending by recent market updates:\n" + "\n".join(lines)
+        except Exception:
+            pass
+        return "[non-LLM assistant] No recent market activity found."
+
+    def _intent_price_pressure(self, _: str) -> str:
+        # Identify SKUs where competitor prices undercut our current price by >1%
+        try:
+            current: dict[str, float] = {}
+            with sqlite3.connect(str(self.app_db)) as conn_a:
+                conn_a.row_factory = sqlite3.Row
+                cur = conn_a.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                    ("product_catalog",),
+                )
+                if cur.fetchone():
+                    for r in conn_a.execute(
+                        "SELECT sku, current_price FROM product_catalog WHERE current_price IS NOT NULL"
+                    ).fetchall():
+                        current[r["sku"]] = float(r["current_price"])
+            if not current:
+                return "[non-LLM assistant] No product catalog pricing available to assess pressure."
+            undercuts: list[tuple[str, float, float, float]] = []  # sku, our, comp_min, gap
+            with sqlite3.connect(str(self.market_db)) as conn_m:
+                conn_m.row_factory = sqlite3.Row
+                cur2 = conn_m.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                    ("market_data",),
+                )
+                if cur2.fetchone():
+                    for sku, our in current.items():
+                        row = conn_m.execute(
+                            "SELECT MIN(price) as minp FROM market_data WHERE product_name=?",
+                            (sku,),
+                        ).fetchone()
+                        if row and row["minp"] is not None and our:
+                            comp = float(row["minp"])  # best competitor
+                            if comp * 1.01 < our:
+                                gap = (our - comp) / our
+                                undercuts.append((sku, our, comp, gap))
+            if undercuts:
+                undercuts.sort(key=lambda x: x[3], reverse=True)
+                top = undercuts[:5]
+                lines = [
+                    f"- {sku}: our={our:.2f}, best_comp={comp:.2f}, gap={gap:.1%}"
+                    for sku, our, comp, gap in top
+                ]
+                return "Price pressure (competitors undercut us):\n" + "\n".join(lines)
+        except Exception:
+            pass
+        return "[non-LLM assistant] No price pressure detected or insufficient data."
+
+    def _intent_stats(self, _: str) -> str:
+        total_products = 0
+        market_rows = 0
+        distinct_products = 0
+        last_update = None
+        try:
+            with sqlite3.connect(str(self.app_db)) as conn_a:
+                cur = conn_a.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                    ("product_catalog",),
+                )
+                if cur.fetchone():
+                    row = conn_a.execute("SELECT COUNT(*) FROM product_catalog").fetchone()
+                    total_products = int(row[0]) if row else 0
+        except Exception:
+            pass
+        try:
+            with sqlite3.connect(str(self.market_db)) as conn_m:
+                cur = conn_m.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                    ("market_data",),
+                )
+                if cur.fetchone():
+                    row = conn_m.execute("SELECT COUNT(*) FROM market_data").fetchone()
+                    market_rows = int(row[0]) if row else 0
+                    row2 = conn_m.execute("SELECT COUNT(DISTINCT product_name) FROM market_data").fetchone()
+                    distinct_products = int(row2[0]) if row2 else 0
+                    row3 = conn_m.execute("SELECT MAX(update_time) FROM market_data").fetchone()
+                    last_update = row3[0] if row3 else None
+        except Exception:
+            pass
+        return (
+            "Stats summary:\n"
+            f"- product_catalog items: {total_products}\n"
+            f"- market_data rows: {market_rows}\n"
+            f"- market_data distinct products: {distinct_products}\n"
+            f"- last market_data update: {last_update or 'n/a'}"
+        )
 
     def is_dynamic_pricing_related(self, message):
         message_lower = message.lower()
@@ -48,6 +272,12 @@ class UserInteractionAgent:
         """
         # Add user message to memory
         self.add_to_memory("user", message)
+
+        # Fast-path deterministic intents before invoking LLM
+        intent_answer = self._handle_intents(message)
+        if intent_answer:
+            self.add_to_memory("assistant", intent_answer)
+            return intent_answer
 
         # Build system prompt focused on dynamic pricing
         system_prompt = (

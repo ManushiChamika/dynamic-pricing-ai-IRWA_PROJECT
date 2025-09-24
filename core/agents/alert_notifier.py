@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Awaitable, Callable, List, Optional
-from ..bus import bus
-from ..protocol import Topic
-from ..models import MarketTick, PriceProposal, AlertEvent
+from .agent_sdk.bus_factory import get_bus
+from .agent_sdk.protocol import Topic
+from .agent_sdk.events_models import MarketTick, PriceProposal, AlertEvent
 
 @dataclass
 class Thresholds:
@@ -29,10 +29,13 @@ class AlertNotifier:
             if pp.margin < self.thresholds.min_margin:
                 await self._emit("MARGIN_BREACH", f"Proposed {pp.proposed_price} margin {pp.margin:.2%}", "crit", pp.sku)
 
+        bus = get_bus()
         bus.subscribe(Topic.MARKET_TICK.value, on_tick)
         bus.subscribe(Topic.PRICE_PROPOSAL.value, on_prop)
 
     async def _emit(self, kind, message, severity, sku):
         alert = AlertEvent(sku=sku, kind=kind, message=message, severity=severity, ts=datetime.utcnow())
+        bus = get_bus()
         await bus.publish(Topic.ALERT.value, alert)
-        for s in self.sinks: await s(alert)
+        for s in self.sinks:
+            await s(alert)

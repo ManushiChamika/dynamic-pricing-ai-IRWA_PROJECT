@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, Optional
 
-from core.bus import bus as _bus
-from core.protocol import Topic
-from core.models import MarketTick
+from core.agents.agent_sdk.bus_factory import get_bus as _get_bus
+from core.agents.agent_sdk.protocol import Topic
+from core.agents.agent_sdk.events_models import MarketTick
 from .repo import DataRepo
 
 # Optional legacy agent SDK bus for backward compatibility.
@@ -48,7 +48,7 @@ class DataCollector:
             competitor_price=comp_price,
             demand_index=demand_index_value,
         )
-        await _bus.publish(Topic.MARKET_TICK.value, tick)
+        await _get_bus().publish(Topic.MARKET_TICK.value, tick)
 
         # Best-effort legacy publish for backward compatibility.
         # If the legacy bus exists, also publish the original dict payload; ignore errors.
