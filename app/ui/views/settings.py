@@ -1,9 +1,14 @@
 from __future__ import annotations
+import os
 import streamlit as st
 import json
 from app.ui.theme.inject import apply_theme
 from app.ui.services import alerts as alerts_svc
 from app.ui.services.runtime import run_async
+try:
+    from app.llm_client import get_llm_client  # optional import guard
+except Exception:
+    get_llm_client = None
 
 
 def view() -> None:
@@ -33,3 +38,51 @@ def view() -> None:
     with col2:
         if st.button("Reload from Server"):
             st.rerun()
+
+    st.divider()
+    st.subheader("🤖 LLM & Chat")
+    st.caption("Configure keys in .env, then restart the app.")
+
+    # Show env presence (masked)
+    or_key_present = bool(os.getenv("OPENROUTER_API_KEY"))
+    oa_key_present = bool(os.getenv("OPENAI_API_KEY"))
+    st.write(
+        f"OPENROUTER_API_KEY: {'present' if or_key_present else 'missing'} · "
+        f"OPENAI_API_KEY: {'present' if oa_key_present else 'missing'}"
+    )
+
+    provider = model = status = reason = None
+    if get_llm_client is not None:
+        llm = get_llm_client()
+        provider = llm.provider()
+        model = getattr(llm, 'model', None)
+        available = llm.is_available()
+        if available:
+            status = "available"
+        else:
+            status = "unavailable"
+            reason = llm.unavailable_reason() or "unknown"
+        cols = st.columns(3)
+        cols[0].metric("Provider", provider or "none")
+        cols[1].metric("Model", model or "<auto>")
+        cols[2].metric("Status", status)
+        if reason and status != "available":
+            st.info(f"LLM unavailable: {reason}")
+
+        test_prompt = st.text_input("Quick test prompt", value="Say 'OK' only.")
+        if st.button("Test LLM"):
+            if not available:
+                st.error("LLM client is unavailable. Set API keys and restart.")
+            else:
+                try:
+                    answer = llm.chat([
+                        {"role": "system", "content": "You are a concise test helper."},
+                        {"role": "user", "content": test_prompt},
+                    ], max_tokens=16, temperature=0.0)
+                    st.success("LLM responded:")
+                    st.code(answer)
+                except Exception as e:
+                    st.error(f"LLM test failed: {e}")
+    else:
+        st.warning("LLM client not importable; check app.llm_client.py and dependencies.")
+

@@ -13,20 +13,23 @@ def view() -> None:
     apply_theme(False)
 
     st.subheader("🔔 Incidents")
-    status: Optional[str] = st.selectbox("Filter by status", ["", "OPEN", "ACKED", "RESOLVED"], index=0)
-    status = status or None
+    
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        status: Optional[str] = st.selectbox("Filter by status", ["", "OPEN", "ACKED", "RESOLVED"], index=0)
+        status = status or None
+    with col2:
+        if st.button("🔄 Refresh", use_container_width=True):
+            st.rerun()
 
     rows = run_async(alerts_svc.list_incidents(status)) or []
 
-    top_cols = st.columns([1, 4])
-    with top_cols[0]:
-        if st.button("Refresh"):
-            st.rerun()
-    with top_cols[1]:
-        if rows:
-            st.dataframe(pd.DataFrame(rows))
-        else:
-            st.info("No incidents to display.")
+    if rows:
+        # Create a more visually appealing incidents table
+        df = pd.DataFrame(rows)
+        st.dataframe(df, use_container_width=True, hide_index=True)
+    else:
+        st.info("No incidents to display.")
 
     st.markdown("### Actions")
     col1, col2, col3 = st.columns(3)
