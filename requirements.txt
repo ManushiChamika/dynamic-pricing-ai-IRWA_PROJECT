@@ -4,6 +4,8 @@ extra-streamlit-components==0.1.71
 plotly
 
 # DB / async / web
+fastapi>=0.115
+uvicorn[standard]>=0.30
 sqlalchemy==2.0.36
 aiosqlite
 aiohttp

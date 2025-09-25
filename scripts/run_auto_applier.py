@@ -45,3 +45,5 @@ class AutoApplier:
         Compatibility method some tests call; nothing to do in this minimal version.
         """
         return True
+
+

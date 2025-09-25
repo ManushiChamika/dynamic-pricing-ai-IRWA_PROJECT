@@ -48,3 +48,4 @@ class Optimizer:
             algorithm="simple",
             ts=tick.ts,
         )
+
