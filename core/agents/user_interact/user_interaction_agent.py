@@ -10,6 +10,10 @@ from typing import Any, Dict, List, Optional
 
 import requests
 
+# Bus event constants
+USER_REQUEST = "user.request"
+USER_REPLY = "user.reply"
+
 try:
     from app.llm_client import get_llm_client  # Preferred LLM client with tool-calling
 except Exception:

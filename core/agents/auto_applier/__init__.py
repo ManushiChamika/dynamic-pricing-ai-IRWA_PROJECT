@@ -155,10 +155,10 @@ class AutoApplier:
         self.config = config or AutoApplierConfig()
         self._handlers: List[Tuple[str, Callable[[Any], Any]]] = []
         self._stopped = False
-
-    # At the start of _on_proposal (once per event is fine)
-    app_db, market_db = _project_roots()
-    print(f"[AutoApplier] app_db={app_db}  market_db={market_db}", flush=True)
+        
+        # Log database paths on initialization
+        app_db, market_db = _project_roots()
+        print(f"[AutoApplier] app_db={app_db}  market_db={market_db}", flush=True)
 
     async def _on_proposal(self, pp: Any) -> None:
         if self._stopped or not self.config.auto_accept:
