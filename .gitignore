@@ -78,14 +78,25 @@ node_modules/
 project_code_dump.txt
 prompts.md
 scripts/collect_project_code.ps1
+AGENTS.md
+BRANCH_DIFFERENCES_README.md
 
 # Specific generated text artifacts (root-scoped)
+_staged_diff_full.txt
 /files.txt
 /all_code_files_pricing_optimizer1_default.txt
 
 # Local working notes (root-only)
-/imasha_compare_restore_vs_backup.txt
-/summary.md
+ /imasha_compare_restore_vs_backup.txt
+ /summary.md
+ /_staged_diff_summary.txt
+ /visual_file_tree.txt
+ /branch_notes_feat_data_collector_mvp.md
+ /branch_notes_feat_improve_data_collector.md
+ /error to the cli agent.md
+ /my thoughts on the ui.md
+ /my thougts on ui.md
+ /branch_differences_feat_ui_activity_feed_vs_testing_sasindu.md
 
 # ---------- Local code bundles (ignore large generated bundles) ----------
 bundle_*/
@@ -96,7 +107,6 @@ bundle_*/
 # ---------- Tracked exceptions ----------
 # Keep example env files tracked so new contributors know required vars.
 !.env.example
-.env
 
 ########################################################
 # End of explanatory comments
