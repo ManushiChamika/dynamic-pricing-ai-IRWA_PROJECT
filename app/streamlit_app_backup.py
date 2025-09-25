@@ -1,17 +1,15 @@
 # app/streamlit_app.py  (router/bootstrap)
+from core.db import init_db
+from queue import SimpleQueue
+ALERT_QUEUE = SimpleQueue()
+
+init_db()
 # 0) Make the repo root importable BEFORE any project imports or Streamlit calls
 import sys, pathlib
 HERE = pathlib.Path(__file__).resolve()
 ROOT = HERE.parents[1]  # points to <project-root>
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-
-# Now safe to import core modules
-from core.db import init_db
-from queue import SimpleQueue
-ALERT_QUEUE = SimpleQueue()
-
-init_db()
 
 # 0.1) Load environment variables from .env (root first, then app/.env)
 from dotenv import load_dotenv
@@ -60,18 +58,5 @@ if "_alerts_started" not in st.session_state:
     asyncio.run_coroutine_threadsafe(alerts.start(), loop)
     st.session_state["_alerts_started"] = True
 
-# 6) Check for new UI routing via query parameters
-page = st.query_params.get("page", "home")
-section = st.query_params.get("section", None)
-
-# Route to new UI views or legacy pages
-if page == "landing":
-    # Use new UI landing page
-    from app.ui.views.landing import view as landing_view
-    landing_view()
-elif page == "dashboard" and section is None:
-    # For now, route to existing dashboard - will integrate later
-    st.switch_page("pages/3_Dashboard.py")
-else:
-    # Default route to existing home page
-    st.switch_page("pages/0_Home.py")
+# 6) Route to Home
+st.switch_page("pages/0_Home.py")
