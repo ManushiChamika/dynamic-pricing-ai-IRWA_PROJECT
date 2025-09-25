@@ -23,7 +23,10 @@ try:
     from core.agents.alert_service import api as alerts
     import asyncio
     from app.ui.services.runtime import ensure_bg_loop
+    from app.ui.services.activity import ensure_bus_bridge
     if "_alerts_started" not in st.session_state:
+        # Bridge first so we capture the engine's ready event
+        ensure_bus_bridge()
         loop = ensure_bg_loop()
         asyncio.run_coroutine_threadsafe(alerts.start(), loop)
         st.session_state["_alerts_started"] = True
