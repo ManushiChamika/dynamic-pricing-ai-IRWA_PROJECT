@@ -1,7 +1,7 @@
 # core/agents/alert_service/repo.py
 
 import aiosqlite, json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
 from .schemas import RuleSpec, RuleRecord, Alert, Incident
 
@@ -59,12 +59,13 @@ class Repo:
         async with aiosqlite.connect(self.path) as db:
             v = 1
             # If RuleSpec is a pydantic/dataclass, adjust serializer as needed
-            spec_json = json.dumps(getattr(spec, "dict", lambda: spec.__dict__)())
+            spec_json = json.dumps((getattr(spec, "model_dump", None) or getattr(spec, "dict", None) or (lambda: spec.__dict__))())
             await db.execute(
                 "INSERT OR REPLACE INTO rules (id, version, spec_json, enabled) VALUES (?,?,?,?)",
                 (spec.id, v, spec_json, 1 if getattr(spec, "enabled", True) else 0),
             )
             await db.commit()
+
 
     # ---------- Incidents ----------
     async def find_or_create_incident(self, alert: Alert) -> Incident:
@@ -128,7 +129,11 @@ class Repo:
             if not row:
                 return False
             last = datetime.fromisoformat(row[0])
-            return datetime.utcnow() - last < delta
+            now = datetime.now(timezone.utc)
+            # Normalize naive timestamps to UTC
+            if last.tzinfo is None:
+                last = last.replace(tzinfo=timezone.utc)
+            return (now - last) < delta
 
     async def list_incidents(self, status: Optional[str]) -> List[Dict[str, Any]]:
         q = """
@@ -162,9 +167,19 @@ class Repo:
         async with aiosqlite.connect(self.path) as db:
             await db.execute(
                 "UPDATE incidents SET status=?, last_seen=? WHERE id=?",
-                (status, datetime.utcnow().isoformat(), inc_id),
+                (status, datetime.now(timezone.utc).isoformat(), inc_id),
             )
             await db.commit()
+
+    async def touch_incident(self, fingerprint: str) -> None:
+        """Update last_seen for a throttled incident by fingerprint."""
+        async with aiosqlite.connect(self.path) as db:
+            await db.execute(
+                "UPDATE incidents SET last_seen=? WHERE fingerprint=?",
+                (datetime.now(timezone.utc).isoformat(), fingerprint),
+            )
+            await db.commit()
+
 
     # ---------- Deliveries (optional helpers) ----------
     async def record_delivery(self, delivery_id: str, incident_id: str, channel: str,

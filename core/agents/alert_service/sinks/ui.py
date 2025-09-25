@@ -1,4 +1,3 @@
-from ...agent_sdk.bus_factory import get_bus
 # core/agents/alert_service/sinks/ui.py
 from core.agents.agent_sdk import Topic, get_bus
 

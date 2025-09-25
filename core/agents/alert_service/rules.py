@@ -115,7 +115,22 @@ class RuleRuntime:
         if not self.spec.enabled: return False
 
         env: Dict[str, Any] = {**ALLOWED, "tick": payload, "pp": payload}
-        if alias: env[alias] = payload
+        if alias:
+            env[alias] = payload
+        # Flatten payload fields into top-level env for convenience (e.g., 'competitor_price')
+        try:
+            if hasattr(payload, "model_dump") and callable(getattr(payload, "model_dump")):
+                payload_dict = payload.model_dump()
+            elif hasattr(payload, "dict") and callable(getattr(payload, "dict")):
+                payload_dict = payload.dict()
+            else:
+                payload_dict = getattr(payload, "__dict__", {}) or {}
+        except Exception:
+            payload_dict = {}
+        if isinstance(payload_dict, dict):
+            for k, v in payload_dict.items():
+                if isinstance(k, str) and k not in env and k not in ALLOWED:
+                    env[k] = v
 
         ok = False
         if self.where:
