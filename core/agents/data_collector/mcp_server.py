@@ -1,11 +1,23 @@
 # core/agents/data_collector/mcp_server.py
-from __future__ import annotations
-
 import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional
 
-from mcp.server.fastmcp import FastMCP
+try:
+    from mcp.server.fastmcp import FastMCP  # type: ignore
+except Exception:  # minimal fallback shim
+    class FastMCP:  # type: ignore
+        def __init__(self, name: str):
+            self.name = name
+            self._tools = {}
+        def tool(self):
+            def deco(fn):
+                self._tools[fn.__name__] = fn
+                return fn
+            return deco
+        async def run(self):
+            # No-op in fallback
+            print(f"[FastMCP fallback] {self.name} started with tools: {list(self._tools)}")
 
 from .repo import DataRepo
 from .collector import DataCollector
@@ -111,10 +123,10 @@ async def start_collection(
     connector: str = "mock",
     depth: int = 1,
     # Only used by httpjson:
-    base_url: str | None = None,
+    base_url: str = "",
     source_name: str = "httpjson",
-    price_path: list | None = None,
-    headers: dict | None = None,
+    price_path: list = None,
+    headers: dict = None,
 ) -> dict:
     await _repo.init()
     try:
@@ -128,7 +140,7 @@ async def start_collection(
         if not base_url:
             return {"ok": False, "error": "httpjson_missing_base_url"}
         extra = {
-            "base_url": base_url.rstrip("/"),
+            "base_url": (base_url or "").rstrip("/"),
             "headers": headers or {},
             "source_name": source_name,
             "price_path": price_path or [],

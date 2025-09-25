@@ -6,6 +6,7 @@ import os
 import json
 from datetime import datetime
 import asyncio
+import uuid
 import threading
 from concurrent.futures import TimeoutError as FuturesTimeout
 import sys
@@ -66,16 +67,61 @@ def get_demand_trend() -> pd.DataFrame:
 DATA_FILE = "user_data.json"
 
 def load_user_data(email: str):
+    """Load user data. Backward compatible with older schema that only had chat_history.
+
+    Returns a dict with keys:
+    - threads: {thread_id: {"title": str, "messages": [ {role, content, time} ] }}
+    - current_thread_id: str
+    - metrics: any
+    - chat_history: maintained for backward compatibility (current thread messages)
+    """
+    empty = {"threads": {}, "current_thread_id": None, "metrics": None, "chat_history": []}
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, "r") as f:
                 all_data = json.load(f)
-            return all_data.get(email, {"chat_history": [], "metrics": None})
+            user = all_data.get(email)
+            if not user:
+                return empty
+            # New schema present
+            if "threads" in user:
+                threads = user.get("threads", {}) or {}
+                current = user.get("current_thread_id")
+                if not threads:
+                    # Create an empty default thread
+                    tid = str(uuid.uuid4())
+                    threads = {tid: {"title": "New chat", "messages": []}}
+                    current = tid
+                if not current or current not in threads:
+                    current = next(iter(threads.keys()))
+                # Back-compat mirror
+                ch = threads[current]["messages"]
+                return {
+                    "threads": threads,
+                    "current_thread_id": current,
+                    "metrics": user.get("metrics"),
+                    "chat_history": ch,
+                }
+            # Old schema: migrate one linear chat_history into a default thread
+            old_ch = user.get("chat_history", []) or []
+            tid = str(uuid.uuid4())
+            threads = {tid: {"title": "Chat 1", "messages": old_ch}}
+            return {
+                "threads": threads,
+                "current_thread_id": tid,
+                "metrics": user.get("metrics"),
+                "chat_history": old_ch,
+            }
         except json.JSONDecodeError:
-            return {"chat_history": [], "metrics": None}
-    return {"chat_history": [], "metrics": None}
+            return empty
+    return empty
 
 def save_user_data(email: str, data: dict):
+    """Save user data with backward compatibility.
+
+    Expects keys in data: threads, current_thread_id, metrics.
+    Also stores chat_history mirror of the current thread for older readers.
+    """
     all_data = {}
     if os.path.exists(DATA_FILE):
         try:
@@ -83,7 +129,26 @@ def save_user_data(email: str, data: dict):
                 all_data = json.load(f)
         except json.JSONDecodeError:
             all_data = {}
-    all_data[email] = data
+
+    threads = data.get("threads") or {}
+    current = data.get("current_thread_id")
+    if not threads:
+        tid = str(uuid.uuid4())
+        threads = {tid: {"title": "New chat", "messages": []}}
+        current = tid
+    if not current or current not in threads:
+        current = next(iter(threads.keys()))
+
+    current_messages = threads[current]["messages"]
+    payload = {
+        "threads": threads,
+        "current_thread_id": current,
+        "metrics": data.get("metrics"),
+        # Back-compat mirror
+        "chat_history": current_messages,
+    }
+
+    all_data[email] = payload
     with open(DATA_FILE, "w") as f:
         json.dump(all_data, f, indent=4)
 
@@ -97,21 +162,48 @@ if "session" not in st.session_state or st.session_state["session"] is None:
 user_session = st.session_state["session"]
 user_name = user_session.get("full_name", "User")
 user_email = user_session.get("email") or "anonymous@example.com"
+full_name = (user_session.get("full_name") or "").strip()
 
-# Load persisted user data into session_state once
-if "chat_history" not in st.session_state or "metrics" not in st.session_state:
+if full_name:
+    user_name = full_name
+else:
+    # Extract part before @ from email
+    user_name = user_email.split("@")[0]
+
+# Load persisted user data into session_state once (threads-aware)
+if any(k not in st.session_state for k in ("threads", "current_thread_id", "metrics")):
     _loaded = load_user_data(user_email)
-    st.session_state.setdefault("chat_history", _loaded.get("chat_history", []))
+    st.session_state.setdefault("threads", _loaded.get("threads", {}))
+    st.session_state.setdefault("current_thread_id", _loaded.get("current_thread_id"))
     st.session_state.setdefault("metrics", _loaded.get("metrics", None))
+    # Backward-compat mirror of current thread
+    cur = st.session_state.get("current_thread_id")
+    cur_msgs = []
+    if cur and cur in st.session_state["threads"]:
+        cur_msgs = st.session_state["threads"][cur]["messages"]
+    st.session_state.setdefault("chat_history", cur_msgs)
 
-# Initialize local agent
-# Initialize agent (works with both the real class and the stub)
-try:
+# Initialize agent once per user session and seed with prior chat history
+AGENT_KEY = "agent"
+AGENT_USER_KEY = "agent_user_email"
+if (
+    AGENT_KEY not in st.session_state
+    or st.session_state.get(AGENT_USER_KEY) != user_email
+):
     agent = UserInteractionAgent(user_name=user_name)
-except TypeError:
-    # Some stubs or older versions may require positional only
-    agent = UserInteractionAgent(user_name)
-
+    # Seed agent memory from persisted chat history so LLM sees full context
+    for msg in st.session_state.get("chat_history", []):
+        role = msg.get("role")
+        content = msg.get("content")
+        if role in ("user", "assistant") and isinstance(content, str):
+            try:
+                agent.add_to_memory(role, content)
+            except Exception:
+                pass
+    st.session_state[AGENT_KEY] = agent
+    st.session_state[AGENT_USER_KEY] = user_email
+else:
+    agent = st.session_state[AGENT_KEY]
 
 # ===================
 # Dashboard Header/UI
@@ -143,8 +235,9 @@ st.markdown("---")
 
 # Persist after metrics render
 save_user_data(user_email, {
-    "chat_history": st.session_state["chat_history"],
-    "metrics": st.session_state["metrics"]
+    "threads": st.session_state.get("threads", {}),
+    "current_thread_id": st.session_state.get("current_thread_id"),
+    "metrics": st.session_state["metrics"],
 })
 
 # ---- Charts ----
@@ -164,59 +257,222 @@ fig2.update_layout(plot_bgcolor="#5896ed", paper_bgcolor="#5896ed", font_color="
 st.plotly_chart(fig2, use_container_width=True)
 
 # ===============
-# Sidebar / Chat
+# Sidebar / Thread Management
 # ===============
-st.sidebar.title("⚙ Menu")
+st.sidebar.title("💬 FluxPricer AI")
 st.sidebar.subheader("👤 User Info")
 st.sidebar.info(f"Name: {user_name}\n*Email:* {user_email}")
 
-# Chat history
-st.sidebar.subheader("💬 Chat History")
-chat_container = st.sidebar.container()
-for chat in st.session_state.chat_history:
-    role = chat.get("role")
-    message = chat.get("content")
-    time_str = chat.get("time", datetime.now().strftime("%H:%M:%S"))
-    if role == "user":
-        chat_container.markdown(f"🧑 [{time_str}] User: {message}")
+# New conversation button prominently placed
+if st.sidebar.button("➕ New Chat", key="new_thread_btn"):
+    tid = str(uuid.uuid4())
+    st.session_state["threads"][tid] = {"title": "New Chat", "messages": []}
+    st.session_state["current_thread_id"] = tid
+    st.session_state["chat_history"] = []
+    st.rerun()
+
+# Thread list with better UI
+st.sidebar.subheader("Your Chats")
+threads = st.session_state.get("threads", {})
+current_thread_id = st.session_state.get("current_thread_id")
+
+if not threads:
+    # Ensure at least one thread exists
+    tid = str(uuid.uuid4())
+    threads[tid] = {"title": "New Chat", "messages": []}
+    st.session_state["threads"] = threads
+    st.session_state["current_thread_id"] = tid
+    current_thread_id = tid
+
+# Create a selectbox for thread selection instead of multiple buttons to avoid conflicts
+thread_options = {}
+for tid, data in threads.items():
+    # Get preview of last message
+    messages = data.get("messages", [])
+    last_message = messages[-1]["content"] if messages else "No messages yet"
+    last_message_preview = last_message[:30] + "..." if len(last_message) > 30 else last_message
+    thread_title = data.get("title", f"Chat {list(threads.keys()).index(tid) + 1}")
+    thread_options[tid] = f"{thread_title} - {last_message_preview}"
+
+# Selectbox for thread switching
+selected_thread_id = st.sidebar.selectbox(
+    "Select a conversation:",
+    options=list(thread_options.keys()),
+    format_func=lambda x: thread_options[x],
+    key="thread_selector",
+    index=list(thread_options.keys()).index(current_thread_id) if current_thread_id in thread_options else 0
+)
+
+# Update current thread if selection changes
+if selected_thread_id != current_thread_id:
+    st.session_state["current_thread_id"] = selected_thread_id
+    st.session_state["chat_history"] = st.session_state["threads"][selected_thread_id]["messages"]
+
+# Make sure current thread exists in session state
+if current_thread_id and current_thread_id not in st.session_state.get("threads", {}):
+    if st.session_state.get("threads"):
+        # Pick the first available thread
+        first_thread_id = next(iter(st.session_state["threads"]))
+        st.session_state["current_thread_id"] = first_thread_id
+        st.session_state["chat_history"] = st.session_state["threads"][first_thread_id]["messages"]
     else:
-        chat_container.markdown(f"🤖 [{time_str}] Bot: {message}")
+        # Create a new thread if none exist
+        tid = str(uuid.uuid4())
+        st.session_state["threads"][tid] = {"title": "New Chat", "messages": []}
+        st.session_state["current_thread_id"] = tid
+        st.session_state["chat_history"] = []
+
+# Thread management options
+if current_thread_id and current_thread_id in threads:
+    with st.sidebar.expander("Manage Current Chat", expanded=False):
+        # Rename current thread
+        current_title = threads[current_thread_id].get("title", f"Chat {len(threads)}")
+        new_title = st.text_input("Rename chat", value=current_title, key="rename_thread")
+        if st.button("Save Title", key="rename_thread_btn"):
+            st.session_state["threads"][current_thread_id]["title"] = new_title or current_title
+        
+        # Delete current thread
+        if st.button("🗑️ Delete Chat", key="delete_thread_btn"):
+            del st.session_state["threads"][current_thread_id]
+            # Switch to another thread or create a new one
+            remaining_threads = list(st.session_state["threads"].keys())
+            if remaining_threads:
+                st.session_state["current_thread_id"] = remaining_threads[0]
+                st.session_state["chat_history"] = st.session_state["threads"][remaining_threads[0]]["messages"]
+            else:
+                tid = str(uuid.uuid4())
+                st.session_state["threads"][tid] = {"title": "New Chat", "messages": []}
+                st.session_state["current_thread_id"] = tid
+                st.session_state["chat_history"] = []
+            st.rerun()
+
+# Main chat display area
+st.subheader("💬 Conversation")
+
+# Display chat messages for the current thread
+current_thread_messages = st.session_state.get("threads", {}).get(st.session_state.get("current_thread_id"), {}).get("messages", [])
+chat_container = st.container()
+
+# Style for chat bubbles using the existing theme colors
+st.markdown("""
+<style>
+.user-message {
+    background-color: #7da3c3;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin: 8px 0;
+    max-width: 80%;
+    margin-left: auto;
+    margin-right: 0;
+    color: #000000;
+}
+.assistant-message {
+    background-color: #a6bdde;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin: 8px 0;
+    max-width: 80%;
+    margin-left: 0;
+    margin-right: auto;
+    color: #000000;
+}
+.message-header {
+    font-weight: bold;
+    margin-bottom: 4px;
+    font-size: 0.9em;
+}
+.message-content {
+    margin: 0;
+}
+</style>
+""", unsafe_allow_html=True)
+
+with chat_container:
+    for msg in current_thread_messages:
+        role = msg.get("role")
+        content = msg.get("content")
+        time_str = msg.get("time", datetime.now().strftime("%H:%M:%S"))
+        
+        if role == "user":
+            st.markdown(f"""
+            <div class="user-message">
+                <div class="message-header">👤 You · {time_str}</div>
+                <div class="message-content">{content}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div class="assistant-message">
+                <div class="message-header">🤖 Assistant · {time_str}</div>
+                <div class="message-content">{content}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
 # Chat input + response
 user_input = st.chat_input("Ask me about pricing, demand, or sales...")
 if user_input:
-    st.session_state["chat_history"].append({
+    msg_user = {
         "role": "user",
         "content": user_input,
         "time": datetime.now().strftime("%H:%M:%S")
-    })
-    with st.chat_message("user"):
-        st.markdown(user_input)
-
-    response = None
-    if hasattr(agent, "get_response"):
-        response = agent.get_response(user_input)
-    elif hasattr(agent, "handle"):
-        res = agent.handle(user_input)
-        if asyncio.iscoroutine(res):
-            # reuse your run_async helper already defined below
-            response = run_async(res, timeout=20) or "Sorry, the agent timed out."
-        else:
-            response = res
+    }
+    # Write to current thread + mirror
+    cur = st.session_state.get("current_thread_id")
+    if cur and cur in st.session_state["threads"]:
+        st.session_state["threads"][cur]["messages"].append(msg_user)
+        st.session_state["chat_history"] = st.session_state["threads"][cur]["messages"]
     else:
-        response = "(No compatible agent method found.)"
+        st.session_state["chat_history"].append(msg_user)
+    # Keep agent memory in sync for immediate context
+    try:
+        agent.add_to_memory("user", user_input)
+    except Exception:
+        pass
+    
+    # Display user message
+    st.markdown(f"""
+    <div class="user-message">
+        <div class="message-header">👤 You · {msg_user['time']}</div>
+        <div class="message-content">{msg_user['content']}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    st.session_state["chat_history"].append({
+    # Show loading indicator while processing
+    with st.spinner("Thinking..."):
+        try:
+            response = agent.get_response(user_input)
+        except Exception as e:
+            response = f"Sorry, I couldn't process that: {e}"
+    
+    msg_bot = {
         "role": "assistant",
         "content": response,
         "time": datetime.now().strftime("%H:%M:%S")
-    })
-    with st.chat_message("assistant"):
-        st.markdown(response)
+    }
+    # Write to current thread + mirror
+    cur = st.session_state.get("current_thread_id")
+    if cur and cur in st.session_state["threads"]:
+        st.session_state["threads"][cur]["messages"].append(msg_bot)
+        st.session_state["chat_history"] = st.session_state["threads"][cur]["messages"]
+    else:
+        st.session_state["chat_history"].append(msg_bot)
+    try:
+        agent.add_to_memory("assistant", response)
+    except Exception:
+        pass
+    
+    # Display assistant message
+    st.markdown(f"""
+    <div class="assistant-message">
+        <div class="message-header">🤖 Assistant · {msg_bot['time']}</div>
+        <div class="message-content">{msg_bot['content']}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
     save_user_data(user_email, {
-        "chat_history": st.session_state["chat_history"],
-        "metrics": st.session_state["metrics"]
+        "threads": st.session_state.get("threads", {}),
+        "current_thread_id": st.session_state.get("current_thread_id"),
+        "metrics": st.session_state["metrics"],
     })
 
 # Logout
@@ -295,3 +551,29 @@ if alerts:
 else:
     with st.expander("🔔 Incidents (live — extras)", expanded=False):
         st.info("Alerts service not available. Ensure core/agents/alert_service exists and dependencies are installed.")
+
+# =============================
+# 🔎 Activity Feed (High-Level)
+# =============================
+st.markdown("---")
+st.subheader("🧠 Under-the-hood Activity")
+try:
+    from core.agents.agent_sdk.activity_log import activity_log
+    items = activity_log.recent(50)
+    if not items:
+        st.info("No recent activity yet. Ask a pricing question to see the steps here.")
+    else:
+        for ev in items:
+            status = ev.get("status", "info")
+            badge = "🟢" if status == "completed" else ("🟡" if status == "in_progress" else ("🔴" if status == "failed" else "🔵"))
+            with st.container():
+                st.markdown(f"{badge} [{ev.get('ts')}] <b>{ev.get('agent')}</b> — {ev.get('action')} ", unsafe_allow_html=True)
+                msg = ev.get("message")
+                if msg:
+                    st.caption(msg)
+                details = ev.get("details")
+                if details:
+                    with st.expander("Details", expanded=False):
+                        st.json(details)
+except Exception:
+    st.info("Activity feed unavailable. It will appear once the activity logger module is loaded.")

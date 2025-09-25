@@ -5,7 +5,10 @@ import asyncio
 import inspect
 from typing import Any, AsyncIterable, Iterable, Optional, Tuple, TYPE_CHECKING
 
-from core.agents.data_collector.repo import DataRepo  # write via DataRepo
+from core.agents.agent_sdk.bus_factory import get_bus as _get_bus
+from core.agents.agent_sdk.protocol import Topic
+from core.agents.agent_sdk.events_models import MarketTick
+from .repo import DataRepo
 
 if TYPE_CHECKING:
     # Optional for type checkers; not required at runtime
@@ -165,9 +168,10 @@ class DataCollector:
     async def ingest_any(self, tick_like: Any) -> Any:
         """
         Accept any supported tick shape, normalize it, and insert via repo.
+        Also publishes a MarketTick on the async bus for live consumers.
         """
         sku, price, source, market, comp, dem, ts = _normalize_tick(tick_like)
-        return await self.ingest(
+        res = await self.ingest(
             sku=sku,
             price=price,
             source=source,
@@ -176,6 +180,19 @@ class DataCollector:
             demand_index=dem,
             ts=ts,
         )
+        try:
+            mt = MarketTick(
+                sku=sku,
+                our_price=price,
+                competitor_price=(comp if comp is not None else None),
+                demand_index=(float(dem) if dem is not None else 0.0),
+            )
+            await _get_bus().publish(Topic.MARKET_TICK.value, mt)
+        except Exception:
+            pass
+        return res
+
+
 
     async def ingest_batch(self, ticks: Iterable[Any]) -> int:
         """

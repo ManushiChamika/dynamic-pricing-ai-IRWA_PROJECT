@@ -238,4 +238,52 @@ class DataRepo:
             "count": count,
         }
 
-    # jobs … (unchanged)
+    # --- Jobs API ---
+    async def create_job(self, sku: str, market: str, connector: str, depth: int) -> str:
+        jid = str(uuid.uuid4())
+        now = _utcnow_iso()
+        async with aiosqlite.connect(self.db_path, timeout=self.connect_timeout) as db:
+            await db.execute(
+                """
+                INSERT INTO jobs (id, sku, market, connector, depth, status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (jid, sku, market, connector, int(depth), "PENDING", now),
+            )
+            await db.commit()
+        return jid
+
+    async def mark_job_running(self, job_id: str) -> None:
+        now = _utcnow_iso()
+        async with aiosqlite.connect(self.db_path, timeout=self.connect_timeout) as db:
+            await db.execute(
+                "UPDATE jobs SET status=?, started_at=? WHERE id=?",
+                ("RUNNING", now, job_id),
+            )
+            await db.commit()
+
+    async def mark_job_done(self, job_id: str) -> None:
+        now = _utcnow_iso()
+        async with aiosqlite.connect(self.db_path, timeout=self.connect_timeout) as db:
+            await db.execute(
+                "UPDATE jobs SET status=?, finished_at=? WHERE id=?",
+                ("FINISHED", now, job_id),
+            )
+            await db.commit()
+
+    async def mark_job_failed(self, job_id: str, error: str) -> None:
+        now = _utcnow_iso()
+        async with aiosqlite.connect(self.db_path, timeout=self.connect_timeout) as db:
+            await db.execute(
+                "UPDATE jobs SET status=?, error=?, finished_at=? WHERE id=?",
+                ("FAILED", str(error)[:500], now, job_id),
+            )
+            await db.commit()
+
+    async def get_job(self, job_id: str) -> Optional[Dict[str, Any]]:
+        async with aiosqlite.connect(self.db_path, timeout=self.connect_timeout) as db:
+            db.row_factory = aiosqlite.Row
+            cur = await db.execute("SELECT * FROM jobs WHERE id=?", (job_id,))
+            row = await cur.fetchone()
+            return dict(row) if row else None
+
