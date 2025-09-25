@@ -56,4 +56,4 @@ c1, c2 = st.columns([1, 1])
 
 with c2:
     if st.button("Back to Home", key="btn_back_home"):
-        st.switch_page("pages/0_Home.py")
+        st.switch_page("pages/dashboard.py")

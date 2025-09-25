@@ -20,7 +20,7 @@ ensure_session_from_cookie()
 
 # Already logged in? Go home.
 if st.session_state.get("session"):
-    st.switch_page("pages/0_Home.py")
+    st.switch_page("pages/dashboard.py")
     st.stop()
 
 st.title("🪪 Create Account")

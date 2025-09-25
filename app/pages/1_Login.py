@@ -41,7 +41,7 @@ if st.session_state.get("_await_cookie_commit"):
         # Final sanity: validate token again; if valid, clear the flag and redirect to Home.
         if validate_session_token(st.session_state["session"]["token"]):
             st.session_state.pop("_await_cookie_commit", None)
-            st.switch_page("pages/0_Home.py")
+            st.switch_page("pages/dashboard.py")
             st.stop()
     # If we reach here, still waiting for the browser to send the cookie back.
     st.info("Finalizing sign-in…")
@@ -51,7 +51,7 @@ if st.session_state.get("_await_cookie_commit"):
 sess = st.session_state.get("session")
 if sess and sess.get("token"):
     if validate_session_token(sess["token"]):
-        st.switch_page("pages/0_Home.py")
+        st.switch_page("pages/dashboard.py")
         st.stop()
 
 # 5) Login UI
