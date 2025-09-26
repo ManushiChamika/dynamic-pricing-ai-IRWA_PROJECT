@@ -33,12 +33,18 @@ class UserInteractionAgent:
         self.app_db = root / "app" / "data.db"
         self.market_db = root / "market.db"
 
-        # Domain keywords for simple guard
+        # Domain keywords for simple guard (expanded for better UX)
         self.keywords = [
+            # Core pricing terms
             "price", "pricing", "discount", "margin", "demand",
             "competitor", "reprice", "optimize", "update",
             "trend", "trending", "mover", "cheapest", "expensive",
             "stats", "pressure", "proposal", "market", "product", "sku",
+            # Conversational terms to allow basic interaction
+            "hello", "hi", "hey", "claude", "assistant", "help", "thanks", "thank",
+            "what", "how", "why", "when", "where", "can", "could", "would", "should",
+            # General business terms
+            "business", "sales", "revenue", "profit", "analysis", "data", "report"
         ]
 
         # Deterministic, local intent handlers
