@@ -78,7 +78,6 @@ node_modules/
 project_code_dump.txt
 prompts.md
 scripts/collect_project_code.ps1
-AGENTS.md
 BRANCH_DIFFERENCES_README.md
 
 # Specific generated text artifacts (root-scoped)

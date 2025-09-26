@@ -25,8 +25,12 @@ class UserInteractionAgent:
         self.user_name = user_name
         self.last_result: Optional[dict] = None  # remember last referenced product
         self.memory: List[Dict[str, str]] = []
+        # Callback function for memory synchronization with UI
+        self._memory_sync_callback: Optional[callable] = None
         # Feature flag for notification sound
         self.enable_sound = os.getenv("SOUND_NOTIFICATIONS", "0").strip().lower() in {"1", "true", "yes", "on"}
+        # Feature flag for development mode (disables domain filtering)
+        self.development_mode = os.getenv("DEVELOPMENT_MODE", "0").strip().lower() in {"1", "true", "yes", "on"}
 
         # Resolve DB paths from project root
         root = Path(__file__).resolve().parents[3]
@@ -82,8 +86,82 @@ class UserInteractionAgent:
         text = (message or "").lower()
         return any(k in text for k in self.keywords)
 
-    def add_to_memory(self, role: str, content: str) -> None:
-        self.memory.append({"role": role, "content": content})
+    def add_to_memory(self, role: str, content: str, sync_to_ui: bool = True) -> None:
+        """Add a message to agent memory and optionally sync to UI storage"""
+        message = {"role": role, "content": content}
+        self.memory.append(message)
+        
+        # Trigger UI synchronization if callback is set and sync is enabled
+        if sync_to_ui and self._memory_sync_callback:
+            try:
+                self._memory_sync_callback(role, content)
+            except Exception:
+                # Don't let sync failures break agent functionality
+                pass
+
+    def set_memory_sync_callback(self, callback: callable) -> None:
+        """Set the callback function for synchronizing memory with UI storage"""
+        self._memory_sync_callback = callback
+
+    def clear_memory(self) -> None:
+        """Clear agent memory (useful for testing or reset scenarios)"""
+        self.memory = []
+
+    def seed_memory_from_messages(self, messages: List[Dict[str, str]], sync_to_ui: bool = False) -> None:
+        """Seed agent memory from a list of messages without triggering UI sync"""
+        self.memory = []
+        for msg in messages:
+            role = msg.get("role")
+            content = msg.get("content")
+            if role in ("user", "assistant") and isinstance(content, str):
+                self.add_to_memory(role, content, sync_to_ui=sync_to_ui)
+
+    def get_memory_info(self) -> Dict[str, Any]:
+        """Get debugging information about current memory state"""
+        return {
+            "message_count": len(self.memory),
+            "user_messages": len([m for m in self.memory if m.get("role") == "user"]),
+            "assistant_messages": len([m for m in self.memory if m.get("role") == "assistant"]),
+            "has_sync_callback": self._memory_sync_callback is not None,
+            "last_message": self.memory[-1] if self.memory else None,
+            "memory_size_bytes": sum(len(str(m.get("content", ""))) for m in self.memory)
+        }
+
+    def validate_memory_consistency(self, ui_messages: List[Dict[str, str]]) -> Dict[str, Any]:
+        """Validate that agent memory is consistent with UI message storage"""
+        agent_count = len(self.memory)
+        ui_count = len(ui_messages)
+        
+        # Check message count consistency
+        count_match = agent_count == ui_count
+        
+        # Check content consistency for last few messages
+        content_match = True
+        content_mismatches = []
+        
+        compare_count = min(agent_count, ui_count, 5)  # Check last 5 messages
+        for i in range(compare_count):
+            agent_msg = self.memory[-(i+1)]
+            ui_msg = ui_messages[-(i+1)]
+            
+            if (agent_msg.get("role") != ui_msg.get("role") or 
+                agent_msg.get("content") != ui_msg.get("content")):
+                content_match = False
+                content_mismatches.append({
+                    "position": i,
+                    "agent": agent_msg,
+                    "ui": ui_msg
+                })
+        
+        return {
+            "is_consistent": count_match and content_match,
+            "agent_message_count": agent_count,
+            "ui_message_count": ui_count,
+            "count_match": count_match,
+            "content_match": content_match,
+            "content_mismatches": content_mismatches,
+            "sync_callback_set": self._memory_sync_callback is not None
+        }
 
     # ---------- deterministic intents ----------
     def _handle_intents(self, message: str) -> Optional[str]:
@@ -127,17 +205,17 @@ class UserInteractionAgent:
                         return "Cheapest items by optimized price:\n" + "\n".join(lines)
         except Exception:
             pass
-        # Fallback to product_catalog current_price
+        # Fallback to products base_price
         try:
             with sqlite3.connect(str(self.app_db)) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-                    ("product_catalog",),
+                    ("products",),
                 )
                 if cur.fetchone():
                     rows = conn.execute(
-                        "SELECT sku, title, current_price, updated_at FROM product_catalog WHERE current_price IS NOT NULL ORDER BY current_price ASC LIMIT 5"
+                        "SELECT sku, name as title, base_price as current_price, updated_at FROM products WHERE base_price IS NOT NULL ORDER BY base_price ASC LIMIT 5"
                     ).fetchall()
                     if rows:
                         lines = [
@@ -171,17 +249,17 @@ class UserInteractionAgent:
                         return "Most expensive items by optimized price:\n" + "\n".join(lines)
         except Exception:
             pass
-        # Fallback to product_catalog current_price
+        # Fallback to products base_price
         try:
             with sqlite3.connect(str(self.app_db)) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-                    ("product_catalog",),
+                    ("products",),
                 )
                 if cur.fetchone():
                     rows = conn.execute(
-                        "SELECT sku, title, current_price, updated_at FROM product_catalog WHERE current_price IS NOT NULL ORDER BY current_price DESC LIMIT 5"
+                        "SELECT sku, name as title, base_price as current_price, updated_at FROM products WHERE base_price IS NOT NULL ORDER BY base_price DESC LIMIT 5"
                     ).fetchall()
                     if rows:
                         lines = [
@@ -224,15 +302,15 @@ class UserInteractionAgent:
                 conn_a.row_factory = sqlite3.Row
                 cur = conn_a.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-                    ("product_catalog",),
+                    ("products",),
                 )
                 if cur.fetchone():
                     for r in conn_a.execute(
-                        "SELECT sku, current_price FROM product_catalog WHERE current_price IS NOT NULL"
+                        "SELECT sku, base_price FROM products WHERE base_price IS NOT NULL"
                     ).fetchall():
-                        current[str(r["sku"])] = float(r["current_price"])
+                        current[str(r["sku"])] = float(r["base_price"])
             if not current:
-                return "[non-LLM assistant] No product catalog pricing available to assess pressure."
+                return "[non-LLM assistant] No products pricing available to assess pressure."
             undercuts: List[tuple[str, float, float, float]] = []  # sku, our, comp_min, gap
             with sqlite3.connect(str(self.market_db)) as conn_m:
                 conn_m.row_factory = sqlite3.Row
@@ -272,10 +350,10 @@ class UserInteractionAgent:
             with sqlite3.connect(str(self.app_db)) as conn_a:
                 cur = conn_a.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-                    ("product_catalog",),
+                    ("products",),
                 )
                 if cur.fetchone():
-                    row = conn_a.execute("SELECT COUNT(*) FROM product_catalog").fetchone()
+                    row = conn_a.execute("SELECT COUNT(*) FROM products").fetchone()
                     total_products = int(row[0]) if row else 0
         except Exception:
             pass
@@ -296,7 +374,7 @@ class UserInteractionAgent:
             pass
         return (
             "Stats summary:\n"
-            f"- product_catalog items: {total_products}\n"
+            f"- products items: {total_products}\n"
             f"- market_data rows: {market_rows}\n"
             f"- market_data distinct products: {distinct_products}\n"
             f"- last market_data update: {last_update or 'n/a'}"
@@ -342,12 +420,12 @@ class UserInteractionAgent:
                         try:
                             with sqlite3.connect(db_path) as conn:
                                 conn.row_factory = sqlite3.Row
-                                if not _table_exists(conn, "product_catalog"):
-                                    return {"items": [], "total": 0, "note": "product_catalog missing"}
-                                q = "SELECT sku, title, currency, current_price, cost, stock, updated_at FROM product_catalog"
+                                if not _table_exists(conn, "products"):
+                                    return {"items": [], "total": 0, "note": "products table missing"}
+                                q = "SELECT sku, name as title, currency, base_price as current_price, cost, NULL as stock, updated_at FROM products"
                                 params: List[Any] = []
                                 if search:
-                                    q += " WHERE sku LIKE ? OR title LIKE ?"
+                                    q += " WHERE sku LIKE ? OR name LIKE ?"
                                     like = f"%{search}%"
                                     params.extend([like, like])
                                 q += " ORDER BY updated_at DESC LIMIT ?"
@@ -362,10 +440,10 @@ class UserInteractionAgent:
                         try:
                             with sqlite3.connect(db_path) as conn:
                                 conn.row_factory = sqlite3.Row
-                                if not _table_exists(conn, "product_catalog"):
-                                    return {"item": None, "note": "product_catalog missing"}
+                                if not _table_exists(conn, "products"):
+                                    return {"item": None, "note": "products table missing"}
                                 row = conn.execute(
-                                    "SELECT sku, title, currency, current_price, cost, stock, updated_at FROM product_catalog WHERE sku=? LIMIT 1",
+                                    "SELECT sku, name as title, currency, base_price as current_price, cost, NULL as stock, updated_at FROM products WHERE sku=? LIMIT 1",
                                     (sku,),
                                 ).fetchone()
                                 return {"item": dict(row) if row else None}
@@ -417,7 +495,7 @@ class UserInteractionAgent:
                             "type": "function",
                             "function": {
                                 "name": "list_inventory_items",
-                                "description": "List items from the local product catalog (app/data.db). Use for inventory overviews.",
+                                "description": "List items from the local products table (app/data.db). Use for inventory overviews.",
                                 "parameters": {
                                     "type": "object",
                                     "properties": {
@@ -502,10 +580,14 @@ class UserInteractionAgent:
             # Any error while attempting LLM shouldn't crash; we'll fall back
             pass
 
-        # Non-LLM path. First, enforce domain guard.
+        # Non-LLM path. First, enforce domain guard (unless in development mode).
         if not self.is_dynamic_pricing_related(message):
-            self._play_completion_sound()
-            return "[non-LLM assistant] I'm only able to respond to queries related to the dynamic pricing system."
+            if self.development_mode:
+                # In development mode, allow off-topic queries but warn
+                pass  # Continue to HTTP fallback
+            else:
+                self._play_completion_sound()
+                return "[non-LLM assistant] I'm only able to respond to queries related to the dynamic pricing system."
 
         # Optional HTTP fallback (if environment provides base URL and key)
         try:

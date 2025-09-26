@@ -180,20 +180,42 @@ if any(k not in st.session_state for k in ("threads", "current_thread_id", "metr
 # Initialize agent once per user session and seed with prior chat history
 AGENT_KEY = "agent"
 AGENT_USER_KEY = "agent_user_email"
+
+def create_memory_sync_callback():
+    """Create a callback function that syncs agent memory to UI thread storage"""
+    def sync_callback(role: str, content: str):
+        # Add message to current thread
+        msg = {
+            "role": role,
+            "content": content,
+            "time": datetime.now().strftime("%H:%M:%S")
+        }
+        cur = st.session_state.get("current_thread_id")
+        if cur and cur in st.session_state.get("threads", {}):
+            st.session_state["threads"][cur]["messages"].append(msg)
+            st.session_state["chat_history"] = st.session_state["threads"][cur]["messages"]
+        else:
+            # Fallback to direct chat_history if thread system isn't working
+            if "chat_history" not in st.session_state:
+                st.session_state["chat_history"] = []
+            st.session_state["chat_history"].append(msg)
+    return sync_callback
+
 if (
     AGENT_KEY not in st.session_state
     or st.session_state.get(AGENT_USER_KEY) != user_email
 ):
     agent = UserInteractionAgent(user_name=user_name)
+    
+    # Set up memory synchronization callback
+    agent.set_memory_sync_callback(create_memory_sync_callback())
+    
     # Seed agent memory from persisted chat history so LLM sees full context
-    for msg in st.session_state.get("chat_history", []):
-        role = msg.get("role")
-        content = msg.get("content")
-        if role in ("user", "assistant") and isinstance(content, str):
-            try:
-                agent.add_to_memory(role, content)
-            except Exception:
-                pass
+    # Use seed_memory_from_messages to avoid triggering sync during initialization
+    chat_messages = st.session_state.get("chat_history", [])
+    if chat_messages:
+        agent.seed_memory_from_messages(chat_messages, sync_to_ui=False)
+    
     st.session_state[AGENT_KEY] = agent
     st.session_state[AGENT_USER_KEY] = user_email
 else:
@@ -234,6 +256,15 @@ if st.sidebar.button("➕ New Chat", key="new_thread_btn"):
     st.session_state["threads"][tid] = {"title": "New Chat", "messages": []}
     st.session_state["current_thread_id"] = tid
     st.session_state["chat_history"] = []
+    
+    # Clear agent memory for new conversation
+    if AGENT_KEY in st.session_state:
+        agent = st.session_state[AGENT_KEY]
+        try:
+            agent.clear_memory()
+        except Exception:
+            pass
+    
     st.rerun()
 
 # Thread list with better UI
@@ -272,6 +303,16 @@ selected_thread_id = st.sidebar.selectbox(
 if selected_thread_id != current_thread_id:
     st.session_state["current_thread_id"] = selected_thread_id
     st.session_state["chat_history"] = st.session_state["threads"][selected_thread_id]["messages"]
+    
+    # Resync agent memory with the new thread's messages
+    if AGENT_KEY in st.session_state:
+        agent = st.session_state[AGENT_KEY]
+        try:
+            # Clear agent memory and reseed from new thread without triggering UI sync
+            new_thread_messages = st.session_state["threads"][selected_thread_id]["messages"]
+            agent.seed_memory_from_messages(new_thread_messages, sync_to_ui=False)
+        except Exception:
+            pass
 
 # Make sure current thread exists in session state
 if current_thread_id and current_thread_id not in st.session_state.get("threads", {}):
@@ -304,11 +345,28 @@ if current_thread_id and current_thread_id in threads:
             if remaining_threads:
                 st.session_state["current_thread_id"] = remaining_threads[0]
                 st.session_state["chat_history"] = st.session_state["threads"][remaining_threads[0]]["messages"]
+                
+                # Resync agent memory with the switched thread
+                if AGENT_KEY in st.session_state:
+                    agent = st.session_state[AGENT_KEY]
+                    try:
+                        new_thread_messages = st.session_state["threads"][remaining_threads[0]]["messages"]
+                        agent.seed_memory_from_messages(new_thread_messages, sync_to_ui=False)
+                    except Exception:
+                        pass
             else:
                 tid = str(uuid.uuid4())
                 st.session_state["threads"][tid] = {"title": "New Chat", "messages": []}
                 st.session_state["current_thread_id"] = tid
                 st.session_state["chat_history"] = []
+                
+                # Clear agent memory for new thread
+                if AGENT_KEY in st.session_state:
+                    agent = st.session_state[AGENT_KEY]
+                    try:
+                        agent.clear_memory()
+                    except Exception:
+                        pass
             st.rerun()
 
 # AI Assistant Info
@@ -371,31 +429,39 @@ with chat_container:
 # Chat input + response
 user_input = st.chat_input("Ask me about pricing, demand, sales, or market analysis...")
 if user_input:
-    msg_user = {
-        "role": "user",
-        "content": user_input,
-        "time": datetime.now().strftime("%H:%M:%S")
-    }
-    # Write to current thread + mirror
+    # Add user message to agent memory (this will automatically sync to UI via callback)
+    try:
+        agent.add_to_memory("user", user_input, sync_to_ui=True)
+    except Exception:
+        # Fallback: manually add to UI if agent sync fails
+        msg_user = {
+            "role": "user",
+            "content": user_input,
+            "time": datetime.now().strftime("%H:%M:%S")
+        }
+        cur = st.session_state.get("current_thread_id")
+        if cur and cur in st.session_state["threads"]:
+            st.session_state["threads"][cur]["messages"].append(msg_user)
+            st.session_state["chat_history"] = st.session_state["threads"][cur]["messages"]
+        else:
+            st.session_state["chat_history"].append(msg_user)
+    
+    # Get the latest message from UI storage to display
     cur = st.session_state.get("current_thread_id")
     if cur and cur in st.session_state["threads"]:
-        st.session_state["threads"][cur]["messages"].append(msg_user)
-        st.session_state["chat_history"] = st.session_state["threads"][cur]["messages"]
+        current_messages = st.session_state["threads"][cur]["messages"]
     else:
-        st.session_state["chat_history"].append(msg_user)
-    # Keep agent memory in sync for immediate context
-    try:
-        agent.add_to_memory("user", user_input)
-    except Exception:
-        pass
+        current_messages = st.session_state.get("chat_history", [])
     
-    # Display user message
-    st.markdown(f"""
-    <div class="user-message">
-        <div class="message-header">👤 You · {msg_user['time']}</div>
-        <div class="message-content">{msg_user['content']}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    # Display user message (get the latest user message)
+    if current_messages and current_messages[-1]["role"] == "user":
+        last_user_msg = current_messages[-1]
+        st.markdown(f"""
+        <div class="user-message">
+            <div class="message-header">👤 You · {last_user_msg['time']}</div>
+            <div class="message-content">{last_user_msg['content']}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
     # Show loading indicator while processing
     with st.spinner("🤖 FluxPricer AI is thinking..."):
@@ -404,22 +470,41 @@ if user_input:
         except Exception as e:
             response = f"I apologize, but I encountered an error processing your request: {e}"
     
-    msg_bot = {
-        "role": "assistant",
-        "content": response,
-        "time": datetime.now().strftime("%H:%M:%S")
-    }
-    # Write to current thread + mirror
-    cur = st.session_state.get("current_thread_id")
+    # Agent response will be automatically synced to UI via callback in get_response
+    # But we need to handle display here. Get the latest assistant message.
     if cur and cur in st.session_state["threads"]:
-        st.session_state["threads"][cur]["messages"].append(msg_bot)
-        st.session_state["chat_history"] = st.session_state["threads"][cur]["messages"]
+        current_messages = st.session_state["threads"][cur]["messages"]
     else:
-        st.session_state["chat_history"].append(msg_bot)
-    try:
-        agent.add_to_memory("assistant", response)
-    except Exception:
-        pass
+        current_messages = st.session_state.get("chat_history", [])
+    
+    # Display assistant message (get the latest assistant message)
+    if current_messages and current_messages[-1]["role"] == "assistant":
+        last_bot_msg = current_messages[-1]
+        st.markdown(f"""
+        <div class="assistant-message">
+            <div class="message-header">🤖 FluxPricer AI · {last_bot_msg['time']}</div>
+            <div class="message-content">{last_bot_msg['content']}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        # Fallback: create and display the response message manually
+        msg_bot = {
+            "role": "assistant", 
+            "content": response,
+            "time": datetime.now().strftime("%H:%M:%S")
+        }
+        if cur and cur in st.session_state["threads"]:
+            st.session_state["threads"][cur]["messages"].append(msg_bot)
+            st.session_state["chat_history"] = st.session_state["threads"][cur]["messages"]
+        else:
+            st.session_state["chat_history"].append(msg_bot)
+        
+        st.markdown(f"""
+        <div class="assistant-message">
+            <div class="message-header">🤖 FluxPricer AI · {msg_bot['time']}</div>
+            <div class="message-content">{msg_bot['content']}</div>
+        </div>
+        """, unsafe_allow_html=True)
     
     # Display assistant message
     st.markdown(f"""
