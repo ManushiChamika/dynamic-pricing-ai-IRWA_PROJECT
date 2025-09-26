@@ -290,6 +290,78 @@ if back_clicked:
     st.query_params.clear()
     st.rerun()
 
+# Logout Section - Only show if user is logged in
+if st.session_state.get("session"):
+    st.sidebar.markdown("---")
+    st.sidebar.markdown('<div class="nav-header">Account</div>', unsafe_allow_html=True)
+    
+    # Show current user info
+    user_info = st.session_state.get("session", {})
+    user_name = user_info.get("full_name") or user_info.get("email", "").split("@")[0] or "User"
+    st.sidebar.markdown(f'<div style="color: #64748B; font-size: 0.9rem; padding: 0.5rem; text-align: center;">👤 {user_name}</div>', unsafe_allow_html=True)
+    
+    logout_clicked = st.sidebar.button("🚪 **Logout**", type="secondary", use_container_width=True)
+    
+    # Add special styling for logout button
+    st.sidebar.markdown("""
+    <style>
+    /* Find the last button (logout) and style it */
+    div[data-testid="stSidebar"] .stButton:last-of-type > button {
+        background: linear-gradient(135deg, #DC2626, #B91C1C) !important;
+        color: white !important;
+        border-color: #DC2626 !important;
+        font-weight: 600 !important;
+    }
+    div[data-testid="stSidebar"] .stButton:last-of-type > button:hover {
+        background: linear-gradient(135deg, #B91C1C, #991B1B) !important;
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    if logout_clicked:
+        # Import session utilities
+        from app.session_utils import clear_session_cookie
+        from core.auth_service import revoke_session_token
+        
+        if os.getenv("DEBUG_LLM", "0") == "1":
+            print("[DEBUG] Logout button clicked - clearing session")
+        
+        # Get current session token if available
+        try:
+            from app.session_utils import cookie_mgr, COOKIE_NAME
+            cm = cookie_mgr()
+            cookies = cm.get_all(key="logout_get_cookies")
+            if cookies:
+                token = cookies.get(COOKIE_NAME)
+                if token:
+                    # Revoke the session token on server side
+                    revoke_session_token(token)
+                    if os.getenv("DEBUG_LLM", "0") == "1":
+                        print(f"[DEBUG] Revoked server-side session token")
+        except Exception as e:
+            if os.getenv("DEBUG_LLM", "0") == "1":
+                print(f"[DEBUG] Error revoking token: {e}")
+        
+        # Clear client-side session
+        st.session_state.pop("session", None)
+        st.session_state.pop("_post_login_redirect_ready", None)
+        st.session_state.pop("_await_cookie_commit", None)
+        st.session_state.pop("_registration_success", None)
+        
+        # Clear session cookie
+        clear_session_cookie()
+        
+        # Redirect to landing page
+        st.query_params.clear()
+        st.query_params["page"] = "landing"
+        
+        if os.getenv("DEBUG_LLM", "0") == "1":
+            print("[DEBUG] Logout complete - redirecting to landing")
+        
+        st.success("✅ Successfully logged out!")
+        st.rerun()
+
 # Route to appropriate views - Chat First!
 if section == "🤖 AI CHAT":
     # Primary AI Chat Interface - The Core Product Feature
