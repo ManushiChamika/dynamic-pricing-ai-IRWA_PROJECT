@@ -88,6 +88,47 @@ def theme_css(dark: bool = False) -> str:
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
     }}
     
+    /* Remove Streamlit header/toolbar */
+    .stAppHeader {{
+        display: none !important;
+    }}
+    
+    .stToolbar {{
+        display: none !important;
+    }}
+    
+    .stDecoration {{
+        display: none !important;
+    }}
+    
+    /* Fix any dark backgrounds */
+    .stApp > header {{
+        background: transparent !important;
+        display: none !important;
+    }}
+    
+    .stApp > header[data-testid="stHeader"] {{
+        display: none !important;
+    }}
+    
+    /* Remove any black bars or headers */
+    header[data-testid="stHeader"] {{
+        display: none !important;
+    }}
+    
+    .stApp .main-header {{
+        display: none !important;
+    }}
+    
+    /* Override any dark theme remnants */
+    .stApp * {{
+        background-color: initial !important;
+    }}
+    
+    .stApp .element-container {{
+        background: transparent !important;
+    }}
+    
     /* Main Content Area */
     .main .block-container {{
         background-color: transparent !important;
@@ -214,6 +255,33 @@ def theme_css(dark: bool = False) -> str:
     .stNumberInput > div > div > input:focus {{
         border-color: {t['primary']} !important;
         box-shadow: 0 0 0 3px {t['primary-light']} !important;
+    }}
+
+    /* ===== CHAT INPUT (st.chat_input) ===== */
+    [data-testid="stChatInput"] {{
+        background: {t['card']} !important;
+        border-top: 1px solid {t['border']} !important;
+        padding: 0.5rem 0 !important;
+    }}
+
+    [data-testid="stChatInput"] * {{
+        color: {t['text']} !important;
+    }}
+
+    /* Text entry element inside chat input (covers textarea or contenteditable div) */
+    [data-testid="stChatInput"] textarea,
+    [data-testid="stChatInput"] div[contenteditable="true"] {{
+        background: #F8FAFC !important;
+        color: {t['text']} !important;
+        border: 1px solid {t['border']} !important;
+        border-radius: 10px !important;
+        padding: 0.6rem 0.75rem !important;
+        outline: none !important;
+    }}
+
+    [data-testid="stChatInput"] textarea::placeholder {{
+        color: {t['text-muted']} !important;
+        opacity: 1 !important;
     }}
     
     /* ===== RADIO & CHECKBOXES ===== */

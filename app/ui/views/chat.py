@@ -1,6 +1,8 @@
 from __future__ import annotations
+import os
 import streamlit as st
 from app.ui.theme.inject import apply_theme
+from pathlib import Path
 from core.agents.user_interact.user_interaction_agent import UserInteractionAgent
 
 
@@ -11,129 +13,169 @@ def _get_agent() -> UserInteractionAgent:
     return st.session_state["_chat_agent"]
 
 
+def _ensure_state() -> None:
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
+    if "_pending_prompt" not in st.session_state:
+        st.session_state._pending_prompt = ""
+    if "awaiting" not in st.session_state:
+        st.session_state["awaiting"] = ""
+    if "_waiting_for_response" not in st.session_state:
+        st.session_state._waiting_for_response = False
+
+
 def view() -> None:
     apply_theme(False)
-    
-    # Add custom CSS to improve chat layout and reduce excessive spacing
-    st.markdown("""
-    <style>
-    /* Reduce main container padding to eliminate black spaces */
-    .main .block-container {
-        padding-top: 0.5rem !important;
-        padding-bottom: 2rem !important;
-    }
-    
-    /* Ensure chat messages have proper spacing */
-    .stChatMessage {
-        margin-bottom: 0.5rem !important;
-    }
-    
-    /* Style the chat input area */
-    .stChatInput > div {
-        background: white !important;
-        border: 1px solid #E2E8F0 !important;
-        border-radius: 8px !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    _ensure_state()
 
-    import os
-    if os.getenv("DEBUG_LLM", "0") == "1":
-        print("[DEBUG] Entering chat view")
+    # Minimal layout: rely on native Streamlit chat components
+    st.markdown(
+        """
+        <style>
+        .main .block-container {
+            padding-top: 0.25rem !important;
+            padding-bottom: 0.25rem !important;
+            background: linear-gradient(180deg, #F8FAFC 0%, #EEF2FF 100%) !important;
+            border-radius: 12px !important;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) inset;
+        }
+        
+        /* Aesthetic polish for chat messages */
+        [data-testid="stChatMessage"] { padding: 0.25rem 0 !important; }
+        [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] {
+            background: #FFFFFF !important;
+            border: 1px solid #E2E8F0 !important;
+            border-radius: 12px !important;
+            padding: 0.6rem 0.85rem !important;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+            display: inline-block !important;
+            max-width: 75% !important;
+        }
+        /* Align by role using :has() when available (progressive enhancement) */
+        [data-testid="stChatMessage"]:has(svg[data-testid="user-avatar-icon"]) [data-testid="stMarkdownContainer"] {
+            background: #F1F5F9 !important;
+            border-color: #CBD5E1 !important;
+            margin-left: auto !important;
+        }
+        [data-testid="stChatMessage"]:has(svg[data-testid="assistant-avatar-icon"]) [data-testid="stMarkdownContainer"] {
+            background: #FFFFFF !important;
+            border-color: #E2E8F0 !important;
+            margin-right: auto !important;
+        }
+        /* Markdown content polish inside bubbles */
+        [data-testid="stMarkdownContainer"] p { margin: 0.25rem 0 0.35rem 0 !important; }
+        [data-testid="stMarkdownContainer"] ul { margin: 0.25rem 0 0.35rem 1.25rem !important; }
+        [data-testid="stMarkdownContainer"] code {
+            background: #F8FAFC !important;
+            border: 1px solid #E2E8F0 !important;
+            border-radius: 6px !important;
+            padding: 0.1rem 0.35rem !important;
+        }
+        [data-testid="stMarkdownContainer"] pre code {
+            background: #0F172A !important;
+            color: #E2E8F0 !important;
+            border-radius: 10px !important;
+            padding: 0.75rem 1rem !important;
+            border: 1px solid #1F2937 !important;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+        }
+
+        /* Typing bubble */
+        .typing-bubble {
+            background: linear-gradient(135deg, #EFF6FF 0%, #EEF2FF 100%);
+            border: 1px solid #BFDBFE;
+            color: #1E3A8A;
+            border-radius: 12px;
+            padding: 0.5rem 0.75rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+        }
+        .typing-dots { display: inline-flex; gap: 0.25rem; }
+        .typing-dots span {
+            width: 6px; height: 6px; border-radius: 50%; display: inline-block;
+            background: linear-gradient(135deg, #3B82F6, #1D4ED8);
+            animation: typing-bounce 1.2s infinite ease-in-out;
+        }
+        .typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+        @keyframes typing-bounce {
+            0%, 80%, 100% { transform: translateY(0); opacity: 0.6; }
+            40% { transform: translateY(-4px); opacity: 1; }
+        }
+        .typing-text { font-weight: 600; font-size: 0.9rem; }
+
+        /* Avatar polish - subtle ring */
+        [data-testid="stChatMessage"] img[alt*="avatar"],
+        [data-testid="stChatMessage"] svg[data-testid$="avatar-icon"] {
+            box-shadow: 0 0 0 3px #FFFFFF, 0 0 0 5px #DBEAFE;
+            border-radius: 50%;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
     agent = _get_agent()
 
-    # Initialize chat history in session state if not present
-    if "chat_history" not in st.session_state:
-        st.session_state.chat_history = []
+    # Avatars
+    assets_dir = Path(__file__).resolve().parents[3] / "assets"
+    assistant_avatar_path = assets_dir / "robo.png"
+    assistant_avatar = str(assistant_avatar_path) if assistant_avatar_path.exists() else "🤖"
+    user_avatar = "🧑‍💼"
 
-    if os.getenv("DEBUG_LLM", "0") == "1":
-        try:
-            agent_mem_len = len(getattr(agent, "memory", []))
-        except Exception:
-            agent_mem_len = -1
-        print(f"[DEBUG] Chat state: chat_history_len={len(st.session_state.chat_history)}, agent_memory_len={agent_mem_len}")
-
-    # Display conversation history from session state with container to control spacing
-    chat_container = st.container()
-    with chat_container:
-        if st.session_state.chat_history:
-            for msg in st.session_state.chat_history:
-                role = msg.get("role")
-                content = msg.get("content", "")
-                if role == "user":
-                    st.chat_message("user").markdown(content)
-                else:
-                    st.chat_message("assistant").markdown(content)
-        else:
-            st.info("💬 Ask me about pricing, market data, or system operations...")
-
-    # Handle pre-filled prompts from shortcuts
-    if st.session_state.get('chat_prompt'):
-        prompt = st.session_state['chat_prompt']
-        st.session_state['chat_prompt'] = None  # Clear after using
-        if os.getenv("DEBUG_LLM", "0") == "1":
-            print(f"[DEBUG] Handling prefilled chat_prompt: '{prompt[:80]}'")
-        
-        # Add to history and display
-        st.session_state.chat_history.append({"role": "user", "content": prompt})
-        st.chat_message("user").markdown(prompt)
-        
-        # Get AI response
-        reply = agent.get_response(prompt)
-        st.session_state.chat_history.append({"role": "assistant", "content": reply})
-        st.chat_message("assistant").markdown(reply)
-        
-        # Ensure dashboard URL is maintained
+    # Auto-send prefilled prompt from dashboard shortcuts
+    prefill = st.session_state.pop("chat_prompt", None)
+    if prefill and isinstance(prefill, str) and prefill.strip():
+        st.session_state.chat_history.append({"role": "user", "content": prefill.strip()})
+        st.session_state["awaiting"] = prefill.strip()
         st.query_params["page"] = "dashboard"
         st.query_params["section"] = "chat"
         st.rerun()
-    
-    # Check for quick input suggestions
-    if st.session_state.get('chat_input'):
-        suggested_prompt = st.session_state['chat_input']
-        st.session_state['chat_input'] = None  # Clear after showing
-        st.info(f"💡 Suggested: {suggested_prompt}")
 
-    # Chat input with a stable key to avoid widget clashes
-    prompt = st.chat_input("Ask about prices, rules, proposals, or market trends…", key="chat_input_main")
-    if prompt:
-        if os.getenv("DEBUG_LLM", "0") == "1":
-            print(f"[DEBUG] Chat input received: '{prompt[:50]}...'")
-            
-        # Add user message to history and display immediately
-        st.session_state.chat_history.append({"role": "user", "content": prompt})
-        
-        # Display user message immediately
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        
-        # Show loading state while getting AI response
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                if os.getenv("DEBUG_LLM", "0") == "1":
-                    print(f"[DEBUG] Getting AI response via agent.get_response()...")
-                
-                # Get AI response with robust error handling
-                reply = None
-                try:
-                    reply = agent.get_response(prompt)
-                except Exception as e:
-                    if os.getenv("DEBUG_LLM", "0") == "1":
-                        print(f"[DEBUG] agent.get_response raised: {e}")
-                    reply = f"[non-LLM assistant] Error invoking AI: {e}"
-                if reply is None or not isinstance(reply, str) or not reply.strip():
-                    reply = "[non-LLM assistant] No response generated. If you intended an AI reply, try a pricing-related question or configure an API key."
+    # Render history
+    for msg in st.session_state.chat_history:
+        role = msg.get("role", "assistant")
+        content = str(msg.get("content") or "")
+        with st.chat_message("user" if role == "user" else "assistant", avatar=(user_avatar if role == "user" else assistant_avatar)):
+            st.markdown(content)
 
-            # Display the response
-            st.markdown(reply)
-
+    # If awaiting a reply, fetch it and render spinner inline
+    awaiting = st.session_state.get("awaiting")
+    if awaiting:
+        with st.chat_message("assistant", avatar=assistant_avatar):
+            ph = st.empty()
+            ph.markdown(
+                """
+                <div class="typing-bubble">
+                    <div class="typing-dots"><span></span><span></span><span></span></div>
+                    <div class="typing-text">Thinking…</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            try:
+                reply = agent.get_response(awaiting)
+            except Exception as e:
+                reply = f"[non-LLM assistant] Error invoking AI: {e}"
+            ph.empty()
+        if not isinstance(reply, str) or not reply.strip():
+            reply = (
+                "[non-LLM assistant] No response generated. If you intended an AI reply, "
+                "try a pricing-related question or configure an API key."
+            )
         st.session_state.chat_history.append({"role": "assistant", "content": reply})
-        
-        if os.getenv("DEBUG_LLM", "0") == "1":
-            print(f"[DEBUG] Assistant reply len={len(reply)}; maintaining dashboard URL and rerunning")
-            
-        # Ensure dashboard URL is maintained during chat
-        st.query_params["page"] = "dashboard" 
+        st.session_state["awaiting"] = ""
+        st.query_params["page"] = "dashboard"
+        st.query_params["section"] = "chat"
+        st.rerun()
+
+    # Chat input (Enter to send)
+    prompt = st.chat_input("Ask about prices, rules, proposals, or market trends…")
+    if prompt and prompt.strip():
+        st.session_state.chat_history.append({"role": "user", "content": prompt.strip()})
+        st.session_state["awaiting"] = prompt.strip()
+        st.query_params["page"] = "dashboard"
         st.query_params["section"] = "chat"
         st.rerun()
