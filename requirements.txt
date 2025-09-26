@@ -19,3 +19,7 @@ pandas
 requests
 beautifulsoup4
 pyarrow
+
+# LLM + env loading
+openai>=1.30.0
+python-dotenv>=1.0.1

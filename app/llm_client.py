@@ -197,6 +197,7 @@ class LLMClient:
         if not self._client:
             raise RuntimeError("LLM client unavailable (missing key or package)")
         local_msgs: List[Dict[str, Any]] = list(messages)
+        last_assistant_content: Optional[str] = None
         for round_i in range(max_rounds):
             try:
                 self._log.debug(
@@ -225,6 +226,7 @@ class LLMClient:
             assistant_msg: Dict[str, Any] = {"role": "assistant"}
             if content is not None:
                 assistant_msg["content"] = content
+                last_assistant_content = content
             if tool_calls:
                 # Normalize tool_calls structure
                 normalized_calls = []
@@ -284,7 +286,7 @@ class LLMClient:
                 })
 
         # Safety: if max rounds exhausted, return whatever we have in last assistant content
-        return (assistant_msg.get("content") or "").strip()
+        return (last_assistant_content or "").strip()
 
 
 def get_llm_client() -> LLMClient:
