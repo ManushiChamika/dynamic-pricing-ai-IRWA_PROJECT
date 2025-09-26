@@ -37,7 +37,12 @@ def view() -> None:
     with col2:
         if st.button("🚀 **Enter Dashboard**", type="primary", use_container_width=True):
             # Set query params to navigate to dashboard
+            import os
+            if os.getenv("DEBUG_LLM", "0") == "1":
+                print("[DEBUG] Enter Dashboard button clicked!")
+            st.query_params.clear()  # Clear all params first
             st.query_params["page"] = "dashboard"
+            st.session_state["_skip_cookie_restore_once"] = True  # Skip cookie issues on next load
             st.rerun()
 
     st.markdown("---")
@@ -169,13 +174,23 @@ def view() -> None:
         
         with cta_col1:
             if st.button("🚀 **Launch Dashboard**", type="primary", use_container_width=True):
+                import os
+                if os.getenv("DEBUG_LLM", "0") == "1":
+                    print("[DEBUG] Launch Dashboard button clicked!")
+                st.query_params.clear()  # Clear all params first
                 st.query_params["page"] = "dashboard"
+                st.session_state["_skip_cookie_restore_once"] = True  # Skip cookie issues on next load
                 st.rerun()
                 
         with cta_col2:
             if st.button("💬 **Try AI Chat**", use_container_width=True):
+                import os
+                if os.getenv("DEBUG_LLM", "0") == "1":
+                    print("[DEBUG] Try AI Chat button clicked!")
+                st.query_params.clear()  # Clear all params first
                 st.query_params["page"] = "dashboard"
                 st.query_params["section"] = "chat"
+                st.session_state["_skip_cookie_restore_once"] = True  # Skip cookie issues on next load
                 st.rerun()
 
     # Footer

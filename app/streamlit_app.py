@@ -43,15 +43,21 @@ from app.session_utils import ensure_session_from_cookie
 from core.agents.alert_service import api as alerts  # <-- safe now
 
 # 4) Session setup (do not force-stop if cookie manager hasn't initialized yet)
+import os  # Move import up here
 try:
+    if os.getenv("DEBUG_LLM", "0") == "1":
+        print("[DEBUG] Attempting to ensure session from cookie")
     ensure_session_from_cookie()
-except Exception:
+    if os.getenv("DEBUG_LLM", "0") == "1":
+        print("[DEBUG] Session setup completed successfully")
+except Exception as e:
+    if os.getenv("DEBUG_LLM", "0") == "1":
+        print(f"[DEBUG] Session setup failed: {e}")
     # If cookie manager hasn't rendered yet, continue; Home/Login will handle
     pass
 st.session_state.setdefault("session", None)
 
 # Optional login gating via env var UI_REQUIRE_LOGIN
-import os
 require_login = os.getenv("UI_REQUIRE_LOGIN", "0").strip().lower() in {"1", "true", "yes", "on"}
 if require_login and st.query_params.get("page") == "dashboard":
     # Only require login for dashboard access, not landing page
@@ -83,14 +89,24 @@ from app.ui.views import landing as v_landing
 page = st.query_params.get("page", "landing")  # Default to landing page
 section_param = st.query_params.get("section", None)
 
+# DEBUG: Add logging to track navigation
+if os.getenv("DEBUG_LLM", "0") == "1":
+    print(f"[DEBUG] Page routing: page='{page}', section='{section_param}', query_params={dict(st.query_params)}")
+
 # Landing Page - Separate URL and Layout
 if page == "landing":
+    if os.getenv("DEBUG_LLM", "0") == "1":
+        print("[DEBUG] Rendering landing page")
     v_landing.view()
     st.stop()  # Don't render dashboard navigation
 elif page == "dashboard":
+    if os.getenv("DEBUG_LLM", "0") == "1":
+        print("[DEBUG] Rendering dashboard")
     # Continue to dashboard below
     pass
 else:
+    if os.getenv("DEBUG_LLM", "0") == "1":
+        print(f"[DEBUG] Invalid page '{page}', redirecting to landing")
     # For any other page value, redirect to landing
     st.query_params["page"] = "landing"
     st.rerun()
