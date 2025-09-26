@@ -52,9 +52,16 @@ st.session_state.setdefault("session", None)
 
 # Optional login gating via env var UI_REQUIRE_LOGIN
 import os
-if os.getenv("UI_REQUIRE_LOGIN", "0").strip().lower() in {"1", "true", "yes", "on"}:
+require_login = os.getenv("UI_REQUIRE_LOGIN", "0").strip().lower() in {"1", "true", "yes", "on"}
+if require_login and st.query_params.get("page") == "dashboard":
+    # Only require login for dashboard access, not landing page
     from app.ui.state.session import require_session
-    require_session()
+    try:
+        require_session()
+    except Exception:
+        # If login fails, redirect to landing
+        st.query_params["page"] = "landing"
+        st.rerun()
 
 # 5) Start the alert service once (schedule onto background loop)
 if "_alerts_started" not in st.session_state:
@@ -80,6 +87,13 @@ section_param = st.query_params.get("section", None)
 if page == "landing":
     v_landing.view()
     st.stop()  # Don't render dashboard navigation
+elif page == "dashboard":
+    # Continue to dashboard below
+    pass
+else:
+    # For any other page value, redirect to landing
+    st.query_params["page"] = "landing"
+    st.rerun()
 
 # Dashboard Mode - Full App Interface
 # Apply modern light theme
