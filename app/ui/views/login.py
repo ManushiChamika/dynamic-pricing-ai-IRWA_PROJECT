@@ -43,7 +43,7 @@ def view() -> None:
         st.session_state.pop("_post_login_redirect_ready", None)
         if os.getenv("DEBUG_LLM", "0") == "1":
             print("[DEBUG] Login successful, redirecting to dashboard")
-        st.query_params.clear()
+        # Don't clear all query params, just set the page
         st.query_params["page"] = "dashboard"
         st.rerun()
 
@@ -51,7 +51,7 @@ def view() -> None:
     if st.session_state.get("session"):
         if os.getenv("DEBUG_LLM", "0") == "1":
             print("[DEBUG] User already logged in, redirecting to dashboard")
-        st.query_params.clear()
+        # Don't clear all query params, just set the page
         st.query_params["page"] = "dashboard"
         st.rerun()
 
@@ -156,7 +156,6 @@ def view() -> None:
             if st.button("📝 **Create Account**", use_container_width=True):
                 if os.getenv("DEBUG_LLM", "0") == "1":
                     print("[DEBUG] Navigating to register page")
-                st.query_params.clear()
                 st.query_params["page"] = "register"
                 st.rerun()
                 
@@ -164,7 +163,6 @@ def view() -> None:
             if st.button("🏠 **Back to Home**", use_container_width=True):
                 if os.getenv("DEBUG_LLM", "0") == "1":
                     print("[DEBUG] Navigating back to landing page")
-                st.query_params.clear()
                 st.query_params["page"] = "landing"
                 st.rerun()
 

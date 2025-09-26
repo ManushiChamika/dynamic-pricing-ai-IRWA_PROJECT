@@ -63,16 +63,11 @@ def ensure_session_from_cookie(page_key: str = "root") -> None:
     if st.session_state.get("session"):
         return
 
-    # Temporarily bypass cookie manager to test navigation
-    import os
-    if os.getenv("DEBUG_LLM", "0") == "1":
-        print("[DEBUG] Skipping cookie manager for testing")
-        return
-
+    # Use cookie manager to restore session when available
     cm = cookie_mgr()
     cookies = cm.get_all(key=f"get_all_{page_key}")
     if cookies is None:
-        # Don't stop execution - just return without session
+        # Cookie manager not ready yet; allow page to continue
         return
 
     token = cookies.get(COOKIE_NAME)

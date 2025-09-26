@@ -91,8 +91,8 @@ def theme_css(dark: bool = False) -> str:
     /* Main Content Area */
     .main .block-container {{
         background-color: transparent !important;
-        padding-top: 2rem !important;
-        padding-bottom: 2rem !important;
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
         max-width: 1200px !important;
     }}
     

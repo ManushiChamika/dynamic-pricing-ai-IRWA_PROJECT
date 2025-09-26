@@ -111,22 +111,34 @@ def view() -> None:
             st.info("💬 Redirecting to AI Chat...")
             st.session_state['redirect_to_chat'] = True
             st.session_state['chat_prompt'] = "Optimize prices for all products based on current market conditions"
+            # Maintain dashboard URL
+            st.query_params["page"] = "dashboard"
+            st.query_params["section"] = "chat"
             
         if st.button("📊 **'Show revenue analysis'**", use_container_width=True):
             st.info("💬 Redirecting to AI Chat...")
             st.session_state['redirect_to_chat'] = True
             st.session_state['chat_prompt'] = "Show me a detailed revenue analysis for this month"
+            # Maintain dashboard URL
+            st.query_params["page"] = "dashboard"
+            st.query_params["section"] = "chat"
             
     with chat_col2:
         if st.button("🚨 **'What needs attention?'**", use_container_width=True):
             st.info("💬 Redirecting to AI Chat...")
             st.session_state['redirect_to_chat'] = True
             st.session_state['chat_prompt'] = "What alerts and issues need my immediate attention?"
+            # Maintain dashboard URL
+            st.query_params["page"] = "dashboard"
+            st.query_params["section"] = "chat"
             
         if st.button("⚡ **'Set up auto-pricing'**", use_container_width=True):
             st.info("💬 Redirecting to AI Chat...")
             st.session_state['redirect_to_chat'] = True
             st.session_state['chat_prompt'] = "Help me set up automated pricing rules"
+            # Maintain dashboard URL
+            st.query_params["page"] = "dashboard"
+            st.query_params["section"] = "chat"
 
     st.markdown("---")
 

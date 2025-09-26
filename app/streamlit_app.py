@@ -87,13 +87,26 @@ from app.ui.views import landing as v_landing
 from app.ui.views import login as v_login
 from app.ui.views import register as v_register
 
-# Check URL parameters for page routing
-page = st.query_params.get("page", "landing")  # Default to landing page
+# More robust page routing logic
+# If user is logged in, default to dashboard, otherwise landing
+if st.session_state.get("session"):
+    page = st.query_params.get("page", "dashboard")
+else:
+    page = st.query_params.get("page", "landing")
+
 section_param = st.query_params.get("section", None)
+
+# Guard: logged-in users should not see login/register pages
+if st.session_state.get("session") and page in {"login", "register"}:
+    if os.getenv("DEBUG_LLM", "0") == "1":
+        print(f"[DEBUG] Logged in but page='{page}', redirecting to dashboard")
+    st.query_params["page"] = "dashboard"
+    st.rerun()
 
 # DEBUG: Add logging to track navigation
 if os.getenv("DEBUG_LLM", "0") == "1":
-    print(f"[DEBUG] Page routing: page='{page}', section='{section_param}', query_params={dict(st.query_params)}")
+    session_info = "logged_in" if st.session_state.get("session") else "not_logged_in"
+    print(f"[DEBUG] App start - page='{page}', section='{section_param}', session={session_info}, query_params={dict(st.query_params)}")
 
 # URL-based routing for different pages
 if page == "landing":
@@ -114,6 +127,11 @@ elif page == "register":
 elif page == "dashboard":
     if os.getenv("DEBUG_LLM", "0") == "1":
         print("[DEBUG] Rendering dashboard")
+    # Ensure URL stays as dashboard during dashboard navigation
+    if st.query_params.get("page") != "dashboard":
+        if os.getenv("DEBUG_LLM", "0") == "1":
+            print(f"[DEBUG] Page parameter was not dashboard, fixing it. Current params: {dict(st.query_params)}")
+        st.query_params["page"] = "dashboard"
     # Continue to dashboard below
     pass
 else:
@@ -144,6 +162,8 @@ if st.session_state.get('redirect_to_chat', False) or st.session_state.get('forc
     st.session_state.current_section = "AI CHAT"
     st.session_state['redirect_to_chat'] = False
     st.session_state['force_chat'] = False
+    if os.getenv("DEBUG_LLM", "0") == "1":
+        print(f"[DEBUG] Redirecting to chat section, setting URL to dashboard")
 
 # Enhanced CSS for professional navigation
 st.sidebar.markdown("""
@@ -213,6 +233,9 @@ st.sidebar.markdown('<div class="nav-header">🤖 AI Assistant</div>', unsafe_al
 quick_chat_clicked = st.sidebar.button("💬 **Quick Chat**", key="quick_chat", use_container_width=True)
 if quick_chat_clicked:
     st.session_state.current_section = "AI CHAT"
+    # Ensure we maintain dashboard URL and set chat section
+    st.query_params["page"] = "dashboard"
+    st.query_params["section"] = "chat"
     st.rerun()
 
 # Add special styling for Quick Chat button
@@ -276,6 +299,12 @@ for item in nav_items:
     
     if nav_clicked:
         st.session_state.current_section = item["key"]
+        # Ensure we maintain dashboard URL during navigation
+        st.query_params["page"] = "dashboard"
+        if item["key"] == "AI CHAT":
+            st.query_params["section"] = "chat"
+        if os.getenv("DEBUG_LLM", "0") == "1":
+            print(f"[DEBUG] Navigation clicked: {item['key']}, setting page=dashboard")
         st.rerun()
 
 # Get the selected section for routing
@@ -287,7 +316,9 @@ st.sidebar.markdown('<div class="nav-header">Quick Actions</div>', unsafe_allow_
 
 back_clicked = st.sidebar.button("🏠 **← Back to Landing**", use_container_width=True)
 if back_clicked:
-    st.query_params.clear()
+    if os.getenv("DEBUG_LLM", "0") == "1":
+        print("[DEBUG] Back to landing clicked, navigating to landing")
+    st.query_params["page"] = "landing"
     st.rerun()
 
 # Logout Section - Only show if user is logged in
@@ -366,36 +397,11 @@ if st.session_state.get("session"):
 if section == "🤖 AI CHAT":
     # Primary AI Chat Interface - The Core Product Feature
     from app.ui.views import chat as v_chat
-    st.markdown("""
-    <div style="text-align: center; padding: 1rem 0;">
-        <h2 style="color: #3B82F6;">🤖 FluxPricer AI Assistant</h2>
-        <p style="color: #64748B;">Interact with our multi-agent system using natural language</p>
-    </div>
-    """, unsafe_allow_html=True)
     
-    # Add helpful prompt suggestions
-    st.markdown("### 💡 **Try asking:**")
+    # Compact header without extra padding
+    st.markdown("## 💬 AI Assistant")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("🔍 **Analyze current pricing trends**", use_container_width=True):
-            st.session_state['chat_input'] = "Analyze current pricing trends for all products"
-        if st.button("💰 **Optimize prices for Product X**", use_container_width=True):
-            st.session_state['chat_input'] = "Optimize prices for Product X based on market data"
-        if st.button("📊 **Show revenue performance**", use_container_width=True):
-            st.session_state['chat_input'] = "Show me the revenue performance for this month"
-            
-    with col2:
-        if st.button("⚡ **Set up auto-pricing rules**", use_container_width=True):
-            st.session_state['chat_input'] = "Help me set up automated pricing rules"
-        if st.button("🚨 **Check system alerts**", use_container_width=True):
-            st.session_state['chat_input'] = "What alerts do I need to review?"
-        if st.button("📈 **Generate pricing report**", use_container_width=True):
-            st.session_state['chat_input'] = "Generate a comprehensive pricing analysis report"
-    
-    st.markdown("---")
-    
-    # Main chat interface
+    # Main chat interface - remove the redundant suggestions and spacing
     v_chat.view()
     
 elif section == "🏠 HOME":

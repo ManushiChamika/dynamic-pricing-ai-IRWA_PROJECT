@@ -30,7 +30,6 @@ def view() -> None:
     if st.session_state.get("session"):
         if os.getenv("DEBUG_LLM", "0") == "1":
             print("[DEBUG] User already logged in, redirecting to dashboard")
-        st.query_params.clear()
         st.query_params["page"] = "dashboard"
         st.rerun()
 
@@ -119,7 +118,6 @@ def view() -> None:
                 st.session_state["_registration_success"] = True
                 if os.getenv("DEBUG_LLM", "0") == "1":
                     print("[DEBUG] Registration successful, redirecting to login")
-                st.query_params.clear()
                 st.query_params["page"] = "login"
                 st.rerun()
                 
@@ -141,7 +139,6 @@ def view() -> None:
             if st.button("🔐 **Already Have Account?**", use_container_width=True):
                 if os.getenv("DEBUG_LLM", "0") == "1":
                     print("[DEBUG] Navigating to login page")
-                st.query_params.clear()
                 st.query_params["page"] = "login"
                 st.rerun()
                 
@@ -149,7 +146,6 @@ def view() -> None:
             if st.button("🏠 **Back to Home**", use_container_width=True):
                 if os.getenv("DEBUG_LLM", "0") == "1":
                     print("[DEBUG] Navigating back to landing page")
-                st.query_params.clear()
                 st.query_params["page"] = "landing"
                 st.rerun()
 
