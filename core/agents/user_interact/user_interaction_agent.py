@@ -382,8 +382,8 @@ class UserInteractionAgent:
 
     # ---------- public entry ----------
     def get_response(self, message: str) -> str:
-        # Add user message to memory
-        self.add_to_memory("user", message)
+        # NOTE: User message should already be added to memory by UI before calling get_response
+        # We don't add it here to avoid duplication
 
         # Try deterministic intents first
         intent_answer = self._handle_intents(message)

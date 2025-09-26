@@ -445,23 +445,6 @@ if user_input:
             st.session_state["chat_history"] = st.session_state["threads"][cur]["messages"]
         else:
             st.session_state["chat_history"].append(msg_user)
-    
-    # Get the latest message from UI storage to display
-    cur = st.session_state.get("current_thread_id")
-    if cur and cur in st.session_state["threads"]:
-        current_messages = st.session_state["threads"][cur]["messages"]
-    else:
-        current_messages = st.session_state.get("chat_history", [])
-    
-    # Display user message (get the latest user message)
-    if current_messages and current_messages[-1]["role"] == "user":
-        last_user_msg = current_messages[-1]
-        st.markdown(f"""
-        <div class="user-message">
-            <div class="message-header">👤 You · {last_user_msg['time']}</div>
-            <div class="message-content">{last_user_msg['content']}</div>
-        </div>
-        """, unsafe_allow_html=True)
 
     # Show loading indicator while processing
     with st.spinner("🤖 FluxPricer AI is thinking..."):
@@ -470,24 +453,17 @@ if user_input:
         except Exception as e:
             response = f"I apologize, but I encountered an error processing your request: {e}"
     
-    # Agent response will be automatically synced to UI via callback in get_response
-    # But we need to handle display here. Get the latest assistant message.
+    # Agent response should be automatically synced to UI via callback in get_response
+    # But if sync failed, manually add the response
+    cur = st.session_state.get("current_thread_id")
     if cur and cur in st.session_state["threads"]:
         current_messages = st.session_state["threads"][cur]["messages"]
     else:
         current_messages = st.session_state.get("chat_history", [])
     
-    # Display assistant message (get the latest assistant message)
-    if current_messages and current_messages[-1]["role"] == "assistant":
-        last_bot_msg = current_messages[-1]
-        st.markdown(f"""
-        <div class="assistant-message">
-            <div class="message-header">🤖 FluxPricer AI · {last_bot_msg['time']}</div>
-            <div class="message-content">{last_bot_msg['content']}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        # Fallback: create and display the response message manually
+    # Check if agent response was synced (last message should be assistant)
+    if not current_messages or current_messages[-1]["role"] != "assistant":
+        # Manually add assistant response if sync failed
         msg_bot = {
             "role": "assistant", 
             "content": response,
@@ -498,21 +474,9 @@ if user_input:
             st.session_state["chat_history"] = st.session_state["threads"][cur]["messages"]
         else:
             st.session_state["chat_history"].append(msg_bot)
-        
-        st.markdown(f"""
-        <div class="assistant-message">
-            <div class="message-header">🤖 FluxPricer AI · {msg_bot['time']}</div>
-            <div class="message-content">{msg_bot['content']}</div>
-        </div>
-        """, unsafe_allow_html=True)
     
-    # Display assistant message
-    st.markdown(f"""
-    <div class="assistant-message">
-        <div class="message-header">🤖 FluxPricer AI · {msg_bot['time']}</div>
-        <div class="message-content">{msg_bot['content']}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    # Refresh the page to show all messages properly
+    st.rerun()
 
     save_user_data(user_email, {
         "threads": st.session_state.get("threads", {}),
