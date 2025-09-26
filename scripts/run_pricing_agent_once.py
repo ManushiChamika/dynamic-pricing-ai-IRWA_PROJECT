@@ -33,7 +33,7 @@ def main():
 
     # query DB for pricing_list row
     try:
-        conn = sqlite3.connect(os.path.join(repo_root, "market.db"))
+        conn = sqlite3.connect(os.path.join(repo_root, "data", "market.db"))
         cur = conn.cursor()
         cur.execute("SELECT product_name, optimized_price, last_update, reason FROM pricing_list WHERE product_name=?", ("iphone15",))
         rows = cur.fetchall()

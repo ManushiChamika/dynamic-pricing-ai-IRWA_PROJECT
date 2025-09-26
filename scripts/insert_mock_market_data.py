@@ -2,7 +2,7 @@ import sqlite3
 import random
 from datetime import datetime
 
-DB = 'market.db'
+DB = 'data/market.db'
 PRODUCT = 'iphone15'
 COUNT = 85
 

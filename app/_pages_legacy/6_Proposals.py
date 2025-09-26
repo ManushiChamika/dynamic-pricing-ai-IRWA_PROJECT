@@ -32,7 +32,7 @@ def _open_app_db():
 
 
 def _open_market_db():
-    db_path = (ROOT / "market.db").as_posix()
+    db_path = (ROOT / "data" / "market.db").as_posix()
     return sqlite3.connect(db_path, check_same_thread=False)
 
 

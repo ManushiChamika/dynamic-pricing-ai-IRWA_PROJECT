@@ -1,6 +1,6 @@
 import sqlite3
 
-def create_tables(db_path='market.db'):
+def create_tables(db_path='data/market.db'):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 

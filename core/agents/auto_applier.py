@@ -59,7 +59,7 @@ class AutoApplier:
         return Path(__file__).resolve().parents[2] / "app" / "data.db"
 
     def _market_path(self) -> Path:
-        return Path(__file__).resolve().parents[2] / "market.db"
+        return Path(__file__).resolve().parents[2] / "data" / "market.db"
 
     def _load_settings(self, conn: sqlite3.Connection) -> tuple[bool, float, float]:
         cur = conn.cursor()

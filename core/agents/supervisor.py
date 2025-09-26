@@ -150,7 +150,7 @@ class Supervisor:
         This POC method seeds minimal rows if none exist.
         """
         root = Path(__file__).resolve().parents[2]
-        mdb = (root / "market.db").as_posix()
+        mdb = (root / "data" / "market.db").as_posix()
         conn = sqlite3.connect(mdb, check_same_thread=False)
         cur = conn.cursor()
         cur.execute(

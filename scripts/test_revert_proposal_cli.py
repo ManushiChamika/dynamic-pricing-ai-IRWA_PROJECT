@@ -18,7 +18,7 @@ def _utc_now_iso() -> str:
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
     app_db = (root / "app" / "data.db").as_posix()
-    market_db = (root / "market.db").as_posix()
+    market_db = (root / "data" / "market.db").as_posix()
 
     # Ensure tables and find an ACCEPTED proposal
     conn = sqlite3.connect(app_db)

@@ -38,7 +38,7 @@ class UserInteractionAgent:
         # Resolve DB paths
         root = Path(__file__).resolve().parents[3]
         self.app_db = root / "app" / "data.db"
-        self.market_db = root / "market.db"
+        self.market_db = root / "data" / "market.db"
         # Lightweight intent handlers (deterministic) for common queries
         self._intents = {
             "cheapest": self._intent_cheapest,

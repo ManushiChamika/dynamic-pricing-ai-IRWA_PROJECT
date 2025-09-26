@@ -216,7 +216,7 @@ class LLMBrain:
 			print("ERROR: LLM error:", e)
 			return _default_selection()
 
-	def process_full_workflow(self, user_request: str, product_name: str, db_path: str = "market.db", notify_alert_fn=None, wait_seconds: int = 3, max_wait_attempts: int = 5, monitor_timeout: int = 0):
+	def process_full_workflow(self, user_request: str, product_name: str, db_path: str = "data/market.db", notify_alert_fn=None, wait_seconds: int = 3, max_wait_attempts: int = 5, monitor_timeout: int = 0):
 		"""
 		Execute the full pricing workflow described in the system prompt.
 		Returns strict JSON dict on success or error.
