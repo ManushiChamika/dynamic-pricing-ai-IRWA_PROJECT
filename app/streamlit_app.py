@@ -84,6 +84,8 @@ from app.ui.views import activity_view as v_activity
 from app.ui.views import rules as v_rules
 from app.ui.views import settings as v_settings
 from app.ui.views import landing as v_landing
+from app.ui.views import login as v_login
+from app.ui.views import register as v_register
 
 # Check URL parameters for page routing
 page = st.query_params.get("page", "landing")  # Default to landing page
@@ -93,11 +95,21 @@ section_param = st.query_params.get("section", None)
 if os.getenv("DEBUG_LLM", "0") == "1":
     print(f"[DEBUG] Page routing: page='{page}', section='{section_param}', query_params={dict(st.query_params)}")
 
-# Landing Page - Separate URL and Layout
+# URL-based routing for different pages
 if page == "landing":
     if os.getenv("DEBUG_LLM", "0") == "1":
         print("[DEBUG] Rendering landing page")
     v_landing.view()
+    st.stop()  # Don't render dashboard navigation
+elif page == "login":
+    if os.getenv("DEBUG_LLM", "0") == "1":
+        print("[DEBUG] Rendering login page")
+    v_login.view()
+    st.stop()  # Don't render dashboard navigation
+elif page == "register":
+    if os.getenv("DEBUG_LLM", "0") == "1":
+        print("[DEBUG] Rendering register page")
+    v_register.view()
     st.stop()  # Don't render dashboard navigation
 elif page == "dashboard":
     if os.getenv("DEBUG_LLM", "0") == "1":

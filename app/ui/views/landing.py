@@ -32,9 +32,10 @@ def view() -> None:
     </div>
     """, unsafe_allow_html=True)
 
-    # Call-to-Action Button
+    # Call-to-Action Buttons
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
+        # Primary action - Dashboard
         if st.button("🚀 **Enter Dashboard**", type="primary", use_container_width=True):
             # Set query params to navigate to dashboard
             import os
@@ -44,6 +45,29 @@ def view() -> None:
             st.query_params["page"] = "dashboard"
             st.session_state["_skip_cookie_restore_once"] = True  # Skip cookie issues on next load
             st.rerun()
+        
+        st.markdown("<br>", unsafe_allow_html=True)  # Add spacing
+        
+        # Authentication buttons
+        auth_col1, auth_col2 = st.columns(2)
+        
+        with auth_col1:
+            if st.button("🔐 **Login**", use_container_width=True):
+                import os
+                if os.getenv("DEBUG_LLM", "0") == "1":
+                    print("[DEBUG] Login button clicked!")
+                st.query_params.clear()
+                st.query_params["page"] = "login"
+                st.rerun()
+                
+        with auth_col2:
+            if st.button("📝 **Register**", use_container_width=True):
+                import os
+                if os.getenv("DEBUG_LLM", "0") == "1":
+                    print("[DEBUG] Register button clicked!")
+                st.query_params.clear()
+                st.query_params["page"] = "register"
+                st.rerun()
 
     st.markdown("---")
 
@@ -167,9 +191,10 @@ def view() -> None:
     </div>
     """, unsafe_allow_html=True)
 
-    # Final CTA
+    # Final CTA - Multiple Action Options
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
+        # Main actions
         cta_col1, cta_col2 = st.columns(2)
         
         with cta_col1:
@@ -191,6 +216,29 @@ def view() -> None:
                 st.query_params["page"] = "dashboard"
                 st.query_params["section"] = "chat"
                 st.session_state["_skip_cookie_restore_once"] = True  # Skip cookie issues on next load
+                st.rerun()
+        
+        st.markdown("<br>", unsafe_allow_html=True)  # Add spacing
+        
+        # Authentication actions
+        auth_bottom_col1, auth_bottom_col2 = st.columns(2)
+        
+        with auth_bottom_col1:
+            if st.button("🔐 **Sign In**", use_container_width=True):
+                import os
+                if os.getenv("DEBUG_LLM", "0") == "1":
+                    print("[DEBUG] Sign In button clicked!")
+                st.query_params.clear()
+                st.query_params["page"] = "login"
+                st.rerun()
+                
+        with auth_bottom_col2:
+            if st.button("📝 **Get Started**", use_container_width=True):
+                import os
+                if os.getenv("DEBUG_LLM", "0") == "1":
+                    print("[DEBUG] Get Started button clicked!")
+                st.query_params.clear()
+                st.query_params["page"] = "register"
                 st.rerun()
 
     # Footer
