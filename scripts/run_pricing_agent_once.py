@@ -6,9 +6,16 @@ This script is intended to be executed with the project's venv Python.
 import json
 import sqlite3
 import os
+import sys
 import traceback
 
+# Ensure repo root on sys.path for 'core' imports
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+
 from core.agents.pricing_optimizer import PricingOptimizerAgent
+
 
 
 def main():
