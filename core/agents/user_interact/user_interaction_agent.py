@@ -44,6 +44,8 @@ class UserInteractionAgent:
             "competitor", "reprice", "optimize", "update",
             "trend", "trending", "mover", "cheapest", "expensive",
             "stats", "pressure", "proposal", "market", "product", "sku",
+            # Inventory and catalog terms
+            "inventory", "items", "item", "catalog", "products", "stock", "list", "show",
             # Conversational terms to allow basic interaction
             "hello", "hi", "hey", "claude", "assistant", "help", "thanks", "thank",
             "what", "how", "why", "when", "where", "can", "could", "would", "should",
@@ -58,6 +60,7 @@ class UserInteractionAgent:
             "trending": self._intent_trending,
             "pressure": self._intent_price_pressure,
             "stats": self._intent_stats,
+            "inventory": self._intent_inventory,
         }
 
     # ---------- helpers ----------
@@ -172,6 +175,7 @@ class UserInteractionAgent:
             (r"\btrend(ing)?\b|\brecent\b|\blatest\b", "trending"),
             (r"\bpressure\b|\bundercut\b|\bdemand spike\b|\bbreach\b", "pressure"),
             (r"\bstats?\b|\boverview\b|\bsummary\b", "stats"),
+            (r"\bitems?\b|\binventory\b|\bproducts?\b|\bshow.*items?\b|\blist.*items?\b|\bwhat.*items?\b|\bhave\b", "inventory"),
         ]
         for pat, key in patterns:
             if re.search(pat, text):
@@ -379,6 +383,41 @@ class UserInteractionAgent:
             f"- market_data distinct products: {distinct_products}\n"
             f"- last market_data update: {last_update or 'n/a'}"
         )
+
+    def _intent_inventory(self, _: str) -> str:
+        """Show inventory items from the products table"""
+        try:
+            with sqlite3.connect(str(self.app_db)) as conn:
+                conn.row_factory = sqlite3.Row
+                cur = conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                    ("products",),
+                )
+                if cur.fetchone():
+                    rows = conn.execute(
+                        "SELECT sku, name as title, currency, base_price as current_price, cost, updated_at FROM products ORDER BY updated_at DESC LIMIT 20"
+                    ).fetchall()
+                    if rows:
+                        lines = []
+                        for r in rows:
+                            price_info = f"${r['current_price']}" if r['current_price'] else "No price"
+                            lines.append(f"- **{r['sku']}**: {r['title']} - {price_info}")
+                        
+                        total_count = conn.execute("SELECT COUNT(*) FROM products").fetchone()[0]
+                        
+                        result = f"Here are your inventory items ({total_count} items total):\n\n"
+                        result += "\n".join(lines)
+                        if total_count > 20:
+                            result += f"\n\n(Showing first 20 of {total_count} items)"
+                        
+                        self.last_result = {"sku": rows[0]["sku"], "label": rows[0]["title"]}
+                        return result
+                    else:
+                        return "Your inventory is empty. No products found in the database."
+                else:
+                    return "Products table not found. Please check your database setup."
+        except Exception as e:
+            return f"[non-LLM assistant] Error accessing inventory: {e}"
 
     # ---------- public entry ----------
     def get_response(self, message: str) -> str:
