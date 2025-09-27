@@ -52,8 +52,22 @@ def ensure_bus_bridge() -> bool:
             # Best-effort logging only
             pass
 
+    def on_price_update(ev: Any):
+        try:
+            d = _to_dict(ev)
+            sku = str(d.get("sku", ""))
+            old_p = d.get("old_price")
+            new_p = d.get("new_price")
+            actor = d.get("actor") or "system"
+            algo = d.get("algorithm") or "unknown"
+            msg = f"{sku} {old_p}→{new_p} by {actor} ({algo})"
+            activity_log.log(agent="Pricing", action="price.update", status="completed", message=msg, details=d)
+        except Exception:
+            pass
+
     try:
         bus.subscribe(Topic.ALERT.value, on_alert)
+        bus.subscribe(Topic.PRICE_UPDATE.value, on_price_update)
         _bridge_started = True
         return True
     except Exception:

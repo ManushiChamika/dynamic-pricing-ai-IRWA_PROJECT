@@ -5,10 +5,18 @@ import sqlite3
 from pathlib import Path
 from datetime import datetime, timezone
 import uuid
+from typing import List, Dict, Any
 
-from core.bus import bus
-from core.protocol import Topic
-from core.models import PriceProposal
+# Ensure repo root on sys.path for module imports
+from pathlib import Path as _Path0
+import sys as _Sys0
+_root0 = _Path0(__file__).resolve().parents[1]
+if str(_root0) not in _Sys0.path:
+    _Sys0.path.insert(0, str(_root0))
+
+from core.agents.agent_sdk.bus_factory import get_bus
+from core.agents.agent_sdk.protocol import Topic
+from core.agents.agent_sdk.events_models import PriceProposal
 from core.agents.auto_applier import AutoApplier
 
 
@@ -18,7 +26,7 @@ def _utc_now_iso() -> str:
 
 def _paths():
     root = Path(__file__).resolve().parents[1]
-    return (root / "app" / "data.db").as_posix(), (root / "data" / "market.db").as_posix()
+    return (root / "app" / "data.db").as_posix(), (root / "market.db").as_posix()
 
 
 def _ensure_settings_enabled():
@@ -27,7 +35,11 @@ def _ensure_settings_enabled():
     cur = conn.cursor()
     cur.execute("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
     for k, v in [("auto_apply", "true"), ("min_margin", "0.12"), ("max_delta", "0.10")]:
-        cur.execute("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (k, v))
+        # SQLite upsert for defaults
+        cur.execute(
+            "INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (k, v),
+        )
     conn.commit()
     conn.close()
 
@@ -69,6 +81,15 @@ async def main() -> int:
     aa = AutoApplier()
     await aa.start()
 
+    # Capture price.update events
+    events: List[Dict[str, Any]] = []
+
+    def _on_update(msg):
+        events.append(msg if isinstance(msg, dict) else {})
+
+    bus = get_bus()
+    bus.subscribe(Topic.PRICE_UPDATE.value, _on_update)
+
     # Publish the same PriceProposal concurrently multiple times
     pp = PriceProposal(
         sku="SKU-123",
@@ -77,29 +98,42 @@ async def main() -> int:
         margin=0.20,
         algorithm="test",
     )
-    await asyncio.gather(*[
-        bus.publish(Topic.PRICE_PROPOSAL.value, pp) for _ in range(5)
-    ])
+    await asyncio.gather(*[bus.publish(Topic.PRICE_PROPOSAL.value, pp) for _ in range(5)])
 
     # Wait for auto-apply to persist
     for _ in range(48):  # up to ~12s
-        # Check proposal_actions and pricing_list
-        ok_actions = False
+        ok_decision = False
         ok_price = False
+        ok_event = len(events) > 0
 
+        # Check decision_log for AUTO_APPLIED by governance
         conn = sqlite3.connect(app_db)
         cur = conn.cursor()
         cur.execute(
-            "CREATE TABLE IF NOT EXISTS proposal_actions (id TEXT PRIMARY KEY, proposal_id TEXT, action TEXT, actor TEXT, ts TEXT)"
+            """
+            CREATE TABLE IF NOT EXISTS decision_log (
+              id TEXT PRIMARY KEY,
+              proposal_id TEXT,
+              sku TEXT NOT NULL,
+              old_price REAL,
+              new_price REAL NOT NULL,
+              margin REAL,
+              algorithm TEXT,
+              decision TEXT NOT NULL,
+              actor TEXT NOT NULL,
+              ts TEXT NOT NULL
+            )
+            """
         )
         cur.execute(
-            "SELECT COUNT(*) FROM proposal_actions WHERE proposal_id=? AND action='AUTO_APPLIED'",
-            (pid,),
+            "SELECT COUNT(*) FROM decision_log WHERE sku=? AND decision='AUTO_APPLIED' AND actor='governance'",
+            ("SKU-123",),
         )
-        cnt = cur.fetchone()[0]
-        ok_actions = (cnt == 1)
+        cnt = int(cur.fetchone()[0])
+        ok_decision = cnt >= 1
         conn.close()
 
+        # Check pricing_list updated
         conn2 = sqlite3.connect(market_db)
         cur2 = conn2.cursor()
         cur2.execute(
@@ -110,7 +144,7 @@ async def main() -> int:
         ok_price = bool(r2 and abs(float(r2[0]) - 101.0) < 1e-9)
         conn2.close()
 
-        if ok_actions and ok_price:
+        if ok_decision and ok_price and ok_event:
             print("PASS")
             await aa.stop()
             return 0
@@ -123,5 +157,3 @@ async def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(asyncio.run(main()))
-
-

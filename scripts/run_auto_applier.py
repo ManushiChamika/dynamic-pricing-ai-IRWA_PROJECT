@@ -1,6 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path as _Path0
+import sys as _Sys0
+
+# Ensure repo root on sys.path for module imports
+_root0 = _Path0(__file__).resolve().parents[1]
+if str(_root0) not in _Sys0.path:
+    _Sys0.path.insert(0, str(_root0))
 
 from core.agents.auto_applier import AutoApplier
 

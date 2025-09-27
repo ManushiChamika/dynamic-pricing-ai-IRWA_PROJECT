@@ -510,15 +510,37 @@ class LLMBrain:
 					except Exception:
 						pass
 
-			_threading.Thread(target=_persist_sync, daemon=True).start()
+				_threading.Thread(target=_persist_sync, daemon=True).start()
+
+				# Governance: if enabled, skip direct apply and let AutoApplier handle
+				try:
+					_gov = os.getenv("PRICING_GOVERNANCE_ENABLED", "")
+					_gov_enabled = (_gov or "").strip().lower() in ("1", "true", "yes", "on")
+				except Exception:
+					_gov_enabled = False
+				if _gov_enabled:
+					if _act:
+						_act.log("pricing_optimizer", "governance.enabled", "info", message="Skipping direct apply; proposal published")
+					return {"product": product_name, "proposed_price": float(price), "algorithm": str(algo), "status": "proposed"}
 		except Exception as _ep:
 			try:
 				print(f"[pricing_optimizer] PriceProposal hybrid flow error: {_ep}")
 			except Exception:
 				pass
 
-		# Step 5: Update database (insert or update)
+		# Step 5: Update database (insert or update) + DecisionLog + PRICE_UPDATE
 		try:
+			# Capture old price first (if any)
+			old_price_val = None
+			try:
+				cursor.execute("SELECT optimized_price FROM pricing_list WHERE product_name=?", (product_name,))
+				row_old = cursor.fetchone()
+				if row_old and row_old[0] is not None:
+					old_price_val = float(row_old[0])
+			except Exception:
+				old_price_val = None
+
+			# Upsert optimized price
 			cursor.execute("SELECT product_name FROM pricing_list WHERE product_name=?", (product_name,))
 			exists = cursor.fetchone() is not None
 			if exists:
@@ -534,6 +556,91 @@ class LLMBrain:
 			conn.commit()
 		except Exception as e:
 			return err(f"db update failed: {e}")
+
+		# Governance DecisionLog (app/data.db)
+		try:
+			from pathlib import Path as _Path2
+			import sqlite3 as _sqlite3b
+			import uuid as _uuid2
+			_root2 = _Path2(__file__).resolve().parents[2]
+			_app_db2 = _root2 / "app" / "data.db"
+			conn_d = _sqlite3b.connect(_app_db2.as_posix(), check_same_thread=False)
+			cur_d = conn_d.cursor()
+			cur_d.execute(
+				"""
+				CREATE TABLE IF NOT EXISTS decision_log (
+				  id TEXT PRIMARY KEY,
+				  proposal_id TEXT,
+				  sku TEXT NOT NULL,
+				  old_price REAL,
+				  new_price REAL NOT NULL,
+				  margin REAL,
+				  algorithm TEXT,
+				  decision TEXT NOT NULL,
+				  actor TEXT NOT NULL,
+				  ts TEXT NOT NULL
+				)
+				"""
+			)
+			# Try to reuse margin from earlier calculation if available
+			try:
+				_margin_for_log = float(margin_val)  # may not exist if earlier block failed
+			except Exception:
+				_margin_for_log = None
+			cur_d.execute(
+				"INSERT INTO decision_log (id, proposal_id, sku, old_price, new_price, margin, algorithm, decision, actor, ts)\n"
+				"VALUES (?,?,?,?,?,?,?,?,?,?)",
+				(
+					str(_uuid2.uuid4()),
+					None,
+					product_name,
+					old_price_val,
+					float(price),
+					_margin_for_log,
+					str(algo),
+					"AUTO_APPLIED",
+					"optimizer",
+					datetime.utcnow().isoformat(),
+				),
+			)
+			conn_d.commit()
+		except Exception:
+			pass
+		finally:
+			try:
+				conn_d.close()  # type: ignore[name-defined]
+			except Exception:
+				pass
+
+		# Publish PRICE_UPDATE event on the bus (non-blocking)
+		try:
+			import asyncio as _asyncio2
+			import threading as _threading2
+			from core.agents.agent_sdk.bus_factory import get_bus as _get_bus2
+			from core.agents.agent_sdk.protocol import Topic as _Topic2
+
+			payload = {
+				"sku": product_name,
+				"old_price": old_price_val,
+				"new_price": float(price),
+				"actor": "optimizer",
+				"algorithm": str(algo),
+				"ts": datetime.utcnow().isoformat(),
+			}
+
+			async def _pub2():
+				try:
+					await _get_bus2().publish(_Topic2.PRICE_UPDATE.value, payload)
+				except Exception:
+					pass
+
+			try:
+				_loop2 = _asyncio2.get_running_loop()
+				_loop2.create_task(_pub2())
+			except RuntimeError:
+				_threading2.Thread(target=lambda: _asyncio2.run(_pub2()), daemon=True).start()
+		except Exception:
+			pass
 
 		# Step 6: Notify Alert Agent
 		notify_msg = f"PRICE_UPDATED {product_name} {price}"

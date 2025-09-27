@@ -46,6 +46,8 @@ class UserInteractionAgent:
             "trending": self._intent_trending,
             "pressure": self._intent_price_pressure,
             "stats": self._intent_stats,
+            "price_of": self._intent_price_of,
+            "competitors_for": self._intent_competitors_for,
         }
 
     def _play_completion_sound(self):
@@ -67,6 +69,8 @@ class UserInteractionAgent:
         text = (message or "").lower()
         # Map patterns to intent keys; simple heuristic routing
         patterns = [
+            (r"\bprice\s+(?:of|for)\s+([\w\-_.]+)", "price_of"),
+            (r"\bcompetitors?\s+(?:of|for)\s+([\w\-_.]+)|\bwho\s+are\s+the\s+competitors\s+(?:of|for)\s+([\w\-_.]+)", "competitors_for"),
             (r"\bcheapest\b|\blow(est)? price\b|\bmin(imum)? price\b", "cheapest"),
             (r"\bmost\s+expensive\b|\bhighest\b|\bmax(imum)? price\b", "most_expensive"),
             (r"\btrend(ing)?\b|\brecent\b|\blatest\b", "trending"),
@@ -276,6 +280,114 @@ class UserInteractionAgent:
             f"- market_data distinct products: {distinct_products}\n"
             f"- last market_data update: {last_update or 'n/a'}"
         )
+
+    def _extract_sku(self, text: str) -> Optional[str]:
+        try:
+            m = re.search(r"([A-Za-z0-9][\w\-_.]{1,64})", text or "")
+            return m.group(1) if m else None
+        except Exception:
+            return None
+
+    def _intent_price_of(self, text: str) -> str:
+        sku = self._extract_sku(text)
+        if not sku:
+            return "[non-LLM assistant] Please specify a product SKU."
+        current_line = None
+        optimized_line = None
+        try:
+            with sqlite3.connect(str(self.app_db)) as conn:
+                conn.row_factory = sqlite3.Row
+                cur = conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                    ("product_catalog",),
+                )
+                if cur.fetchone():
+                    row = conn.execute(
+                        "SELECT sku, title, currency, current_price, updated_at FROM product_catalog WHERE sku=? LIMIT 1",
+                        (sku,),
+                    ).fetchone()
+                    if row and row["current_price"] is not None:
+                        current_line = f"current: {row['current_price']} {row['currency'] or ''} (as of {row['updated_at']})"
+        except Exception:
+            pass
+        try:
+            with sqlite3.connect(str(self.market_db)) as conn:
+                conn.row_factory = sqlite3.Row
+                cur = conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                    ("pricing_list",),
+                )
+                if cur.fetchone():
+                    row2 = conn.execute(
+                        "SELECT optimized_price, last_update FROM pricing_list WHERE product_name=? LIMIT 1",
+                        (sku,),
+                    ).fetchone()
+                    if row2 and row2["optimized_price"] is not None:
+                        optimized_line = f"optimized: {row2['optimized_price']} (as of {row2['last_update']})"
+        except Exception:
+            pass
+        if not current_line and not optimized_line:
+            return f"[non-LLM assistant] No price found for {sku}."
+        lines = [f"Price for {sku}:"]
+        if current_line:
+            lines.append(f"- {current_line}")
+        if optimized_line:
+            lines.append(f"- {optimized_line}")
+        return "\n".join(lines)
+
+    def _intent_competitors_for(self, text: str) -> str:
+        sku = self._extract_sku(text)
+        if not sku:
+            return "[non-LLM assistant] Please specify a product SKU."
+        # Try legacy market.db/market_data
+        try:
+            with sqlite3.connect(str(self.market_db)) as conn:
+                conn.row_factory = sqlite3.Row
+                cur = conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                    ("market_data",),
+                )
+                if cur.fetchone():
+                    row = conn.execute(
+                        "SELECT COUNT(*) as n, MIN(price) as minp, AVG(price) as avgp, MAX(price) as maxp, MAX(update_time) as last_update FROM market_data WHERE product_name=?",
+                        (sku,),
+                    ).fetchone()
+                    if row and int(row["n"] or 0) > 0:
+                        return (
+                            f"Competitor prices for {sku} (market_data):\n"
+                            f"- count: {int(row['n'])}\n"
+                            f"- min: {row['minp']:.2f}\n"
+                            f"- avg: {row['avgp']:.2f}\n"
+                            f"- max: {row['maxp']:.2f}\n"
+                            f"- last_update: {row['last_update']}"
+                        )
+        except Exception:
+            pass
+        # Fallback to app/data.db market_ticks
+        try:
+            with sqlite3.connect(str(self.app_db)) as conn:
+                conn.row_factory = sqlite3.Row
+                cur = conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                    ("market_ticks",),
+                )
+                if cur.fetchone():
+                    row = conn.execute(
+                        "SELECT COUNT(*) as n, MIN(competitor_price) as minp, AVG(competitor_price) as avgp, MAX(competitor_price) as maxp, MAX(ts) as last_ts FROM market_ticks WHERE sku=? AND competitor_price IS NOT NULL",
+                        (sku,),
+                    ).fetchone()
+                    if row and int(row["n"] or 0) > 0:
+                        return (
+                            f"Competitor prices for {sku} (market_ticks):\n"
+                            f"- count: {int(row['n'])}\n"
+                            f"- min: {row['minp']:.2f}\n"
+                            f"- avg: {row['avgp']:.2f}\n"
+                            f"- max: {row['maxp']:.2f}\n"
+                            f"- last_ts: {row['last_ts']}"
+                        )
+        except Exception:
+            pass
+        return f"[non-LLM assistant] No competitor data found for {sku}."
 
     def is_dynamic_pricing_related(self, message):
         message_lower = message.lower()

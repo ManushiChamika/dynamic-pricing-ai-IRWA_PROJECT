@@ -7,3 +7,4 @@ class Topic(Enum):
     MARKET_TICK = "market.tick"
     PRICE_PROPOSAL = "price.proposal"
     ALERT = "alert.event"
+    PRICE_UPDATE = "price.update"

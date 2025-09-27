@@ -475,7 +475,7 @@ elif section == "⚡ OPERATIONS":
     st.subheader("⚡ Operations Center")
     ops_tab = st.radio(
         "Operations Section", 
-        ["🚨 Alerts", "📋 Activity", "🔧 Rules", "🏥 Health"],
+        ["🚨 Alerts", "📋 Activity", "🧭 Decisions", "🔧 Rules", "🏥 Health"],
         horizontal=True
     )
     
@@ -483,6 +483,9 @@ elif section == "⚡ OPERATIONS":
         v_incidents.view()
     elif ops_tab == "📋 Activity":
         v_activity.view()
+    elif ops_tab == "🧭 Decisions":
+        from app.ui.views import decisions as v_decisions
+        v_decisions.view()
     elif ops_tab == "🔧 Rules":
         v_rules.view()
     elif ops_tab == "🏥 Health":
@@ -492,3 +495,4 @@ elif section == "⚡ OPERATIONS":
 elif section == "⚙️ SETTINGS":
     # Configuration and user preferences
     v_settings.view()
+
