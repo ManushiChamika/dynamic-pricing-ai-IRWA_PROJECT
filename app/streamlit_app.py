@@ -557,13 +557,13 @@ elif section == "💼 COMMERCIALIZE":
             "name": "Basic",
             "icon": "🌱",
             "description": "For small laptop shops: up to 20 products, basic price optimization, simple analytics, email support.",
-            "price": "$19/mo"
+            "price": "$10/mo"
         },
         {
             "name": "Pro",
             "icon": "🚀",
             "description": "For growing businesses: up to 200 products, advanced AI pricing, inventory tracking, multi-user, priority support.",
-            "price": "$49/mo"
+            "price": "$25/mo"
         },
         {
             "name": "Enterprise",
