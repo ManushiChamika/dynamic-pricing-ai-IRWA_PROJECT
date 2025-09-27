@@ -36,9 +36,9 @@ def register_user(inp: RegisterIn) -> None:
     email_norm = (inp.email or "").strip().lower()
     pw = (inp.password or "").strip()
 
-    # validate email
+    # validate email (allow test domains)
     try:
-        validate_email(email_norm)
+        validate_email(email_norm, check_deliverability=False)
     except EmailNotValidError as e:
         raise ValueError(str(e))
 
