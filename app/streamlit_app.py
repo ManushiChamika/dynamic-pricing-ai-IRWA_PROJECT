@@ -1,3 +1,4 @@
+import os
 # app/streamlit_app.py  (router/bootstrap)
 from queue import SimpleQueue
 ALERT_QUEUE = SimpleQueue()
@@ -172,7 +173,7 @@ if st.session_state.get('redirect_to_chat', False) or st.session_state.get('forc
 # Enhanced CSS for professional navigation
 st.sidebar.markdown("""
 <style>
-/* Custom Navigation Styles */
+/* Custom Navigation Styles - Dark Mode */
 .stButton > button {
     width: 100% !important;
     margin: 0.25rem 0 !important;
@@ -181,22 +182,22 @@ st.sidebar.markdown("""
     text-align: left !important;
     font-weight: 500 !important;
     transition: all 0.2s ease !important;
-    border: 1px solid #E2E8F0 !important;
-    background: #F8FAFC !important;
-    color: #64748B !important;
+    border: 1px solid #27272a !important;
+    background: #18181b !important;
+    color: #e5e7eb !important;
 }
 
 .stButton > button:hover {
-    background: #F1F5F9 !important;
-    border-color: #CBD5E1 !important;
+    background: #27272a !important;
+    border-color: #6366f1 !important;
     transform: translateY(-1px) !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+    box-shadow: 0 2px 8px rgba(99,102,241,0.15) !important;
 }
 
 .nav-header {
     font-size: 0.75rem;
     font-weight: 600;
-    color: #64748B;
+    color: #a1a1aa;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin: 1rem 0 0.5rem 0;
@@ -204,20 +205,20 @@ st.sidebar.markdown("""
 }
 
 .nav-active {
-    background: linear-gradient(135deg, #3B82F6, #1D4ED8) !important;
-    color: white !important;
-    border-color: #3B82F6 !important;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3) !important;
+    background: linear-gradient(135deg, #6366f1, #1e293b) !important;
+    color: #fff !important;
+    border-color: #6366f1 !important;
+    box-shadow: 0 4px 12px rgba(99,102,241,0.18) !important;
 }
 
 .nav-active:hover {
-    background: linear-gradient(135deg, #1D4ED8, #1E40AF) !important;
-    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4) !important;
+    background: linear-gradient(135deg, #6366f1, #312e81) !important;
+    box-shadow: 0 6px 16px rgba(99,102,241,0.28) !important;
 }
 
 .quick-chat-btn {
     background: linear-gradient(135deg, #10B981, #059669) !important;
-    color: white !important;
+    color: #fff !important;
     border-color: #10B981 !important;
     font-weight: 600 !important;
     box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
@@ -504,55 +505,72 @@ elif section == "💼 COMMERCIALIZE":
     st.markdown("""
         <style>
         .plan-card {
-            background: linear-gradient(135deg, #f8fafc 60%, #e0e7ef 100%);
+            background: linear-gradient(135deg, #23272f 60%, #1a1d23 100%);
             border-radius: 1.2rem;
-            box-shadow: 0 4px 24px rgba(59,130,246,0.08);
+            box-shadow: 0 4px 24px rgba(30,41,59,0.18);
             padding: 2rem 1.5rem 1.5rem 1.5rem;
             margin-bottom: 1.5rem;
             text-align: center;
-            border: 2px solid #e0e7ef;
+            border: 2px solid #2d3748;
             transition: box-shadow 0.2s;
         }
         .plan-card:hover {
-            box-shadow: 0 8px 32px rgba(59,130,246,0.18);
-            border-color: #3B82F6;
+            box-shadow: 0 8px 32px rgba(59,130,246,0.28);
+            border-color: #6366f1;
         }
         .plan-title {
             font-size: 1.5rem;
             font-weight: 700;
             margin-bottom: 0.5rem;
+            color: #f1f5f9;
         }
         .plan-price {
             font-size: 1.3rem;
             font-weight: 600;
-            color: #2563eb;
+            color: #60a5fa;
             margin: 0.5rem 0 1rem 0;
         }
         .plan-desc {
-            color: #64748B;
+            color: #cbd5e1;
             min-height: 3.5rem;
         }
         .plan-btn button {
-            background: #111827 !important;
-            color: #fff !important;
+            background: #18181b !important;
+            color: #f1f5f9 !important;
             font-weight: 700;
             border-radius: 0.5rem;
             padding: 0.7rem 1.5rem;
             margin-top: 1rem;
-            border: none;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+            border: 1px solid #27272a;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.18);
             transition: background 0.2s;
         }
         .plan-btn button:hover {
-            background: #000 !important;
+            background: #6366f1 !important;
+            color: #fff !important;
         }
         </style>
     """, unsafe_allow_html=True)
     st.subheader("💼 Commercialize Plans")
     plans = [
-        {"name": "Basic", "icon": "🌱", "description": "Essential features for individuals and small teams.", "price": "$19/mo"},
-        {"name": "Pro", "icon": "🚀", "description": "Advanced features for growing businesses.", "price": "$49/mo"},
-        {"name": "Custom", "icon": "🏢", "description": "Tailored solutions for enterprises and unique needs.", "price": "Contact us"},
+        {
+            "name": "Basic",
+            "icon": "🌱",
+            "description": "For small laptop shops: up to 20 products, basic price optimization, simple analytics, email support.",
+            "price": "$19/mo"
+        },
+        {
+            "name": "Pro",
+            "icon": "🚀",
+            "description": "For growing businesses: up to 200 products, advanced AI pricing, inventory tracking, multi-user, priority support.",
+            "price": "$49/mo"
+        },
+        {
+            "name": "Enterprise",
+            "icon": "🏢",
+            "description": "For large retailers: unlimited products, custom integrations, API, dedicated manager, premium support.",
+            "price": "Contact us"
+        }
     ]
     cols = st.columns(len(plans))
 
