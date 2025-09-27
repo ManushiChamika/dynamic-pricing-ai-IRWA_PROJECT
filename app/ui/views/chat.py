@@ -25,49 +25,46 @@ def _ensure_state() -> None:
 
 
 def view() -> None:
-    apply_theme(False)
+    apply_theme(None)
     _ensure_state()
 
     # Minimal layout: rely on native Streamlit chat components
     st.markdown(
         """
         <style>
-        .main .block-container {
-            padding-top: 0.25rem !important;
-            padding-bottom: 0.25rem !important;
-            background: linear-gradient(180deg, #F8FAFC 0%, #EEF2FF 100%) !important;
-            border-radius: 12px !important;
-            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) inset;
-        }
+        .main .block-container { padding-top: 0.25rem !important; padding-bottom: 0.25rem !important; }
         
         /* Aesthetic polish for chat messages */
         [data-testid="stChatMessage"] { padding: 0.25rem 0 !important; }
         [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] {
-            background: #FFFFFF !important;
-            border: 1px solid #E2E8F0 !important;
+            background: var(--bubble-assistant-bg, var(--bubble-assistant-bg-light)) !important;
+            border: 1px solid var(--bubble-assistant-border, var(--bubble-assistant-border-light)) !important;
             border-radius: 12px !important;
             padding: 0.6rem 0.85rem !important;
             box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
             display: inline-block !important;
             max-width: 75% !important;
+            color: var(--bubble-fg, #111827) !important;
         }
         /* Align by role using :has() when available (progressive enhancement) */
         [data-testid="stChatMessage"]:has(svg[data-testid="user-avatar-icon"]) [data-testid="stMarkdownContainer"] {
-            background: #F1F5F9 !important;
-            border-color: #CBD5E1 !important;
+            background: var(--bubble-user-bg, var(--bubble-user-bg-light)) !important;
+            border-color: var(--bubble-user-border, var(--bubble-user-border-light)) !important;
             margin-left: auto !important;
+            color: var(--bubble-fg, #111827) !important;
         }
         [data-testid="stChatMessage"]:has(svg[data-testid="assistant-avatar-icon"]) [data-testid="stMarkdownContainer"] {
-            background: #FFFFFF !important;
-            border-color: #E2E8F0 !important;
+            background: var(--bubble-assistant-bg, var(--bubble-assistant-bg-light)) !important;
+            border-color: var(--bubble-assistant-border, var(--bubble-assistant-border-light)) !important;
             margin-right: auto !important;
+            color: var(--bubble-fg, #111827) !important;
         }
         /* Markdown content polish inside bubbles */
         [data-testid="stMarkdownContainer"] p { margin: 0.25rem 0 0.35rem 0 !important; }
         [data-testid="stMarkdownContainer"] ul { margin: 0.25rem 0 0.35rem 1.25rem !important; }
         [data-testid="stMarkdownContainer"] code {
-            background: #F8FAFC !important;
-            border: 1px solid #E2E8F0 !important;
+            background: rgba(148, 163, 184, 0.15) !important;
+            border: 1px solid rgba(148, 163, 184, 0.35) !important;
             border-radius: 6px !important;
             padding: 0.1rem 0.35rem !important;
         }
@@ -82,9 +79,9 @@ def view() -> None:
 
         /* Typing bubble */
         .typing-bubble {
-            background: linear-gradient(135deg, #EFF6FF 0%, #EEF2FF 100%);
-            border: 1px solid #BFDBFE;
-            color: #1E3A8A;
+            background: var(--typing-bg, linear-gradient(135deg, #EFF6FF 0%, #EEF2FF 100%));
+            border: 1px solid var(--typing-border, #BFDBFE);
+            color: var(--typing-fg, #1E3A8A);
             border-radius: 12px;
             padding: 0.5rem 0.75rem;
             display: inline-flex;
@@ -95,7 +92,7 @@ def view() -> None:
         .typing-dots { display: inline-flex; gap: 0.25rem; }
         .typing-dots span {
             width: 6px; height: 6px; border-radius: 50%; display: inline-block;
-            background: linear-gradient(135deg, #3B82F6, #1D4ED8);
+            background: linear-gradient(135deg, var(--typing-dot-start, #3B82F6), var(--typing-dot-end, #1D4ED8));
             animation: typing-bounce 1.2s infinite ease-in-out;
         }
         .typing-dots span:nth-child(2) { animation-delay: 0.15s; }
@@ -106,12 +103,9 @@ def view() -> None:
         }
         .typing-text { font-weight: 600; font-size: 0.9rem; }
 
-        /* Avatar polish - subtle ring */
+        /* Avatar: use minimal 2D monochrome look via emoji fallback; remove ring */
         [data-testid="stChatMessage"] img[alt*="avatar"],
-        [data-testid="stChatMessage"] svg[data-testid$="avatar-icon"] {
-            box-shadow: 0 0 0 3px #FFFFFF, 0 0 0 5px #DBEAFE;
-            border-radius: 50%;
-        }
+        [data-testid="stChatMessage"] svg[data-testid$="avatar-icon"] { box-shadow: none !important; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -120,10 +114,9 @@ def view() -> None:
     agent = _get_agent()
 
     # Avatars
-    assets_dir = Path(__file__).resolve().parents[3] / "assets"
-    assistant_avatar_path = assets_dir / "robo.png"
-    assistant_avatar = str(assistant_avatar_path) if assistant_avatar_path.exists() else "🤖"
-    user_avatar = "🧑‍💼"
+    # Use 2D monochrome emoji avatars (no external images)
+    assistant_avatar = "✨"  # sparkles for agent
+    user_avatar = "👤"       # simple 2D user icon
 
     # Auto-send prefilled prompt from dashboard shortcuts
     prefill = st.session_state.pop("chat_prompt", None)
@@ -134,7 +127,8 @@ def view() -> None:
         st.query_params["section"] = "chat"
         st.rerun()
 
-    # Render history
+    # Render history - centered narrower column
+    st.markdown("<div style=\"max-width: 820px; margin: 0 auto;\">", unsafe_allow_html=True)
     for msg in st.session_state.chat_history:
         role = msg.get("role", "assistant")
         content = str(msg.get("content") or "")
@@ -171,7 +165,24 @@ def view() -> None:
         st.query_params["section"] = "chat"
         st.rerun()
 
+    st.markdown("</div>", unsafe_allow_html=True)
+
     # Chat input (Enter to send)
+    # Centered and narrower input with taller height via CSS + label hint
+    st.markdown(
+        """
+        <style>
+        [data-testid="stChatInput"] { background: transparent !important; border: none !important; }
+        [data-testid="stChatInput"] > div { max-width: 820px; margin: 0.5rem auto !important; }
+        [data-testid="stChatInput"] textarea, [data-testid="stChatInput"] div[contenteditable="true"] {
+            min-height: 76px !important; font-size: 1rem !important;
+        }
+        [data-testid="stChatInput"] button { font-weight: 700 !important; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     prompt = st.chat_input("Ask about prices, rules, proposals, or market trends…")
     if prompt and prompt.strip():
         st.session_state.chat_history.append({"role": "user", "content": prompt.strip()})

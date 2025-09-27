@@ -473,13 +473,19 @@ class UserInteractionAgent:
                     }
 
                     try:
+                        ui_max_tokens = 0
+                        try:
+                            ui_max_tokens = int(os.getenv("UI_LLM_MAX_TOKENS", "0") or "0")
+                        except Exception:
+                            ui_max_tokens = 0
+                        max_tokens_cfg = ui_max_tokens if ui_max_tokens > 0 else 1024
                         answer = llm.chat_with_tools(
                             messages=msgs,
                             tools=tools,
                             functions_map=functions_map,
                             tool_choice="auto",
                             max_rounds=4,
-                            max_tokens=384,
+                            max_tokens=max_tokens_cfg,
                             temperature=0.2,
                         )
                         # Add assistant reply to memory

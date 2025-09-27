@@ -142,8 +142,8 @@ else:
     st.rerun()
 
 # Dashboard Mode - Full App Interface
-# Apply modern light theme
-apply_theme(False)
+# Apply theme from session (supports dark toggle)
+apply_theme(None)
 
 try:
     ensure_bus_bridge()
@@ -152,6 +152,17 @@ except Exception:
 
 # Modern Navigation System with Enhanced Styling
 st.sidebar.markdown("---")
+
+# Theme toggle
+# Theme toggle (compact, top-right of sidebar)
+toggle_row = st.sidebar.container()
+with toggle_row:
+    dark_now = bool(st.session_state.get("is_dark_mode", False))
+    dark_toggled = st.toggle("🌙 Dark mode", value=dark_now)
+    if dark_toggled != dark_now:
+        st.session_state["is_dark_mode"] = bool(dark_toggled)
+        apply_theme(None)
+        st.rerun()
 
 # Initialize current section in session state
 if 'current_section' not in st.session_state:

@@ -45,14 +45,14 @@ LIGHT = {
 
 # Keep dark theme for future use but focus on light
 DARK = {
-    "bg": "#0F172A",
-    "bg-alt": "#1E293B",
-    "card": "#1E293B",
-    "surface": "#334155",
-    "text": "#F8FAFC",
-    "text-secondary": "#CBD5E1",
-    "text-muted": "#94A3B8",
-    "text-disabled": "#64748B",
+    "bg": "#0B1220",
+    "bg-alt": "#111827",
+    "card": "#0F172A",
+    "surface": "#1F2937",
+    "text": "#E5E7EB",
+    "text-secondary": "#D1D5DB",
+    "text-muted": "#93A3B8",
+    "text-disabled": "#6B7280",
     "primary": "#60A5FA",
     "primary-light": "#1E3A8A",
     "primary-dark": "#3B82F6",
@@ -64,10 +64,10 @@ DARK = {
     "error-light": "#7F1D1D",
     "info": "#60A5FA",
     "info-light": "#1E3A8A",
-    "border": "#374151",
-    "border-strong": "#4B5563",
-    "hover": "#374151",
-    "active": "#4B5563",
+    "border": "#233044",
+    "border-strong": "#2F3E55",
+    "hover": "#111827",
+    "active": "#233044",
     "chart-bg": "#1E293B",
     "chart-grid": "#374151",
     "chart-text": "#E5E7EB",
@@ -86,6 +86,17 @@ def theme_css(dark: bool = False) -> str:
         background: linear-gradient(135deg, {t['bg']} 0%, {t['bg-alt']} 100%) !important;
         color: {t['text']} !important;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    }}
+    /* Chat bubble CSS variables for theming */
+    :root {{
+        --bubble-user-bg-light: #F1F5F9;
+        --bubble-user-border-light: #CBD5E1;
+        --bubble-assistant-bg-light: #FFFFFF;
+        --bubble-assistant-border-light: #E2E8F0;
+        --bubble-user-bg-dark: #1F2937;
+        --bubble-user-border-dark: #2F3E55;
+        --bubble-assistant-bg-dark: #0F172A;
+        --bubble-assistant-border-dark: #2F3E55;
     }}
     
     /* Remove Streamlit header/toolbar */
@@ -271,7 +282,7 @@ def theme_css(dark: bool = False) -> str:
     /* Text entry element inside chat input (covers textarea or contenteditable div) */
     [data-testid="stChatInput"] textarea,
     [data-testid="stChatInput"] div[contenteditable="true"] {{
-        background: #F8FAFC !important;
+        background: {t['card']} !important;
         color: {t['text']} !important;
         border: 1px solid {t['border']} !important;
         border-radius: 10px !important;
