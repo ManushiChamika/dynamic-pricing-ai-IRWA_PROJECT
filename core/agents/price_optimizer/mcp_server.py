@@ -14,7 +14,7 @@ except Exception as e:
 
 from .optimizer import Features, optimize
 from ..agent_sdk.health_tools import ping, version, health
-from ..agent_sdk.auth import verify_capability, AuthError
+from ..agent_sdk.auth import verify_capability, AuthError, get_auth_metrics
 
 # Input validation schemas using Pydantic
 class ProposePriceRequest(BaseModel):
@@ -244,6 +244,27 @@ async def main():
     async def health_check() -> Dict[str, Any]:
         """Detailed health status."""
         return await health("price-optimizer", check_dependencies=True)
+
+    @mcp.tool()
+    async def auth_metrics(capability_token: str = "") -> Dict[str, Any]:
+        """Get authentication metrics for this service."""
+        try:
+            # Validate auth - requires admin scope to view metrics
+            verify_capability(capability_token, "admin")
+            
+            metrics = get_auth_metrics()
+            return {
+                "ok": True,
+                "result": {
+                    "service": "price-optimizer",
+                    "metrics": metrics,
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
+            }
+        except AuthError as e:
+            return {"ok": False, "error": "auth_error", "message": str(e)}
+        except Exception as e:
+            return {"ok": False, "error": "internal_error", "message": str(e)}
 
     await mcp.run()
 

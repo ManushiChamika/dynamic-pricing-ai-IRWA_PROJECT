@@ -1,13 +1,14 @@
 # Full-featured MCP server for alert service with JSON schema validation
 import asyncio, os
 import json
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from pydantic import BaseModel, ValidationError, Field
 from mcp.server.fastmcp import FastMCP
 from .repo import Repo
 from .engine import AlertEngine
 from .tools import Tools
-from ..agent_sdk.auth import verify_capability_legacy as verify_capability
+from ..agent_sdk.auth import verify_capability_legacy as verify_capability, get_auth_metrics, AuthError
 from ..agent_sdk.health_tools import ping, version, health
 
 mcp = FastMCP("alerts-service")
@@ -177,6 +178,27 @@ async def version_info() -> dict:
 async def health_check() -> dict:
     """Detailed health status."""
     return await health("alerts", check_dependencies=True)
+
+@mcp.tool()
+async def auth_metrics(capability_token: str = "") -> Dict[str, Any]:
+    """Get authentication metrics for this service."""
+    try:
+        # Validate auth - requires admin scope to view metrics
+        verify_capability(capability_token, "admin")
+        
+        metrics = get_auth_metrics()
+        return {
+            "ok": True,
+            "result": {
+                "service": "alerts",
+                "metrics": metrics,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    except AuthError as e:
+        return {"ok": False, "error": "auth_error", "message": str(e)}
+    except Exception as e:
+        return {"ok": False, "error": "internal_error", "message": str(e)}
 
 async def main():
     await repo.init()

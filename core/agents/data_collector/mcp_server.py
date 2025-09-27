@@ -24,7 +24,7 @@ from .repo import DataRepo
 from .collector import DataCollector
 from .connectors.mock import mock_ticks
 from ..agent_sdk.health_tools import ping, version, health
-from ..agent_sdk.auth import verify_capability, AuthError
+from ..agent_sdk.auth import verify_capability, AuthError, get_auth_metrics
 
 # Input validation schemas using Pydantic
 class StartCollectionRequest(BaseModel):
@@ -301,6 +301,28 @@ async def version_info() -> dict:
 async def health_check() -> dict:
     """Detailed health status."""
     return await health("data-collector", check_dependencies=True)
+
+
+@mcp.tool()
+async def auth_metrics(capability_token: str = "") -> Dict[str, Any]:
+    """Get authentication metrics for this service."""
+    try:
+        # Validate auth - requires admin scope to view metrics
+        verify_capability(capability_token, "admin")
+        
+        metrics = get_auth_metrics()
+        return {
+            "ok": True,
+            "result": {
+                "service": "data-collector",
+                "metrics": metrics,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    except AuthError as e:
+        return {"ok": False, "error": "auth_error", "message": str(e)}
+    except Exception as e:
+        return {"ok": False, "error": "internal_error", "message": str(e)}
 
 
 async def main():

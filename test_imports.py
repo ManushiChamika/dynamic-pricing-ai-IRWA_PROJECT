@@ -119,10 +119,10 @@ if __name__ == "__main__":
     if imports_ok:
         functionality_ok = test_auth_functionality()
         if functionality_ok:
-            print("\n🎉 All tests passed! MCP auth implementation is working correctly.")
+            print("\n[SUCCESS] All tests passed! MCP auth implementation is working correctly.")
         else:
-            print("\n❌ Functionality tests failed.")
+            print("\n[FAIL] Functionality tests failed.")
             sys.exit(1)
     else:
-        print("\n❌ Import tests failed.")
+        print("\n[FAIL] Import tests failed.")
         sys.exit(1)

@@ -90,14 +90,14 @@ async def test_alert_service_integration():
     
     try:
         await client.start_server()
-        print("✓ Alert service server started")
+        print("[OK] Alert service server started")
         
         # Test health check (no auth required)
         response = await client.call_tool("ping_health", {})
         if response.get("result", {}).get("ok"):
-            print("✓ Health check passed")
+            print("[OK] Health check passed")
         else:
-            print(f"✗ Health check failed: {response}")
+            print(f"[FAIL] Health check failed: {response}")
         
         # Test list_alerts with valid token
         token = get_service_token("alert_service")
@@ -145,7 +145,7 @@ async def test_data_collector_integration():
         # Test health check
         response = await client.call_tool("ping_health", {})
         if response.get("result", {}).get("ok"):
-            print("✓ Health check passed")
+            print("[OK] Health check passed")
         
         # Test list_sources with valid token
         token = get_service_token("data_collector")
@@ -193,7 +193,7 @@ async def test_price_optimizer_integration():
         # Test health check
         response = await client.call_tool("ping_health", {})
         if response.get("result", {}).get("ok"):
-            print("✓ Health check passed")
+            print("[OK] Health check passed")
         
         # Test propose_price with valid token
         token = get_service_token("price_optimizer")
