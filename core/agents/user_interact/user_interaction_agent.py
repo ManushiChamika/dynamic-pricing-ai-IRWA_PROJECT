@@ -75,11 +75,15 @@ class UserInteractionAgent:
 
         # Build system prompt focused on dynamic pricing
         system_prompt = (
-            f"You are a specialized assistant for the dynamic pricing system. "
-            f"You have access to SQL tools to query the databases directly. "
-            f"Use the execute_sql tool to run SQL queries on the product catalog (app/data.db) "
-            f"and market data (data/market.db) to answer questions about pricing, inventory, "
-            f"competitors, trends, and other dynamic pricing related topics."
+            "You are a specialized assistant for the dynamic pricing system. "
+            "You can call tools to retrieve data and recommend prices. "
+            "Tool usage guidelines: "
+            "- Use execute_sql for COUNT/SUM/AVG or specific analytics on app/data.db (product_catalog, price_proposals) and data/market.db (pricing_list, market_data). "
+            "- Use list_inventory to browse products with optional search and accurate totals. "
+            "- Use list_market_prices to browse market/pricing_list entries. "
+            "- Use list_proposals to browse recent price proposals (optionally filtered by SKU). "
+            "- Use optimize_price to recommend a price for a SKU using our_price, cost, and an optional competitor signal; respect min_price/max_price/min_margin if provided. "
+            "Prefer tools over guessing; respond with concise, direct answers."
         )
 
         # Attempt to use LLM client if available
@@ -91,18 +95,18 @@ class UserInteractionAgent:
                     # self.memory already includes the latest user message added above
                     msgs.extend(self.memory)
 
-                    # Define tools (OpenAI schema)
+                    # Define tools (OpenAI schema) - consolidated to <7 frequently used tools
                     tools = [
                         {
                             "type": "function",
                             "function": {
                                 "name": "execute_sql",
-                                "description": "Execute SQL queries on the databases. Use 'app' for product catalog queries (app/data.db) or 'market' for market data queries (data/market.db).",
+                                "description": "Execute SQL queries on databases. Use for counting, aggregations, analytics, and complex queries. Use 'app' for product catalog or 'market' for market data. Ideal for COUNT(*), SUM, AVG, MIN, MAX operations.",
                                 "parameters": {
                                     "type": "object",
                                     "properties": {
-                                        "database": {"type": "string", "enum": ["app", "market"], "description": "Which database to query: 'app' for product catalog, 'market' for market data"},
-                                        "query": {"type": "string", "description": "SQL query to execute"},
+                                        "database": {"type": "string", "enum": ["app", "market"]},
+                                        "query": {"type": "string"},
                                     },
                                     "required": ["database", "query"],
                                     "additionalProperties": False,
@@ -112,12 +116,12 @@ class UserInteractionAgent:
                         {
                             "type": "function",
                             "function": {
-                                "name": "list_inventory_items",
-                                "description": "List items from the local product catalog (app/data.db). Use for inventory overviews.",
+                                "name": "list_inventory",
+                                "description": "Browse product catalog items with accurate totals. Returns limited items but true total count for pagination.",
                                 "parameters": {
                                     "type": "object",
                                     "properties": {
-                                        "search": {"type": "string", "description": "Filter by substring in SKU or title."},
+                                        "search": {"type": "string"},
                                         "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
                                     },
                                     "additionalProperties": False,
@@ -127,12 +131,16 @@ class UserInteractionAgent:
                         {
                             "type": "function",
                             "function": {
-                                "name": "get_inventory_item",
-                                "description": "Get a single inventory item by SKU from app/data.db/product_catalog.",
+                                "name": "optimize_price",
+                                "description": "Recommend a price for a SKU using our current price, optional competitor signal, and margin/bounds.",
                                 "parameters": {
                                     "type": "object",
                                     "properties": {
-                                        "sku": {"type": "string", "description": "Item SKU (exact match)"},
+                                        "sku": {"type": "string"},
+                                        "min_price": {"type": "number"},
+                                        "max_price": {"type": "number"},
+                                        "min_margin": {"type": "number", "default": 0.12},
+                                        "competitor_source": {"type": "string", "enum": ["pricing_list", "market_data", "none"], "default": "pricing_list"}
                                     },
                                     "required": ["sku"],
                                     "additionalProperties": False,
@@ -142,12 +150,12 @@ class UserInteractionAgent:
                         {
                             "type": "function",
                             "function": {
-                                "name": "list_pricing_list",
-                                "description": "List current market pricing entries from market.db/pricing_list.",
+                                "name": "list_market_prices",
+                                "description": "Browse current market pricing with accurate totals.",
                                 "parameters": {
                                     "type": "object",
                                     "properties": {
-                                        "search": {"type": "string", "description": "Filter by substring in product_name."},
+                                        "search": {"type": "string"},
                                         "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
                                     },
                                     "additionalProperties": False,
@@ -157,12 +165,12 @@ class UserInteractionAgent:
                         {
                             "type": "function",
                             "function": {
-                                "name": "list_price_proposals",
-                                "description": "List recent price proposals from app/data.db/price_proposals.",
+                                "name": "list_proposals",
+                                "description": "Browse recent price proposals with accurate totals.",
                                 "parameters": {
                                     "type": "object",
                                     "properties": {
-                                        "sku": {"type": "string", "description": "Optional filter by SKU"},
+                                        "sku": {"type": "string"},
                                         "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
                                     },
                                     "additionalProperties": False,
@@ -180,110 +188,181 @@ class UserInteractionAgent:
                             return False
 
                     def execute_sql(database: str, query: str) -> Dict[str, Any]:
-                        """Execute SQL query on specified database."""
-                        if database == "app":
-                            db_path = self.app_db
-                        elif database == "market":
-                            db_path = self.market_db
-                        else:
+                        """Execute SQL query with result capping."""
+                        db_path = self.app_db if database == "app" else self.market_db if database == "market" else None
+                        if not db_path:
                             return {"error": "Invalid database. Use 'app' or 'market'"}
                         
                         uri_db = f"file:{db_path.as_posix()}?mode=ro"
                         try:
                             with sqlite3.connect(uri_db, uri=True) as conn:
                                 conn.row_factory = sqlite3.Row
-                                # Only allow SELECT queries for safety
+                                conn.execute("PRAGMA query_only=ON;")
                                 query_lower = query.strip().lower()
-                                if not query_lower.startswith('select'):
-                                    return {"error": "Only SELECT queries are allowed"}
+                                if not query_lower.startswith('select') or 'pragma' in query_lower:
+                                    return {"error": "Only SELECT queries allowed"}
                                 
                                 cursor = conn.execute(query)
-                                rows = [dict(row) for row in cursor.fetchall()]
-                                return {"rows": rows, "count": len(rows)}
+                                rows = [dict(row) for row in cursor.fetchmany(1000)]
+                                truncated = bool(cursor.fetchone())
+                                result = {"rows": rows, "count": len(rows)}
+                                if truncated:
+                                    result["truncated"] = True
+                                return result
                         except Exception as e:
                             return {"error": str(e)}
 
-                    def list_inventory_items(search: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
+                    def list_inventory(search: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
+                        """List inventory with accurate total count."""
                         uri_db = f"file:{self.app_db.as_posix()}?mode=ro"
                         try:
                             with sqlite3.connect(uri_db, uri=True) as conn:
                                 conn.row_factory = sqlite3.Row
                                 if not _table_exists(conn, "product_catalog"):
-                                    return {"items": [], "total": 0, "note": "product_catalog missing"}
-                                q = "SELECT sku, title, currency, current_price, cost, stock, updated_at FROM product_catalog"
+                                    return {"items": [], "total": 0}
+                                
+                                where_sql = ""
                                 params: List[Any] = []
                                 if search:
-                                    q += " WHERE sku LIKE ? OR title LIKE ?"
+                                    where_sql = " WHERE sku LIKE ? OR title LIKE ?"
                                     like = f"%{search}%"
                                     params.extend([like, like])
-                                q += " ORDER BY updated_at DESC LIMIT ?"
-                                params.append(int(limit))
-                                rows = [dict(r) for r in conn.execute(q, params).fetchall()]
-                                return {"items": rows, "total": len(rows)}
+                                
+                                total = conn.execute(f"SELECT COUNT(*) FROM product_catalog{where_sql}", params).fetchone()[0]
+                                rows = conn.execute(
+                                    f"SELECT sku, title, currency, current_price, cost, stock, updated_at FROM product_catalog{where_sql} ORDER BY updated_at DESC LIMIT ?",
+                                    params + [int(limit)]
+                                ).fetchall()
+                                return {"items": [dict(r) for r in rows], "total": total}
                         except Exception as e:
                             return {"error": str(e)}
 
-                    def get_inventory_item(sku: str) -> Dict[str, Any]:
-                        uri_db = f"file:{self.app_db.as_posix()}?mode=ro"
+                    def optimize_price(sku: str, min_price: Optional[float] = None, max_price: Optional[float] = None, min_margin: float = 0.12, competitor_source: str = "pricing_list") -> Dict[str, Any]:
                         try:
-                            with sqlite3.connect(uri_db, uri=True) as conn:
-                                conn.row_factory = sqlite3.Row
-                                if not _table_exists(conn, "product_catalog"):
-                                    return {"item": None, "note": "product_catalog missing"}
-                                row = conn.execute(
-                                    "SELECT sku, title, currency, current_price, cost, stock, updated_at FROM product_catalog WHERE sku=? LIMIT 1",
-                                    (sku,),
+                            from core.agents.price_optimizer.optimizer import Features, optimize
+                        except Exception as e_imp:
+                            return {"error": f"optimizer import failed: {e_imp}"}
+                        
+                        # Read current price and cost from app DB
+                        uri_app = f"file:{self.app_db.as_posix()}?mode=ro"
+                        uri_market = f"file:{self.market_db.as_posix()}?mode=ro"
+                        try:
+                            with sqlite3.connect(uri_app, uri=True) as ca:
+                                ca.row_factory = sqlite3.Row
+                                if not _table_exists(ca, "product_catalog"):
+                                    return {"error": "product_catalog missing"}
+                                r = ca.execute(
+                                    "SELECT current_price, cost FROM product_catalog WHERE sku=? LIMIT 1", (sku,)
                                 ).fetchone()
-                                return {"item": dict(row) if row else None}
+                                if not r:
+                                    return {"error": "sku not found"}
+                                our_price = float(r["current_price"]) if r["current_price"] is not None else 0.0
+                                cost = float(r["cost"]) if r["cost"] is not None else None
+                        except Exception as e:
+                            return {"error": str(e)}
+                        
+                        # Determine competitor price anchor
+                        competitor_price: Optional[float] = None
+                        try:
+                            if competitor_source == "pricing_list":
+                                with sqlite3.connect(uri_market, uri=True) as cm:
+                                    cm.row_factory = sqlite3.Row
+                                    if _table_exists(cm, "pricing_list"):
+                                        rowp = cm.execute(
+                                            "SELECT optimized_price FROM pricing_list WHERE product_name=(SELECT title FROM product_catalog WHERE sku=? LIMIT 1) LIMIT 1",
+                                            (sku,)
+                                        ).fetchone()
+                                        if rowp and rowp[0] is not None:
+                                            competitor_price = float(rowp[0])
+                            elif competitor_source == "market_data":
+                                with sqlite3.connect(uri_market, uri=True) as cm:
+                                    cm.row_factory = sqlite3.Row
+                                    if _table_exists(cm, "market_data"):
+                                        rowm = cm.execute(
+                                            "SELECT AVG(price) FROM market_data WHERE product_name=(SELECT title FROM product_catalog WHERE sku=? LIMIT 1)",
+                                            (sku,)
+                                        ).fetchone()
+                                        if rowm and rowm[0] is not None:
+                                            competitor_price = float(rowm[0])
+                        except Exception:
+                            pass
+                        
+                        mp = float(min_price) if min_price is not None else 0.0
+                        xp = float(max_price) if max_price is not None else 1e12
+                        try:
+                            res = optimize(
+                                f=Features(sku=sku, our_price=our_price, competitor_price=competitor_price, cost=cost),
+                                min_price=mp, max_price=xp, min_margin=float(min_margin)
+                            )
+                            res.update({
+                                "inputs": {
+                                    "sku": sku,
+                                    "our_price": our_price,
+                                    "competitor_price": competitor_price,
+                                    "cost": cost,
+                                    "min_price": mp,
+                                    "max_price": xp,
+                                    "min_margin": float(min_margin),
+                                }
+                            })
+                            return res
                         except Exception as e:
                             return {"error": str(e)}
 
-                    def list_pricing_list(search: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
+                    def list_market_prices(search: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
+                        """List market prices with accurate total count."""
                         uri_db = f"file:{self.market_db.as_posix()}?mode=ro"
                         try:
                             with sqlite3.connect(uri_db, uri=True) as conn:
                                 conn.row_factory = sqlite3.Row
                                 if not _table_exists(conn, "pricing_list"):
-                                    return {"items": [], "total": 0, "note": "pricing_list missing"}
-                                q = "SELECT product_name, optimized_price, last_update, reason FROM pricing_list"
+                                    return {"items": [], "total": 0}
+                                
+                                where_sql = ""
                                 params: List[Any] = []
                                 if search:
-                                    q += " WHERE product_name LIKE ?"
+                                    where_sql = " WHERE product_name LIKE ?"
                                     params.append(f"%{search}%")
-                                q += " ORDER BY last_update DESC LIMIT ?"
-                                params.append(int(limit))
-                                rows = [dict(r) for r in conn.execute(q, params).fetchall()]
-                                return {"items": rows, "total": len(rows)}
+                                
+                                total = conn.execute(f"SELECT COUNT(*) FROM pricing_list{where_sql}", params).fetchone()[0]
+                                rows = conn.execute(
+                                    f"SELECT product_name, optimized_price, last_update, reason FROM pricing_list{where_sql} ORDER BY last_update DESC LIMIT ?",
+                                    params + [int(limit)]
+                                ).fetchall()
+                                return {"items": [dict(r) for r in rows], "total": total}
                         except Exception as e:
                             return {"error": str(e)}
 
-                    def list_price_proposals(sku: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
+                    def list_proposals(sku: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
+                        """List price proposals with accurate total count."""
                         uri_db = f"file:{self.app_db.as_posix()}?mode=ro"
                         try:
                             with sqlite3.connect(uri_db, uri=True) as conn:
                                 conn.row_factory = sqlite3.Row
                                 if not _table_exists(conn, "price_proposals"):
-                                    return {"items": [], "total": 0, "note": "price_proposals missing"}
-                                q = (
-                                    "SELECT id, sku, proposed_price, current_price, margin, algorithm, ts FROM price_proposals"
-                                )
+                                    return {"items": [], "total": 0}
+                                
+                                where_sql = ""
                                 params: List[Any] = []
                                 if sku:
-                                    q += " WHERE sku = ?"
+                                    where_sql = " WHERE sku = ?"
                                     params.append(sku)
-                                q += " ORDER BY ts DESC LIMIT ?"
-                                params.append(int(limit))
-                                rows = [dict(r) for r in conn.execute(q, params).fetchall()]
-                                return {"items": rows, "total": len(rows)}
+                                
+                                total = conn.execute(f"SELECT COUNT(*) FROM price_proposals{where_sql}", params).fetchone()[0]
+                                rows = conn.execute(
+                                    f"SELECT id, sku, proposed_price, current_price, margin, algorithm, ts FROM price_proposals{where_sql} ORDER BY ts DESC LIMIT ?",
+                                    params + [int(limit)]
+                                ).fetchall()
+                                return {"items": [dict(r) for r in rows], "total": total}
                         except Exception as e:
                             return {"error": str(e)}
 
                     functions_map = {
                         "execute_sql": execute_sql,
-                        "list_inventory_items": list_inventory_items,
-                        "get_inventory_item": get_inventory_item,
-                        "list_pricing_list": list_pricing_list,
-                        "list_price_proposals": list_price_proposals,
+                        "list_inventory": list_inventory,
+                        "optimize_price": optimize_price,
+                        "list_market_prices": list_market_prices,
+                        "list_proposals": list_proposals,
                     }
 
                     try:

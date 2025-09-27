@@ -282,13 +282,120 @@ st.sidebar.markdown('<div class="nav-header">Quick Actions</div>', unsafe_allow_
 if section == "🤖 AI CHAT":
     # Primary AI Chat Interface - The Core Product Feature
     from app.ui.views import chat as v_chat
-    
+    from app.ui.state.session import current_user
+    from app.ui.services import chat_threads as ct
+
+    # Sidebar: lightweight threads list just for AI Chat (non-invasive)
+    with st.sidebar:
+        st.markdown('<div class="nav-header">Chats</div>', unsafe_allow_html=True)
+        new_clicked = st.button("➕ New chat", key="threads_new", use_container_width=True)
+        if new_clicked:
+            tid = ct.create_thread(current_user(), title="New chat")
+            st.session_state["current_thread_id"] = tid
+            st.query_params["thread"] = tid
+            st.rerun()
+
+        search = st.text_input("Search chats", key="threads_search", placeholder="Search titles…")
+        threads = ct.list_threads(current_user())
+        if search:
+            q = search.lower().strip()
+            threads = [t for t in threads if q in (t.get("title", "").lower())]
+        # Render a compact list of up to 20 for now with updated_at and delete
+        for t in threads[:20]:
+            tid = t["id"]
+            is_active = st.session_state.get("current_thread_id") == tid
+            title = t.get("title") or "Untitled"
+            updated = t.get("updated_at", "")
+            cols = st.columns([0.78, 0.12, 0.10])
+            with cols[0]:
+                label = ("✅ " if is_active else "💬 ") + title
+                if st.button(label, key=f"thread_sel_{tid}", use_container_width=True):
+                    st.session_state["current_thread_id"] = tid
+                    st.query_params["thread"] = tid
+                    st.rerun()
+                if updated:
+                    st.caption(updated)
+            with cols[1]:
+                used_popover = False
+                if hasattr(st, "popover"):
+                    used_popover = True
+                    with st.popover("⋯"):
+                        rename_clicked = st.button("Rename", key=f"thread_menu_ren_{tid}", use_container_width=True)
+                        delete_clicked = st.button("Delete", key=f"thread_menu_del_{tid}", use_container_width=True)
+                        if rename_clicked:
+                            # Clear other rename flags
+                            for key in list(st.session_state.keys()):
+                                if str(key).startswith("rename_thread_"):
+                                    st.session_state[key] = False
+                            st.session_state[f"rename_thread_{tid}"] = True
+                        if delete_clicked:
+                            ct.delete_thread(current_user(), tid)
+                            if st.session_state.get("current_thread_id") == tid:
+                                new_tid = ct.first_thread_id(current_user())
+                                if not new_tid:
+                                    new_tid = ct.create_thread(current_user(), title="New chat")
+                                st.session_state["current_thread_id"] = new_tid
+                                st.query_params["thread"] = new_tid
+                            st.rerun()
+                else:
+                    if st.button("⋯", key=f"thread_menu_btn_{tid}", use_container_width=True):
+                        st.session_state[f"menu_open_{tid}"] = not st.session_state.get(f"menu_open_{tid}", False)
+            with cols[2]:
+                if not used_popover:
+                    if st.button("🗑", key=f"thread_del_{tid}", use_container_width=True):
+                        ct.delete_thread(current_user(), tid)
+                        if st.session_state.get("current_thread_id") == tid:
+                            new_tid = ct.first_thread_id(current_user())
+                            if not new_tid:
+                                new_tid = ct.create_thread(current_user(), title="New chat")
+                            st.session_state["current_thread_id"] = new_tid
+                            st.query_params["thread"] = new_tid
+                        st.rerun()
+                else:
+                    st.write("")
+
+            # Fallback inline menu actions
+            if st.session_state.get(f"menu_open_{tid}", False) and not used_popover:
+                mcol1, mcol2 = st.columns([0.5, 0.5])
+                with mcol1:
+                    if st.button("Rename", key=f"thread_menu_ren_fb_{tid}", use_container_width=True):
+                        # Clear other rename flags
+                        for key in list(st.session_state.keys()):
+                            if str(key).startswith("rename_thread_"):
+                                st.session_state[key] = False
+                        st.session_state[f"rename_thread_{tid}"] = True
+                        st.session_state[f"menu_open_{tid}"] = False
+                with mcol2:
+                    if st.button("Delete", key=f"thread_menu_del_fb_{tid}", use_container_width=True):
+                        ct.delete_thread(current_user(), tid)
+                        if st.session_state.get("current_thread_id") == tid:
+                            new_tid = ct.first_thread_id(current_user())
+                            if not new_tid:
+                                new_tid = ct.create_thread(current_user(), title="New chat")
+                            st.session_state["current_thread_id"] = new_tid
+                            st.query_params["thread"] = new_tid
+                        st.rerun()
+
+            # Inline rename UI when requested
+            if st.session_state.get(f"rename_thread_{tid}", False):
+                new_title = st.text_input("Rename chat", value=title, key=f"thread_rename_input_{tid}")
+                rc1, rc2 = st.columns([0.5, 0.5])
+                with rc1:
+                    if st.button("Save", key=f"thread_rename_save_{tid}", use_container_width=True):
+                        ct.rename_thread(current_user(), tid, new_title, by="user")
+                        st.session_state[f"rename_thread_{tid}"] = False
+                        st.rerun()
+                with rc2:
+                    if st.button("Cancel", key=f"thread_rename_cancel_{tid}", use_container_width=True):
+                        st.session_state[f"rename_thread_{tid}"] = False
+                        st.rerun()
+
     # Compact header without extra padding
     st.markdown("## 💬 AI Assistant")
-    
-    # Main chat interface - remove the redundant suggestions and spacing
+
+    # Main chat interface
     v_chat.view()
-    
+
 elif section == "🏠 HOME":
     # Control Center Dashboard - overview of all systems
     v_dashboard.view()
@@ -369,4 +476,5 @@ elif section == "⚡ OPERATIONS":
 elif section == "⚙️ SETTINGS":
     # Configuration and user preferences
     v_settings.view()
+
 

@@ -1,0 +1,31 @@
+{
+  "anonymous": {
+    "threads": [
+      {
+        "id": "0a90a478-f75a-4e29-aba5-630e8b04f47f",
+        "title": "bro wtf",
+        "created_at": "2025-09-27T11:31:22Z",
+        "updated_at": "2025-09-27T11:52:34Z",
+        "user_named": true
+      },
+      {
+        "id": "2b2e49ff-e2f1-46a4-8f9a-bc89a30c4f1b",
+        "title": "New chat",
+        "created_at": "2025-09-27T11:52:15Z",
+        "updated_at": "2025-09-27T11:52:15Z",
+        "auto_named": false,
+        "llm_named": false,
+        "user_named": false
+      },
+      {
+        "id": "2163bc66-cbf1-4a5b-985c-12e312737e41",
+        "title": "New chat",
+        "created_at": "2025-09-27T11:56:44Z",
+        "updated_at": "2025-09-27T11:56:44Z",
+        "auto_named": false,
+        "llm_named": false,
+        "user_named": false
+      }
+    ]
+  }
+}

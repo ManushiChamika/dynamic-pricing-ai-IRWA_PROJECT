@@ -1,9 +1,10 @@
 from __future__ import annotations
-import os
 import streamlit as st
-from app.ui.theme.inject import apply_theme
 from pathlib import Path
+from app.ui.theme.inject import apply_theme
+from app.ui.state.session import current_user
 from core.agents.user_interact.user_interaction_agent import UserInteractionAgent
+from app.ui.services import chat_threads as ct
 
 
 def _get_agent() -> UserInteractionAgent:
@@ -22,6 +23,46 @@ def _ensure_state() -> None:
         st.session_state["awaiting"] = ""
     if "_waiting_for_response" not in st.session_state:
         st.session_state._waiting_for_response = False
+
+
+def _ensure_thread_initialized() -> str:
+    user = current_user()
+    # Prefer URL param when present, but validate it exists for this user
+    tid = st.query_params.get("thread")
+    if tid and ct.thread_exists(user, tid):
+        st.session_state["current_thread_id"] = tid
+        return tid
+
+    # Fallback to session value if valid
+    if st.session_state.get("current_thread_id") and ct.thread_exists(user, st.session_state["current_thread_id"]):
+        return st.session_state["current_thread_id"]
+
+    # Otherwise, pick the most recent existing thread or create one
+    first = ct.first_thread_id(user)
+    if first:
+        st.session_state["current_thread_id"] = first
+        st.query_params["thread"] = first
+        return first
+
+    new_tid = ct.create_thread(user, title="New chat")
+    st.session_state["current_thread_id"] = new_tid
+    st.query_params["thread"] = new_tid
+    return new_tid
+
+
+def _migrate_legacy_history_to_thread(tid: str) -> None:
+    # If any old session chat_history exists, move it once into a new thread
+    if st.session_state.get("chat_history"):
+        user = current_user()
+        imported_tid = ct.create_thread(user, title="Imported chat")
+        for m in st.session_state.chat_history:
+            role = m.get("role", "assistant")
+            content = str(m.get("content") or "")
+            if content:
+                ct.append_message(user, imported_tid, role, content)
+        st.session_state.chat_history = []
+        st.session_state["current_thread_id"] = imported_tid
+        st.query_params["thread"] = imported_tid
 
 
 def view() -> None:
@@ -113,23 +154,72 @@ def view() -> None:
 
     agent = _get_agent()
 
-    # Avatars
-    # Use 2D monochrome emoji avatars (no external images)
-    assistant_avatar = "✨"  # sparkles for agent
-    user_avatar = "👤"       # simple 2D user icon
+    # Avatars (emoji-based)
+    assistant_avatar = "✨"
+    user_avatar = "👤"
+
+    # Ensure a thread exists and migrate any legacy session history
+    tid = _ensure_thread_initialized()
+    _migrate_legacy_history_to_thread(tid)
+
+    # Header with click-to-rename title (no persistent text input)
+    user = current_user()
+    meta = ct.get_thread(user, tid) or {"title": "Chat"}
+    st.markdown("<div style=\"max-width: 820px; margin: 0 auto;\">", unsafe_allow_html=True)
+    edit_key = f"_editing_title_{tid}"
+    if st.session_state.get(edit_key):
+        c1, c2 = st.columns([0.8, 0.2])
+        with c1:
+            new_title = st.text_input("Rename chat", value=meta.get("title") or "Untitled", key=f"title_input_{tid}")
+        with c2:
+            save = st.button("Save", key=f"save_title_{tid}", use_container_width=True)
+        cancel = st.button("Cancel", key=f"cancel_title_{tid}")
+        if save:
+            ct.rename_thread(user, tid, new_title, by="user")
+            st.session_state[edit_key] = False
+            st.rerun()
+        elif cancel:
+            st.session_state[edit_key] = False
+            st.rerun()
+    else:
+        title_display = meta.get("title") or "Untitled"
+        # Make the title itself a button (styled as plain header) to enter edit mode
+        st.markdown(f"""
+        <style>
+        button[key=\"title_click_{tid}\"] {{
+            background: transparent !important;
+            border: none !important;
+            padding: 0 !important;
+            text-align: left !important;
+            font-size: 1.5rem !important; /* ~h3 */
+            font-weight: 700 !important;
+            color: inherit !important;
+        }}
+        button[key=\"title_click_{tid}\"]:hover {{
+            text-decoration: underline;
+            cursor: pointer;
+        }}
+        </style>
+        """, unsafe_allow_html=True)
+        if st.button(title_display, key=f"title_click_{tid}"):
+            st.session_state[edit_key] = True
+            st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
 
     # Auto-send prefilled prompt from dashboard shortcuts
     prefill = st.session_state.pop("chat_prompt", None)
     if prefill and isinstance(prefill, str) and prefill.strip():
-        st.session_state.chat_history.append({"role": "user", "content": prefill.strip()})
+        ct.append_message(current_user(), tid, "user", prefill.strip())
         st.session_state["awaiting"] = prefill.strip()
         st.query_params["page"] = "dashboard"
         st.query_params["section"] = "chat"
+        st.query_params["thread"] = tid
         st.rerun()
 
     # Render history - centered narrower column
     st.markdown("<div style=\"max-width: 820px; margin: 0 auto;\">", unsafe_allow_html=True)
-    for msg in st.session_state.chat_history:
+    msgs = ct.load_messages(current_user(), tid)
+    for msg in msgs:
         role = msg.get("role", "assistant")
         content = str(msg.get("content") or "")
         with st.chat_message("user" if role == "user" else "assistant", avatar=(user_avatar if role == "user" else assistant_avatar)):
@@ -159,16 +249,44 @@ def view() -> None:
                 "[non-LLM assistant] No response generated. If you intended an AI reply, "
                 "try a pricing-related question or configure an API key."
             )
-        st.session_state.chat_history.append({"role": "assistant", "content": reply})
+        ct.append_message(current_user(), tid, "assistant", reply)
+        # After assistant reply, trigger LLM title rename if eligible
+        try:
+            if ct.should_llm_rename(current_user(), tid):
+                from app.llm_client import get_llm_client
+                llm = get_llm_client()
+                if llm.is_available():
+                    convo = ct.load_messages(current_user(), tid)
+                    # Build a compact transcript (cap length)
+                    parts = []
+                    for m in convo[-12:]:
+                        r = m.get("role", "user")
+                        c = str(m.get("content") or "")
+                        parts.append(f"{r}: {c}")
+                    transcript = "\n".join(parts)
+                    prompt = (
+                        "You are titling a conversation. Given the transcript, return a concise 3-6 word title capturing the main topic. "
+                        "No punctuation at end, no quotes, no emojis. Title-case where natural.\n\n" + transcript
+                    )
+                    title = llm.chat([
+                        {"role": "system", "content": "Return only the title without any extra text."},
+                        {"role": "user", "content": prompt},
+                    ], max_tokens=32, temperature=0.2)
+                    title = (title or "").strip().strip('"')
+                    if title:
+                        ct.rename_thread(current_user(), tid, title, by="llm")
+        except Exception:
+            pass
+
         st.session_state["awaiting"] = ""
         st.query_params["page"] = "dashboard"
         st.query_params["section"] = "chat"
+        st.query_params["thread"] = tid
         st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
 
     # Chat input (Enter to send)
-    # Centered and narrower input with taller height via CSS + label hint
     st.markdown(
         """
         <style>
@@ -185,8 +303,9 @@ def view() -> None:
 
     prompt = st.chat_input("Ask about prices, rules, proposals, or market trends…")
     if prompt and prompt.strip():
-        st.session_state.chat_history.append({"role": "user", "content": prompt.strip()})
+        ct.append_message(current_user(), tid, "user", prompt.strip())
         st.session_state["awaiting"] = prompt.strip()
         st.query_params["page"] = "dashboard"
         st.query_params["section"] = "chat"
+        st.query_params["thread"] = tid
         st.rerun()
