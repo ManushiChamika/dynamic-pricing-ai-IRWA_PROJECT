@@ -25,7 +25,7 @@ def view() -> None:
 
     # Initialize database and session management
     init_db()
-    ensure_session_from_cookie()
+    ensure_session_from_cookie(page_key="login")
 
     # Handle cookie commit waiting state
     if st.session_state.get("_await_cookie_commit"):

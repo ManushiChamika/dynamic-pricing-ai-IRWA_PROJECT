@@ -24,7 +24,7 @@ def view() -> None:
 
     # Initialize database and session management
     init_db()
-    ensure_session_from_cookie()
+    ensure_session_from_cookie(page_key="register")
 
     # Already logged in? Go to dashboard
     if st.session_state.get("session"):
