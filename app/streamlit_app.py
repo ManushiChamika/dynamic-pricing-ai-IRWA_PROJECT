@@ -293,6 +293,8 @@ if section == "🤖 AI CHAT":
             tid = ct.create_thread(current_user(), title="New chat")
             st.session_state["current_thread_id"] = tid
             st.query_params["thread"] = tid
+            st.query_params["page"] = "dashboard"
+            st.query_params["section"] = "chat"
             st.rerun()
 
         search = st.text_input("Search chats", key="threads_search", placeholder="Search titles…")
@@ -312,6 +314,8 @@ if section == "🤖 AI CHAT":
                 if st.button(label, key=f"thread_sel_{tid}", use_container_width=True):
                     st.session_state["current_thread_id"] = tid
                     st.query_params["thread"] = tid
+                    st.query_params["page"] = "dashboard"
+                    st.query_params["section"] = "chat"
                     st.rerun()
                 if updated:
                     st.caption(updated)
@@ -336,21 +340,25 @@ if section == "🤖 AI CHAT":
                                     new_tid = ct.create_thread(current_user(), title="New chat")
                                 st.session_state["current_thread_id"] = new_tid
                                 st.query_params["thread"] = new_tid
+                                st.query_params["page"] = "dashboard"
+                                st.query_params["section"] = "chat"
                             st.rerun()
                 else:
                     if st.button("⋯", key=f"thread_menu_btn_{tid}", use_container_width=True):
                         st.session_state[f"menu_open_{tid}"] = not st.session_state.get(f"menu_open_{tid}", False)
             with cols[2]:
                 if not used_popover:
-                    if st.button("🗑", key=f"thread_del_{tid}", use_container_width=True):
-                        ct.delete_thread(current_user(), tid)
-                        if st.session_state.get("current_thread_id") == tid:
-                            new_tid = ct.first_thread_id(current_user())
-                            if not new_tid:
-                                new_tid = ct.create_thread(current_user(), title="New chat")
-                            st.session_state["current_thread_id"] = new_tid
-                            st.query_params["thread"] = new_tid
-                        st.rerun()
+                        if st.button("🗑", key=f"thread_del_{tid}", use_container_width=True):
+                            ct.delete_thread(current_user(), tid)
+                            if st.session_state.get("current_thread_id") == tid:
+                                new_tid = ct.first_thread_id(current_user())
+                                if not new_tid:
+                                    new_tid = ct.create_thread(current_user(), title="New chat")
+                                st.session_state["current_thread_id"] = new_tid
+                                st.query_params["thread"] = new_tid
+                                st.query_params["page"] = "dashboard"
+                                st.query_params["section"] = "chat"
+                            st.rerun()
                 else:
                     st.write("")
 
@@ -374,6 +382,8 @@ if section == "🤖 AI CHAT":
                                 new_tid = ct.create_thread(current_user(), title="New chat")
                             st.session_state["current_thread_id"] = new_tid
                             st.query_params["thread"] = new_tid
+                            st.query_params["page"] = "dashboard"
+                            st.query_params["section"] = "chat"
                         st.rerun()
 
             # Inline rename UI when requested

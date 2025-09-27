@@ -165,6 +165,12 @@ def view() -> None:
     # Header with click-to-rename title (no persistent text input)
     user = current_user()
     meta = ct.get_thread(user, tid) or {"title": "Chat"}
+    toast_info = st.session_state.pop("_toast_llm_renamed", None)
+    if toast_info and toast_info.get("tid") == tid:
+        try:
+            st.toast(f"Chat renamed to \"{toast_info.get('title')}\"")
+        except Exception:
+            st.info(f"Chat renamed to \"{toast_info.get('title')}\"")
     st.markdown("<div style=\"max-width: 820px; margin: 0 auto;\">", unsafe_allow_html=True)
     edit_key = f"_editing_title_{tid}"
     if st.session_state.get(edit_key):
@@ -275,6 +281,7 @@ def view() -> None:
                     title = (title or "").strip().strip('"')
                     if title:
                         ct.rename_thread(current_user(), tid, title, by="llm")
+                        st.session_state["_toast_llm_renamed"] = {"tid": tid, "title": title}
         except Exception:
             pass
 
