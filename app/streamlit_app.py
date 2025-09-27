@@ -39,7 +39,6 @@ with st.sidebar:
     st.markdown("### FluxPricer AI")
 
 # 3) Project imports that rely on the repo root being on sys.path
-from app.session_utils import ensure_session_from_cookie
 from core.agents.alert_service import api as alerts  # <-- safe now
 
 # 4) Session setup (do not force-stop if cookie manager hasn't initialized yet)
@@ -60,17 +59,8 @@ import os  # Move import up here
 #     pass
 st.session_state.setdefault("session", None)
 
-# Optional login gating via env var UI_REQUIRE_LOGIN
-require_login = os.getenv("UI_REQUIRE_LOGIN", "0").strip().lower() in {"1", "true", "yes", "on"}
-if require_login and st.query_params.get("page") == "dashboard":
-    # Only require login for dashboard access, not landing page
-    from app.ui.state.session import require_session
-    try:
-        require_session()
-    except Exception:
-        # If login fails, redirect to landing
-        st.query_params["page"] = "landing"
-        st.rerun()
+# Dashboard-only mode: no login gating
+require_login = False
 
 # 5) Start the alert service once (schedule onto background loop)
 if "_alerts_started" not in st.session_state:
@@ -86,81 +76,23 @@ from app.ui.views import incidents as v_incidents
 from app.ui.views import activity_view as v_activity
 from app.ui.views import rules as v_rules
 from app.ui.views import settings as v_settings
-from app.ui.views import landing as v_landing
-from app.ui.views import login as v_login
-from app.ui.views import register as v_register
 
 
-def _normalize_query_param(value, default):
-    """Streamlit may return list values for query params; coerce to a single string."""
-    if isinstance(value, (list, tuple)):
-        for item in value:
-            if item:
-                return str(item)
-        return default
-    if value is None:
-        return default
-    value_str = str(value).strip()
-    return value_str if value_str else default
-
-# More robust page routing logic
-# If user is logged in, default to dashboard, otherwise landing
-if st.session_state.get("session"):
-    page = _normalize_query_param(st.query_params.get("page"), "dashboard")
-else:
-    page = _normalize_query_param(st.query_params.get("page"), "landing")
-
-section_param = _normalize_query_param(st.query_params.get("section", None), None)
-
-# Guard: logged-in users should not see login/register pages
-if st.session_state.get("session") and page in {"login", "register"}:
-    if os.getenv("DEBUG_LLM", "0") == "1":
-        print(f"[DEBUG] Logged in but page='{page}', redirecting to dashboard")
-    st.query_params["page"] = "dashboard"
-    st.rerun()
+# Dashboard-only routing
+page = "dashboard"
+section_param = st.query_params.get("section", None)
 
 # DEBUG: Add logging to track navigation
 if os.getenv("DEBUG_LLM", "0") == "1":
     session_info = "logged_in" if st.session_state.get("session") else "not_logged_in"
     print(f"[DEBUG] App start - page='{page}', section='{section_param}', session={session_info}, query_params={dict(st.query_params)}")
 
-# URL-based routing for different pages
-if page == "landing":
-    if os.getenv("DEBUG_LLM", "0") == "1":
-        print("[DEBUG] Rendering landing page")
-    v_landing.view()
-    st.stop()  # Don't render dashboard navigation
-elif page == "login" or st.session_state.get("_force_login_page", False):
-    if os.getenv("DEBUG_LLM", "0") == "1":
-        print("[DEBUG] Rendering login page")
-    if st.session_state.get("_force_login_page", False):
-        # Force login page even if query params were lost
-        st.session_state["_force_login_page"] = False
-        st.query_params.clear()
-        st.query_params["page"] = "login"
-    v_login.view()
-    st.stop()  # Don't render dashboard navigation
-elif page == "register":
-    if os.getenv("DEBUG_LLM", "0") == "1":
-        print("[DEBUG] Rendering register page")
-    v_register.view()
-    st.stop()  # Don't render dashboard navigation
-elif page == "dashboard":
-    if os.getenv("DEBUG_LLM", "0") == "1":
-        print("[DEBUG] Rendering dashboard")
-    # Ensure URL stays as dashboard during dashboard navigation
-    if st.query_params.get("page") != "dashboard":
-        if os.getenv("DEBUG_LLM", "0") == "1":
-            print(f"[DEBUG] Page parameter was not dashboard, fixing it. Current params: {dict(st.query_params)}")
-        st.query_params["page"] = "dashboard"
-    # Continue to dashboard below
-    pass
-else:
-    if os.getenv("DEBUG_LLM", "0") == "1":
-        print(f"[DEBUG] Invalid page '{page}', redirecting to landing")
-    # For any other page value, redirect to landing
-    st.query_params["page"] = "landing"
-    st.rerun()
+# URL-based routing for dashboard only
+if os.getenv("DEBUG_LLM", "0") == "1":
+    print("[DEBUG] Rendering dashboard (dashboard-only mode)")
+# Ensure URL shows dashboard during navigation
+if st.query_params.get("page") != "dashboard":
+    st.query_params["page"] = "dashboard"
 
 # Dashboard Mode - Full App Interface
 # Apply theme from session (supports dark toggle)
@@ -342,88 +274,9 @@ for item in nav_items:
 # Get the selected section for routing
 section = f"🤖 {st.session_state.current_section}" if st.session_state.current_section == "AI CHAT" else f"🏠 {st.session_state.current_section}"
 
-# Back to Landing Section
+# Quick Actions (no landing/logout in dashboard-only mode)
 st.sidebar.markdown("---")
 st.sidebar.markdown('<div class="nav-header">Quick Actions</div>', unsafe_allow_html=True)
-
-back_clicked = st.sidebar.button("🏠 **← Back to Landing**", use_container_width=True)
-if back_clicked:
-    if os.getenv("DEBUG_LLM", "0") == "1":
-        print("[DEBUG] Back to landing clicked, navigating to landing")
-    st.query_params["page"] = "landing"
-    st.rerun()
-
-# Logout Section - Only show if user is logged in
-if st.session_state.get("session"):
-    st.sidebar.markdown("---")
-    st.sidebar.markdown('<div class="nav-header">Account</div>', unsafe_allow_html=True)
-    
-    # Show current user info
-    user_info = st.session_state.get("session", {})
-    user_name = user_info.get("full_name") or user_info.get("email", "").split("@")[0] or "User"
-    st.sidebar.markdown(f'<div style="color: #64748B; font-size: 0.9rem; padding: 0.5rem; text-align: center;">👤 {user_name}</div>', unsafe_allow_html=True)
-    
-    logout_clicked = st.sidebar.button("🚪 **Logout**", type="secondary", use_container_width=True)
-    
-    # Add special styling for logout button
-    st.sidebar.markdown("""
-    <style>
-    /* Find the last button (logout) and style it */
-    div[data-testid="stSidebar"] .stButton:last-of-type > button {
-        background: linear-gradient(135deg, #DC2626, #B91C1C) !important;
-        color: white !important;
-        border-color: #DC2626 !important;
-        font-weight: 600 !important;
-    }
-    div[data-testid="stSidebar"] .stButton:last-of-type > button:hover {
-        background: linear-gradient(135deg, #B91C1C, #991B1B) !important;
-        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3) !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    if logout_clicked:
-        # Import session utilities
-        from app.session_utils import clear_session_cookie
-        from core.auth_service import revoke_session_token
-        
-        if os.getenv("DEBUG_LLM", "0") == "1":
-            print("[DEBUG] Logout button clicked - clearing session")
-        
-        # Get current session token if available
-        try:
-            from app.session_utils import cookie_mgr, COOKIE_NAME
-            cm = cookie_mgr()
-            cookies = cm.get_all(key="logout_get_cookies")
-            if cookies:
-                token = cookies.get(COOKIE_NAME)
-                if token:
-                    # Revoke the session token on server side
-                    revoke_session_token(token)
-                    if os.getenv("DEBUG_LLM", "0") == "1":
-                        print(f"[DEBUG] Revoked server-side session token")
-        except Exception as e:
-            if os.getenv("DEBUG_LLM", "0") == "1":
-                print(f"[DEBUG] Error revoking token: {e}")
-        
-        # Clear client-side session
-        st.session_state.pop("session", None)
-        st.session_state.pop("_post_login_redirect_ready", None)
-        st.session_state.pop("_await_cookie_commit", None)
-        st.session_state.pop("_registration_success", None)
-        
-        # Clear session cookie
-        clear_session_cookie()
-        
-        # Redirect to landing page
-        st.query_params.clear()
-        st.query_params["page"] = "landing"
-        
-        if os.getenv("DEBUG_LLM", "0") == "1":
-            print("[DEBUG] Logout complete - redirecting to landing")
-        
-        st.success("✅ Successfully logged out!")
-        st.rerun()
 
 # Route to appropriate views - Chat First!
 if section == "🤖 AI CHAT":

@@ -16,24 +16,43 @@ def test_registration():
     init_db()
     
     try:
-        # Test registration with a new user
-        print("Testing registration with new user...")
+        # Test registration with a completely fresh user
+        import time
+        timestamp = int(time.time())
+        test_email = f"testuser{timestamp}@example.com"
+        
+        print(f"Testing registration with completely new user: {test_email}")
         register_user(RegisterIn(
-            email="newuser@example.com",
-            full_name="New Test User",
-            password="newpassword123"
+            email=test_email,
+            full_name="Test User",
+            password="testpassword123"
         ))
         print("SUCCESS: New user registration successful!")
         
         # Test authentication with the new user
         print("Testing authentication with new user...")
-        session = authenticate("newuser@example.com", "newpassword123")
+        session = authenticate(test_email, "testpassword123")
         print(f"SUCCESS: New user authentication successful! Session: {session}")
         
-        # Test authentication with existing user
-        print("Testing authentication with existing user...")
-        session = authenticate("test@example.com", "testpassword123")
-        print(f"SUCCESS: Existing user authentication successful! Session: {session}")
+        # Test authentication with wrong password
+        print("Testing authentication with wrong password...")
+        try:
+            session = authenticate(test_email, "wrongpassword")
+            print("ERROR: Authentication should have failed!")
+        except ValueError as e:
+            print(f"SUCCESS: Authentication correctly rejected wrong password: {e}")
+        
+        # Test duplicate registration
+        print("Testing duplicate registration...")
+        try:
+            register_user(RegisterIn(
+                email=test_email,
+                full_name="Duplicate User",
+                password="anotherpassword123"
+            ))
+            print("ERROR: Duplicate registration should have failed!")
+        except ValueError as e:
+            print(f"SUCCESS: Duplicate registration correctly rejected: {e}")
         
     except Exception as e:
         print(f"ERROR: {e}")

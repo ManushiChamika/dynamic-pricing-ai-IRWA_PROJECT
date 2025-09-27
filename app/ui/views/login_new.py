@@ -9,10 +9,7 @@ from app.session_utils import COOKIE_NAME, cookie_mgr
 
 
 def view() -> None:
-    """
-    Modern login page - part of the new UI system.
-    Integrates with existing authentication backend.
-    """
+    """Simplified, robust login page."""
     apply_theme(False)
 
     # Remove sidebar for auth pages
@@ -23,18 +20,13 @@ def view() -> None:
     </style>
     """, unsafe_allow_html=True)
 
-    # Initialize database and session management
+    # Initialize database
     init_db()
-    
+
     # If already logged in, redirect to dashboard
     if st.session_state.get("session"):
         st.query_params["page"] = "dashboard"
         st.rerun()
-
-    # Show success message if coming from registration
-    if st.session_state.get("login_from_registration"):
-        st.success("🎉 Account created successfully! Please sign in below.")
-        st.session_state.pop("login_from_registration", None)
 
     # Header Section
     st.markdown("""
@@ -56,6 +48,11 @@ def view() -> None:
         <div style="background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); border: 1px solid #E2E8F0;">
         """, unsafe_allow_html=True)
         
+        # Show success message if coming from registration
+        if st.session_state.get("login_from_registration"):
+            st.success("🎉 Account created successfully! Please sign in below.")
+            st.session_state.pop("login_from_registration", None)
+
         with st.form("login_form", clear_on_submit=False):
             st.markdown("### 🔑 Login to Your Account")
             
@@ -78,52 +75,47 @@ def view() -> None:
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # Handle form submission
-    if submitted:
-        email_norm = (email or "").strip().lower()
-        pw = (password or "").strip()
+        # Handle form submission
+        if submitted:
+            email_norm = (email or "").strip().lower()
+            pw = (password or "").strip()
 
-        if not email_norm or not pw:
-            st.error("⚠️ Email and password are required.")
-        else:
-            try:
-                if os.getenv("DEBUG_LLM", "0") == "1":
-                    print(f"[DEBUG] Attempting login for email: {email_norm}")
-                
-                # Authenticate user
-                session = authenticate(email=email_norm, password=pw)
-                st.session_state["session"] = session
+            if not email_norm or not pw:
+                st.error("⚠️ Email and password are required.")
+            else:
+                try:
+                    # Authenticate user
+                    session = authenticate(email=email_norm, password=pw)
+                    st.session_state["session"] = session
 
-                # Create server-side token
-                token, _ = create_persistent_session(session["user_id"])
+                    # Create server-side token
+                    token, _ = create_persistent_session(session["user_id"])
 
-                # Set the cookie
-                cm = cookie_mgr()
-                expires_at = datetime.now(timezone.utc) + timedelta(days=7)
-                cm.set(
-                    COOKIE_NAME,
-                    token,
-                    expires_at=expires_at,
-                    max_age=7*24*60*60,
-                    path="/",
-                    same_site="Lax",
-                )
+                    # Set the cookie
+                    cm = cookie_mgr()
+                    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+                    cm.set(
+                        COOKIE_NAME,
+                        token,
+                        expires_at=expires_at,
+                        max_age=7*24*60*60,
+                        path="/",
+                        same_site="Lax",
+                    )
 
-                # Success - redirect to dashboard
-                st.success("✅ Login successful! Redirecting to dashboard...")
-                st.balloons()
-                
-                # Small delay to let user see success message
-                import time
-                time.sleep(1)
-                
-                st.query_params["page"] = "dashboard" 
-                st.rerun()
-                
-            except Exception as e:
-                if os.getenv("DEBUG_LLM", "0") == "1":
-                    print(f"[DEBUG] Login failed: {e}")
-                st.error(f"❌ {str(e)}")
+                    # Success - redirect to dashboard
+                    st.success("✅ Login successful! Redirecting to dashboard...")
+                    st.balloons()
+                    
+                    # Small delay to let user see success message
+                    import time
+                    time.sleep(1)
+                    
+                    st.query_params["page"] = "dashboard" 
+                    st.rerun()
+                    
+                except Exception as e:
+                    st.error(f"❌ {str(e)}")
 
     # Navigation Section
     st.markdown("---")

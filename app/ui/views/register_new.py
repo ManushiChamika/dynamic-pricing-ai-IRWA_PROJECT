@@ -51,9 +51,6 @@ def view() -> None:
             st.success("✅ Account created successfully! You can now sign in.")
             st.session_state.pop("registration_success", None)
             if st.button("🔐 **Go to Login**", type="primary", use_container_width=True):
-                # Clear registration success flag and navigate to login
-                st.session_state.pop("registration_success", None)
-                st.session_state["login_from_registration"] = True
                 st.query_params["page"] = "login"
                 st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
@@ -117,8 +114,6 @@ def view() -> None:
                     
                     # Set success flag and rerun to show success message
                     st.session_state["registration_success"] = True
-                    # Ensure we stay on register page after rerun
-                    st.query_params["page"] = "register"
                     st.rerun()
                     
                 except Exception as e:

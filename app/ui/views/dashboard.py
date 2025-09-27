@@ -5,7 +5,7 @@ import plotly.express as px
 import random
 from datetime import datetime, timedelta
 
-from app.ui.state.session import user_display_name
+
 from app.ui.theme.inject import apply_theme
 from app.ui.theme.charts import apply_light_theme_to_plotly, get_chart_colors
 from app.ui.services.activity import recent as recent_activity
@@ -17,8 +17,8 @@ def view() -> None:
     # Dashboard header - simplified for internal use
     st.markdown(f"""
     <div style="text-align: center; padding: 0.5rem 0 1rem 0;">
-        <h2 style="color: #3B82F6; margin-bottom: 0.5rem;">Control Center</h2>
-        <p style="color: #64748B;">Welcome back, <strong>{user_display_name()}</strong> • {datetime.now().strftime('%B %d, %Y')}</p>
+        <h2 style="color: #3B82F6; margin-bottom: 0.5rem;">FluxPricer Control Center</h2>
+        <p style="color: #64748B;">Welcome to FluxPricer AI • {datetime.now().strftime('%B %d, %Y')}</p>
     </div>
     """, unsafe_allow_html=True)
 
