@@ -9,24 +9,21 @@ _root0 = _Path0(__file__).resolve().parents[1]
 if str(_root0) not in _Sys0.path:
     _Sys0.path.insert(0, str(_root0))
 
-from core.agents.auto_applier import AutoApplier
+from core.agents.governance_execution_agent import GovernanceExecutionAgent
 
 
 async def main() -> None:
-    aa = AutoApplier()
-    await aa.start()
-    print("AutoApplier started. Press Ctrl+C to stop.")
+    agent = GovernanceExecutionAgent()
+    await agent.start()
+    print("GovernanceExecutionAgent started. Press Ctrl+C to stop.")
     try:
         while True:
             await asyncio.sleep(1)
     except KeyboardInterrupt:
         print("Stopping...")
-        await aa.stop()
+    finally:
+        await agent.stop()
 
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
-
-

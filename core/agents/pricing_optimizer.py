@@ -386,299 +386,108 @@ class LLMBrain:
 		if _act:
 			_act.log("pricing_optimizer", "compute_price", "completed", message=f"algo={algo} price={price}")
 
-		# Hybrid publish + persist of PriceProposal (non-blocking)
-		# - Read current_price and cost from app/data.db product_catalog if available
-		# - Compute margin, build PriceProposal, publish to global bus, and persist
-		#   to app/data.db price_proposals in the background.
+		# Publish a typed price.proposal payload only (no direct writes)
 		try:
-			from pathlib import Path as _Path
+			import uuid as _uuid
 			import sqlite3 as _sqlite3
 			import asyncio as _asyncio
 			import threading as _threading
-			from core.agents.agent_sdk.events_models import PriceProposal as _PriceProposal
 			from core.agents.agent_sdk.bus_factory import get_bus as _get_bus
 			from core.agents.agent_sdk.protocol import Topic as _Topic
+			from core.payloads import PriceProposalPayload as _PPayload
 
+			# Read current and cost from app/data.db (read-only), and prior optimized price from market.db
+			from pathlib import Path as _Path
 			_root = _Path(__file__).resolve().parents[2]
 			_app_db = _root / "app" / "data.db"
+			_market_db = _root / "data" / "market.db"
 
+			def _ro_conn(p: _Path):
+				try:
+					return _sqlite3.connect(f"file:{p.as_posix()}?mode=ro", uri=True, check_same_thread=False)
+				except Exception:
+					# Fallback to normal open; we only perform SELECTs
+					return _sqlite3.connect(p.as_posix(), check_same_thread=False)
 
 			current_price_val = None
-			cost_val = None
 			try:
-				_conn2 = _sqlite3.connect(_app_db.as_posix(), check_same_thread=False)
-				_cur2 = _conn2.cursor()
-				_cur2.execute(
+				c2 = _ro_conn(_app_db)
+				cur2 = c2.cursor()
+				cur2.execute(
 					"CREATE TABLE IF NOT EXISTS product_catalog (\n"
 					"  sku TEXT PRIMARY KEY,\n"
 					"  title TEXT, currency TEXT, current_price REAL, cost REAL,\n"
 					"  stock INTEGER, updated_at TEXT\n"
 					")"
 				)
-				_cur2.execute(
-					"SELECT current_price, cost FROM product_catalog WHERE sku=? LIMIT 1",
+				cur2.execute(
+					"SELECT current_price FROM product_catalog WHERE sku=? LIMIT 1",
 					(product_name,),
 				)
-				_row = _cur2.fetchone()
-				if _row:
-					current_price_val = float(_row[0]) if _row[0] is not None else None
-					cost_val = float(_row[1]) if _row[1] is not None else None
+				rowc = cur2.fetchone()
+				if rowc:
+					current_price_val = float(rowc[0]) if rowc[0] is not None else None
 			finally:
 				try:
-					_conn2.close()  # type: ignore[name-defined]
+					c2.close()  # type: ignore[name-defined]
 				except Exception:
 					pass
 
-			# Compute margin
-			if cost_val is not None and price > 0:
-				margin_val = (float(price) - float(cost_val)) / float(price)
-			else:
-				# Conservative margin when cost/current unavailable
-				# Aligns with safer behavior to avoid false positives in alerts
-				margin_val = 0.0
+			previous_price_val = None
+			try:
+				cm = _ro_conn(_market_db)
+				curm = cm.cursor()
+				curm.execute(
+					"SELECT optimized_price FROM pricing_list WHERE product_name=?",
+					(product_name,),
+				)
+				rowm = curm.fetchone()
+				if rowm and rowm[0] is not None:
+					previous_price_val = float(rowm[0])
+			finally:
+				try:
+					cm.close()  # type: ignore[name-defined]
+				except Exception:
+					pass
 
+			proposal_id = str(_uuid.uuid4())
+			pp: _PPayload = {
+				"proposal_id": proposal_id,
+				"product_id": product_name,
+				"previous_price": float(previous_price_val if previous_price_val is not None else (current_price_val if current_price_val is not None else 0.0)),
+				"proposed_price": float(price),
+			}
 
-			pp = _PriceProposal(
-				sku=product_name,
-				proposed_price=float(price),
-				current_price=(current_price_val if current_price_val is not None else float(price)),
-				margin=float(margin_val),
-				algorithm=str(algo),
-			)
-
-			# Non-blocking publish to global bus
 			async def _publish_async():
 				try:
 					_bus_local = _get_bus()
 					await _bus_local.publish(_Topic.PRICE_PROPOSAL.value, pp)
 				except Exception as _e:
 					try:
-						print(f"[pricing_optimizer] publish PriceProposal failed: {_e}")
+						print(f"[pricing_optimizer] publish price.proposal failed: {_e}")
 					except Exception:
 						pass
-
 
 			try:
 				_loop = _asyncio.get_running_loop()
 				_loop.create_task(_publish_async())
 			except RuntimeError:
-				# No running loop; publish in a background thread
 				_threading.Thread(target=lambda: _asyncio.run(_publish_async()), daemon=True).start()
 
-			# Background persistence into app/data.db
-			def _persist_sync():
-				try:
-					connp = _sqlite3.connect(_app_db.as_posix(), check_same_thread=False)
-					curp = connp.cursor()
-					curp.execute(
-						"""
-						CREATE TABLE IF NOT EXISTS price_proposals (
-						  id TEXT PRIMARY KEY,
-						  sku TEXT,
-						  proposed_price REAL,
-						  current_price REAL,
-						  margin REAL,
-						  algorithm TEXT,
-						  ts TEXT
-						)
-						"""
-					)
-					# Generate a simple UUID id and insert
-					import uuid as _uuid
-					curp.execute(
-						"INSERT INTO price_proposals (id, sku, proposed_price, current_price, margin, algorithm, ts)\n"
-						"VALUES (?,?,?,?,?,?,?)",
-						(
-							str(_uuid.uuid4()),
-							pp.sku,
-							pp.proposed_price,
-							pp.current_price,
-							pp.margin,
-							pp.algorithm,
-							pp.timestamp.isoformat() if hasattr(pp, "timestamp") and pp.timestamp else datetime.utcnow().isoformat(),
-						),
-					)
-					connp.commit()
-				except Exception as _e2:
-					try:
-						print(f"[pricing_optimizer] persist PriceProposal failed: {_e2}")
-					except Exception:
-						pass
-				finally:
-					try:
-						connp.close()  # type: ignore[name-defined]
-					except Exception:
-						pass
-
-				_threading.Thread(target=_persist_sync, daemon=True).start()
-
-				# Governance: if enabled, skip direct apply and let AutoApplier handle
-				try:
-					_gov = os.getenv("PRICING_GOVERNANCE_ENABLED", "")
-					_gov_enabled = (_gov or "").strip().lower() in ("1", "true", "yes", "on")
-				except Exception:
-					_gov_enabled = False
-				if _gov_enabled:
-					if _act:
-						_act.log("pricing_optimizer", "governance.enabled", "info", message="Skipping direct apply; proposal published")
-					return {"product": product_name, "proposed_price": float(price), "algorithm": str(algo), "status": "proposed"}
+			if _act:
+				_act.log("pricing_optimizer", "governance.enabled", "info", message="Published price.proposal; no direct DB writes")
+			return {"product": product_name, "proposed_price": float(price), "algorithm": str(algo), "proposal_id": proposal_id, "status": "proposed"}
 		except Exception as _ep:
 			try:
-				print(f"[pricing_optimizer] PriceProposal hybrid flow error: {_ep}")
+				print(f"[pricing_optimizer] proposal publish error: {_ep}")
 			except Exception:
 				pass
-
-		# Step 5: Update database (insert or update) + DecisionLog + PRICE_UPDATE
-		try:
-			# Capture old price first (if any)
-			old_price_val = None
-			try:
-				cursor.execute("SELECT optimized_price FROM pricing_list WHERE product_name=?", (product_name,))
-				row_old = cursor.fetchone()
-				if row_old and row_old[0] is not None:
-					old_price_val = float(row_old[0])
-			except Exception:
-				old_price_val = None
-
-			# Upsert optimized price
-			cursor.execute("SELECT product_name FROM pricing_list WHERE product_name=?", (product_name,))
-			exists = cursor.fetchone() is not None
-			if exists:
-				cursor.execute(
-					"UPDATE pricing_list SET optimized_price=?, last_update=CURRENT_TIMESTAMP, reason=? WHERE product_name=?",
-					(price, f"optimized using {algo}", product_name),
-				)
-			else:
-				cursor.execute(
-					"INSERT INTO pricing_list (product_name, optimized_price, last_update, reason) VALUES (?, ?, CURRENT_TIMESTAMP, ?)",
-					(product_name, price, f"optimized using {algo}"),
-				)
-			conn.commit()
-		except Exception as e:
-			return err(f"db update failed: {e}")
-
-		# Governance DecisionLog (app/data.db)
-		try:
-			from pathlib import Path as _Path2
-			import sqlite3 as _sqlite3b
-			import uuid as _uuid2
-			_root2 = _Path2(__file__).resolve().parents[2]
-			_app_db2 = _root2 / "app" / "data.db"
-			conn_d = _sqlite3b.connect(_app_db2.as_posix(), check_same_thread=False)
-			cur_d = conn_d.cursor()
-			cur_d.execute(
-				"""
-				CREATE TABLE IF NOT EXISTS decision_log (
-				  id TEXT PRIMARY KEY,
-				  proposal_id TEXT,
-				  sku TEXT NOT NULL,
-				  old_price REAL,
-				  new_price REAL NOT NULL,
-				  margin REAL,
-				  algorithm TEXT,
-				  decision TEXT NOT NULL,
-				  actor TEXT NOT NULL,
-				  ts TEXT NOT NULL
-				)
-				"""
-			)
-			# Try to reuse margin from earlier calculation if available
-			try:
-				_margin_for_log = float(margin_val)  # may not exist if earlier block failed
-			except Exception:
-				_margin_for_log = None
-			cur_d.execute(
-				"INSERT INTO decision_log (id, proposal_id, sku, old_price, new_price, margin, algorithm, decision, actor, ts)\n"
-				"VALUES (?,?,?,?,?,?,?,?,?,?)",
-				(
-					str(_uuid2.uuid4()),
-					None,
-					product_name,
-					old_price_val,
-					float(price),
-					_margin_for_log,
-					str(algo),
-					"AUTO_APPLIED",
-					"optimizer",
-					datetime.utcnow().isoformat(),
-				),
-			)
-			conn_d.commit()
-		except Exception:
-			pass
-		finally:
-			try:
-				conn_d.close()  # type: ignore[name-defined]
-			except Exception:
-				pass
-
-		# Publish PRICE_UPDATE event on the bus (non-blocking)
-		try:
-			import asyncio as _asyncio2
-			import threading as _threading2
-			from core.agents.agent_sdk.bus_factory import get_bus as _get_bus2
-			from core.agents.agent_sdk.protocol import Topic as _Topic2
-
-			payload = {
-				"sku": product_name,
-				"old_price": old_price_val,
-				"new_price": float(price),
-				"actor": "optimizer",
-				"algorithm": str(algo),
-				"ts": datetime.utcnow().isoformat(),
-			}
-
-			async def _pub2():
-				try:
-					await _get_bus2().publish(_Topic2.PRICE_UPDATE.value, payload)
-				except Exception:
-					pass
-
-			try:
-				_loop2 = _asyncio2.get_running_loop()
-				_loop2.create_task(_pub2())
-			except RuntimeError:
-				_threading2.Thread(target=lambda: _asyncio2.run(_pub2()), daemon=True).start()
-		except Exception:
-			pass
-
-		# Step 6: Notify Alert Agent
-		notify_msg = f"PRICE_UPDATED {product_name} {price}"
-		if notify_alert_fn:
-			try:
-				notify_alert_fn(notify_msg)
-			except Exception:
-				print("Failed to call notify_alert_fn")
-		else:
-			print(notify_msg)
+			return err("failed to publish proposal")
+		# No direct DB writes, no decision logs, no price.update here.
+		# Return a proposal summary only; GEA will handle application and logging.
 		if _act:
-			_act.log("alert_notifier", "notify", "info", message=notify_msg)
-
-		result = {"product": product_name, "price": price, "algorithm": algo, "status": "success"}
-
-		# Step 7: Monitor changes - optional single re-run if market_data updates during monitor_timeout
-		if monitor_timeout and monitor_timeout > 0:
-			start = time.time()
-			# capture current latest update_time
-			try:
-				cursor.execute("SELECT MAX(update_time) FROM market_data WHERE product_name=?", (product_name,))
-				baseline = cursor.fetchone()[0]
-			except Exception:
-				baseline = None
-			while time.time() - start < monitor_timeout:
-				time.sleep(1)
-				try:
-					cursor.execute("SELECT MAX(update_time) FROM market_data WHERE product_name=?", (product_name,))
-					latest2 = cursor.fetchone()[0]
-				except Exception:
-					latest2 = None
-				if latest2 and latest2 != baseline:
-					# re-run once
-					return self.process_full_workflow(user_request, product_name, db_path=db_path, notify_alert_fn=notify_alert_fn, wait_seconds=wait_seconds, max_wait_attempts=max_wait_attempts, monitor_timeout=0)
-
-		if _act:
-			_act.log("pricing_optimizer", "workflow.end", "completed", message=f"sku='{product_name}' status=success")
-		return result
+			_act.log("pricing_optimizer", "workflow.end", "completed", message=f"sku='{product_name}' status=proposed")
+		return {"product": product_name, "proposed_price": float(price), "algorithm": algo, "status": "proposed"}
 
 
 

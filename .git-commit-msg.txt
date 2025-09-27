@@ -1,0 +1,88 @@
+feat(governance+ui): decision log, PRICE_UPDATE events, agent-SDK AutoApplier, Decisions view, and user intents
+
+Summary
+- Establish a persistent decision_log (app/data.db) to audit price decisions (AUTO_APPLIED, AWAITING_MANUAL_APPROVAL) with sku, old/new price, margin, algorithm, actor, and timestamp.
+- Introduce Topic.PRICE_UPDATE and publish from pricing optimizer and AutoApplier; surface in UI Activity feed for visibility.
+- Migrate AutoApplier to the shared agent_sdk bus/protocol/events models and add idempotent application with best-effort decision logging.
+- Add operator-facing Decisions view in UI with filters; wire to navigation under OPERATIONS.
+- Add deterministic user-agent intents (price_of, competitors_for) to answer common questions without LLM.
+- Add governance flag (PRICING_GOVERNANCE_ENABLED) to let optimizer publish proposals while AutoApplier applies under guardrails.
+
+Motivation
+Dynamic pricing needs an auditable trail and observable lifecycle. Operators should see who changed a price, from what to what, under which algorithm, and whether governance applied guardrails. This commit adds a decision log, emits explicit PRICE_UPDATE events, and presents a Decisions view, while aligning agents on a single bus/protocol. The optional governance path de-risks direct writes by routing proposals to an applying agent with guardrails.
+
+Key Changes by Area
+1) Protocol and Eventing
+- core/agents/agent_sdk/protocol.py: add Topic.PRICE_UPDATE to standardize downstream subscribers (UI Activity, any sinks).
+
+2) UI
+- app/streamlit_app.py: add "🧭 Decisions" tab under ⚡ OPERATIONS and load the Decisions view.
+- app/ui/views/decisions.py: new, renders decision_log with filters (sku contains, actor, limit) and shows recent entries ordered by ts desc.
+- app/ui/services/activity.py: subscribe to PRICE_UPDATE and log human-readable messages into Activity (e.g., SKU old→new by actor (algo)).
+
+3) AutoApplier (governance + application)
+- Migrate to agent_sdk bus (get_bus) and protocol/events models; drop legacy bus import.
+- Log to decision_log in app/data.db (always log AWAITING_MANUAL_APPROVAL when guardrails fail; log AUTO_APPLIED when applying).
+- Ensure idempotency: if pricing_list already equals proposed price, treat as success and log.
+- Apply reason labeled as "auto_applied(governance)" for transparency.
+- Publish PRICE_UPDATE with actor="governance" after successful apply.
+- Note: market DB path standardized to repo_root/market.db; ensure consistent usage across the repo.
+
+4) Pricing Optimizer
+- When PRICING_GOVERNANCE_ENABLED=true|1|on, skip direct DB apply, publish proposal, and return status="proposed"; AutoApplier handles the rest.
+- When governance disabled, upsert pricing_list as before, log a decision (actor="optimizer"), and publish PRICE_UPDATE including old_price.
+
+5) User Interaction Agent
+- Add deterministic intents: 
+  - price_of: show current (from product_catalog) and optimized (from pricing_list) if available.
+  - competitors_for: aggregate competitor stats from legacy market.db/market_data or fallback to app/data.db/market_ticks.
+- Adds simple pattern extraction for sku and robust fallbacks.
+
+6) Scripts and Ops
+- scripts/run_auto_applier.py: ensure repo root is on sys.path for consistent imports.
+- scripts/smoke_price_optimizer.py: add smoke coverage to exercise optimizer/DB fast path (file scaffolded here).
+- scripts/test_auto_apply.py: align with governance flow (minor adjustments).
+
+Data Model
+- decision_log (app/data.db):
+  id TEXT (pk), proposal_id TEXT, sku TEXT, old_price REAL, new_price REAL, margin REAL, algorithm TEXT, decision TEXT, actor TEXT, ts TEXT.
+  Created lazily (CREATE TABLE IF NOT EXISTS) by both optimizer and AutoApplier.
+
+Operational Notes
+- PRICE_UPDATE events now available to subscribers; UI Activity consumes them.
+- AutoApplier prints subscribe message on startup; unsubscribe is best-effort (agent SDK bus lacks explicit unsubscribe in this context).
+- Actor field distinguishes optimizer vs governance.
+
+Backward Compatibility / Migration
+- market DB path: AutoApplier expects repo_root/market.db. If you previously used data/market.db, move or symlink the file to ensure continuity.
+- decision_log is additive and does not affect existing tables.
+
+Testing Performed (local)
+- Verified UI nav renders Decisions tab and Activity logs PRICE_UPDATE events.
+- Exercised AutoApplier idempotency path and decision logging under both approval and guardrail-fail scenarios.
+- Ran smoke for optimizer fast path and inspected decision_log entries; UI Decisions displayed results.
+
+Env Flags
+- PRICING_GOVERNANCE_ENABLED: when true, optimizer publishes proposals only; AutoApplier applies (if guardrails pass).
+
+Known Limitations / Follow-ups
+- decision_log lacks indexes; consider indexing (sku, ts) if table grows.
+- Consider consolidating market DB path across all scripts to avoid drift.
+- Expand Decisions view with drill-down and export.
+- Add unit tests for governance toggle and decision logging paths.
+
+Files Touched
+- app/streamlit_app.py
+- app/ui/services/activity.py
+- app/ui/views/decisions.py (new)
+- core/agents/agent_sdk/protocol.py
+- core/agents/auto_applier.py
+- core/agents/pricing_optimizer.py
+- core/agents/user_interact/user_interaction_agent.py
+- scripts/run_auto_applier.py
+- scripts/smoke_price_optimizer.py
+- scripts/test_auto_apply.py
+- future/future architecture.md (new)
+
+BREAKING CHANGE
+- AutoApplier now assumes market DB at repo_root/market.db; relocate your DB if it previously lived under data/.

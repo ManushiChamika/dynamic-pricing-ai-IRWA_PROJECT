@@ -90,7 +90,7 @@ class UserInteractionAgent:
     def _intent_cheapest(self, _: str) -> str:
         # Try market.pricing_list first
         try:
-            with sqlite3.connect(str(self.market_db)) as conn:
+            with sqlite3.connect(f"file:{self.market_db.as_posix()}?mode=ro", uri=True) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
@@ -110,7 +110,7 @@ class UserInteractionAgent:
             pass
         # Fallback to product_catalog current_price
         try:
-            with sqlite3.connect(str(self.app_db)) as conn:
+            with sqlite3.connect(f"file:{self.app_db.as_posix()}?mode=ro", uri=True) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
@@ -133,7 +133,7 @@ class UserInteractionAgent:
     def _intent_most_expensive(self, _: str) -> str:
         # Try market.pricing_list first
         try:
-            with sqlite3.connect(str(self.market_db)) as conn:
+            with sqlite3.connect(f"file:{self.market_db.as_posix()}?mode=ro", uri=True) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
@@ -153,7 +153,7 @@ class UserInteractionAgent:
             pass
         # Fallback to product_catalog current_price
         try:
-            with sqlite3.connect(str(self.app_db)) as conn:
+            with sqlite3.connect(f"file:{self.app_db.as_posix()}?mode=ro", uri=True) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
@@ -175,7 +175,7 @@ class UserInteractionAgent:
 
     def _intent_trending(self, _: str) -> str:
         try:
-            with sqlite3.connect(str(self.market_db)) as conn:
+            with sqlite3.connect(f"file:{self.market_db.as_posix()}?mode=ro", uri=True) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
@@ -199,7 +199,7 @@ class UserInteractionAgent:
         # Identify SKUs where competitor prices undercut our current price by >1%
         try:
             current: dict[str, float] = {}
-            with sqlite3.connect(str(self.app_db)) as conn_a:
+            with sqlite3.connect(f"file:{self.app_db.as_posix()}?mode=ro", uri=True) as conn_a:
                 conn_a.row_factory = sqlite3.Row
                 cur = conn_a.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
@@ -213,7 +213,7 @@ class UserInteractionAgent:
             if not current:
                 return "[non-LLM assistant] No product catalog pricing available to assess pressure."
             undercuts: list[tuple[str, float, float, float]] = []  # sku, our, comp_min, gap
-            with sqlite3.connect(str(self.market_db)) as conn_m:
+            with sqlite3.connect(f"file:{self.market_db.as_posix()}?mode=ro", uri=True) as conn_m:
                 conn_m.row_factory = sqlite3.Row
                 cur2 = conn_m.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
@@ -248,7 +248,7 @@ class UserInteractionAgent:
         distinct_products = 0
         last_update = None
         try:
-            with sqlite3.connect(str(self.app_db)) as conn_a:
+            with sqlite3.connect(f"file:{self.app_db.as_posix()}?mode=ro", uri=True) as conn_a:
                 cur = conn_a.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
                     ("product_catalog",),
@@ -259,7 +259,7 @@ class UserInteractionAgent:
         except Exception:
             pass
         try:
-            with sqlite3.connect(str(self.market_db)) as conn_m:
+            with sqlite3.connect(f"file:{self.market_db.as_posix()}?mode=ro", uri=True) as conn_m:
                 cur = conn_m.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
                     ("market_data",),
@@ -283,7 +283,7 @@ class UserInteractionAgent:
 
     def _extract_sku(self, text: str) -> Optional[str]:
         try:
-            m = re.search(r"([A-Za-z0-9][\w\-_.]{1,64})", text or "")
+            m = re.search(r"\b([A-Za-z0-9][A-Za-z0-9._:-]{0,63})\b", text or "")
             return m.group(1) if m else None
         except Exception:
             return None
@@ -295,7 +295,7 @@ class UserInteractionAgent:
         current_line = None
         optimized_line = None
         try:
-            with sqlite3.connect(str(self.app_db)) as conn:
+            with sqlite3.connect(f"file:{self.app_db.as_posix()}?mode=ro", uri=True) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
@@ -311,7 +311,7 @@ class UserInteractionAgent:
         except Exception:
             pass
         try:
-            with sqlite3.connect(str(self.market_db)) as conn:
+            with sqlite3.connect(f"file:{self.market_db.as_posix()}?mode=ro", uri=True) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
@@ -341,7 +341,7 @@ class UserInteractionAgent:
             return "[non-LLM assistant] Please specify a product SKU."
         # Try legacy market.db/market_data
         try:
-            with sqlite3.connect(str(self.market_db)) as conn:
+            with sqlite3.connect(f"file:{self.market_db.as_posix()}?mode=ro", uri=True) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
@@ -365,7 +365,7 @@ class UserInteractionAgent:
             pass
         # Fallback to app/data.db market_ticks
         try:
-            with sqlite3.connect(str(self.app_db)) as conn:
+            with sqlite3.connect(f"file:{self.app_db.as_posix()}?mode=ro", uri=True) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
@@ -503,9 +503,9 @@ class UserInteractionAgent:
                             return False
 
                     def list_inventory_items(search: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
-                        db_path = str(self.app_db)
+                        uri_db = f"file:{self.app_db.as_posix()}?mode=ro"
                         try:
-                            with sqlite3.connect(db_path) as conn:
+                            with sqlite3.connect(uri_db, uri=True) as conn:
                                 conn.row_factory = sqlite3.Row
                                 if not _table_exists(conn, "product_catalog"):
                                     return {"items": [], "total": 0, "note": "product_catalog missing"}
@@ -523,9 +523,9 @@ class UserInteractionAgent:
                             return {"error": str(e)}
 
                     def get_inventory_item(sku: str) -> Dict[str, Any]:
-                        db_path = str(self.app_db)
+                        uri_db = f"file:{self.app_db.as_posix()}?mode=ro"
                         try:
-                            with sqlite3.connect(db_path) as conn:
+                            with sqlite3.connect(uri_db, uri=True) as conn:
                                 conn.row_factory = sqlite3.Row
                                 if not _table_exists(conn, "product_catalog"):
                                     return {"item": None, "note": "product_catalog missing"}
@@ -538,9 +538,9 @@ class UserInteractionAgent:
                             return {"error": str(e)}
 
                     def list_pricing_list(search: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
-                        db_path = str(self.market_db)
+                        uri_db = f"file:{self.market_db.as_posix()}?mode=ro"
                         try:
-                            with sqlite3.connect(db_path) as conn:
+                            with sqlite3.connect(uri_db, uri=True) as conn:
                                 conn.row_factory = sqlite3.Row
                                 if not _table_exists(conn, "pricing_list"):
                                     return {"items": [], "total": 0, "note": "pricing_list missing"}
@@ -557,9 +557,9 @@ class UserInteractionAgent:
                             return {"error": str(e)}
 
                     def list_price_proposals(sku: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
-                        db_path = str(self.app_db)
+                        uri_db = f"file:{self.app_db.as_posix()}?mode=ro"
                         try:
-                            with sqlite3.connect(db_path) as conn:
+                            with sqlite3.connect(uri_db, uri=True) as conn:
                                 conn.row_factory = sqlite3.Row
                                 if not _table_exists(conn, "price_proposals"):
                                     return {"items": [], "total": 0, "note": "price_proposals missing"}
@@ -651,3 +651,4 @@ class UserInteractionAgent:
         except Exception as e:
             self._play_completion_sound()
             return f"[non-LLM assistant] Exception: {str(e)}"
+
