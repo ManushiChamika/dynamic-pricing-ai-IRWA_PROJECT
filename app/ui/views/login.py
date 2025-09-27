@@ -25,7 +25,10 @@ def view() -> None:
 
     # Initialize database and session management
     init_db()
-    ensure_session_from_cookie(page_key="login")
+    
+    # Only restore session if not explicitly navigating to login page
+    if not st.session_state.get("_force_login_page"):
+        ensure_session_from_cookie(page_key="login")
 
     # Handle cookie commit waiting state
     if st.session_state.get("_await_cookie_commit"):
@@ -47,13 +50,17 @@ def view() -> None:
         st.query_params["page"] = "dashboard"
         st.rerun()
 
-    # Already logged in? Go to dashboard
-    if st.session_state.get("session"):
+    # Already logged in? Go to dashboard (unless forced to login page)
+    if st.session_state.get("session") and not st.session_state.get("_force_login_page"):
         if os.getenv("DEBUG_LLM", "0") == "1":
             print("[DEBUG] User already logged in, redirecting to dashboard")
         # Don't clear all query params, just set the page
         st.query_params["page"] = "dashboard"
         st.rerun()
+    
+    # Clear the force flag after checking
+    if st.session_state.get("_force_login_page"):
+        st.session_state.pop("_force_login_page", None)
 
     # Show success message if coming from registration
     if st.session_state.get("_registration_success"):
@@ -156,6 +163,7 @@ def view() -> None:
             if st.button("📝 **Create Account**", use_container_width=True):
                 if os.getenv("DEBUG_LLM", "0") == "1":
                     print("[DEBUG] Navigating to register page")
+                st.session_state["_force_register_page"] = True
                 st.query_params["page"] = "register"
                 st.rerun()
                 

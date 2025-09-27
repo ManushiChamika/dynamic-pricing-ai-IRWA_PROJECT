@@ -24,14 +24,21 @@ def view() -> None:
 
     # Initialize database and session management
     init_db()
-    ensure_session_from_cookie(page_key="register")
+    
+    # Only restore session if not explicitly navigating to register page
+    if not st.session_state.get("_force_register_page"):
+        ensure_session_from_cookie(page_key="register")
 
-    # Already logged in? Go to dashboard
-    if st.session_state.get("session"):
+    # Already logged in? Go to dashboard (unless forced to register page)
+    if st.session_state.get("session") and not st.session_state.get("_force_register_page"):
         if os.getenv("DEBUG_LLM", "0") == "1":
             print("[DEBUG] User already logged in, redirecting to dashboard")
         st.query_params["page"] = "dashboard"
         st.rerun()
+    
+    # Clear the force flag after checking
+    if st.session_state.get("_force_register_page"):
+        st.session_state.pop("_force_register_page", None)
 
     # Header Section
     st.markdown("""
@@ -139,6 +146,7 @@ def view() -> None:
             if st.button("🔐 **Already Have Account?**", use_container_width=True):
                 if os.getenv("DEBUG_LLM", "0") == "1":
                     print("[DEBUG] Navigating to login page")
+                st.session_state["_force_login_page"] = True
                 st.query_params["page"] = "login"
                 st.rerun()
                 
