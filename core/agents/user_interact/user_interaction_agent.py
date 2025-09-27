@@ -70,8 +70,9 @@ class UserInteractionAgent:
         - If an LLM client is available, forward the message (with memory/system prompt) and return the model answer.
         - If LLM is not available, keep the original keyword guard but return an explicit non-LLM fallback message so callers know it's not the LLM speaking.
         """
-        # Add user message to memory
-        self.add_to_memory("user", message)
+        # Add user message to memory (avoid duplicate if already present from persisted thread)
+        if not self.memory or self.memory[-1].get("role") != "user" or self.memory[-1].get("content") != message:
+            self.add_to_memory("user", message)
 
         # Build system prompt focused on dynamic pricing
         system_prompt = (

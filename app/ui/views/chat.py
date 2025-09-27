@@ -234,6 +234,12 @@ def view() -> None:
     # If awaiting a reply, fetch it and render spinner inline
     awaiting = st.session_state.get("awaiting")
     if awaiting:
+        # Rehydrate agent memory from persisted thread so LLM sees history across reloads
+        try:
+            _hist = ct.load_messages(current_user(), tid)
+            agent.memory = [{"role": m.get("role", "user"), "content": str(m.get("content") or "")} for m in _hist if str(m.get("content") or "").strip()]
+        except Exception:
+            agent.memory = []
         with st.chat_message("assistant", avatar=assistant_avatar):
             ph = st.empty()
             ph.markdown(
