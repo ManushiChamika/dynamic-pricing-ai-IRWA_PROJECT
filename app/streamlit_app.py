@@ -44,17 +44,20 @@ from core.agents.alert_service import api as alerts  # <-- safe now
 
 # 4) Session setup (do not force-stop if cookie manager hasn't initialized yet)
 import os  # Move import up here
-try:
-    if os.getenv("DEBUG_LLM", "0") == "1":
-        print("[DEBUG] Attempting to ensure session from cookie")
-    ensure_session_from_cookie()
-    if os.getenv("DEBUG_LLM", "0") == "1":
-        print("[DEBUG] Session setup completed successfully")
-except Exception as e:
-    if os.getenv("DEBUG_LLM", "0") == "1":
-        print(f"[DEBUG] Session setup failed: {e}")
-    # If cookie manager hasn't rendered yet, continue; Home/Login will handle
-    pass
+# This top-level session check is problematic and causes premature redirects.
+# The individual pages (login, register, dashboard) are now responsible for
+# calling ensure_session_from_cookie() themselves.
+# try:
+#     if os.getenv("DEBUG_LLM", "0") == "1":
+#         print("[DEBUG] Attempting to ensure session from cookie")
+#     ensure_session_from_cookie()
+#     if os.getenv("DEBUG_LLM", "0") == "1":
+#         print("[DEBUG] Session setup completed successfully")
+# except Exception as e:
+#     if os.getenv("DEBUG_LLM", "0") == "1":
+#         print(f"[DEBUG] Session setup failed: {e}")
+#     # If cookie manager hasn't rendered yet, continue; Home/Login will handle
+#     pass
 st.session_state.setdefault("session", None)
 
 # Optional login gating via env var UI_REQUIRE_LOGIN

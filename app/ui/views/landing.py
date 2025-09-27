@@ -57,7 +57,6 @@ def view() -> None:
                 if os.getenv("DEBUG_LLM", "0") == "1":
                     print("[DEBUG] Login button clicked!")
                 st.session_state["_force_login_page"] = True
-                st.query_params.clear()
                 st.query_params["page"] = "login"
                 st.rerun()
                 
@@ -67,7 +66,6 @@ def view() -> None:
                 if os.getenv("DEBUG_LLM", "0") == "1":
                     print("[DEBUG] Register button clicked!")
                 st.session_state["_force_register_page"] = True
-                st.query_params.clear()
                 st.query_params["page"] = "register"
                 st.rerun()
 
