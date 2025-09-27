@@ -105,7 +105,7 @@ class UserInteractionAgent:
                             f"- {r['product_name']}: {r['optimized_price']} (as of {r['last_update']})"
                             for r in rows
                         ]
-                        return "Cheapest items by optimized price:\n" + "\n".join(lines)
+                        return "[non-LLM assistant] Cheapest items by optimized price:\n" + "\n".join(lines)
         except Exception:
             pass
         # Fallback to product_catalog current_price
@@ -125,7 +125,7 @@ class UserInteractionAgent:
                             f"- {r['sku']} ({r['title']}): {r['current_price']} (as of {r['updated_at']})"
                             for r in rows
                         ]
-                        return "Cheapest items by current price:\n" + "\n".join(lines)
+                        return "[non-LLM assistant] Cheapest items by current price:\n" + "\n".join(lines)
         except Exception:
             pass
         return "[non-LLM assistant] No pricing data available yet."
@@ -148,7 +148,7 @@ class UserInteractionAgent:
                             f"- {r['product_name']}: {r['optimized_price']} (as of {r['last_update']})"
                             for r in rows
                         ]
-                        return "Most expensive items by optimized price:\n" + "\n".join(lines)
+                        return "[non-LLM assistant] Most expensive items by optimized price:\n" + "\n".join(lines)
         except Exception:
             pass
         # Fallback to product_catalog current_price
@@ -168,7 +168,7 @@ class UserInteractionAgent:
                             f"- {r['sku']} ({r['title']}): {r['current_price']} (as of {r['updated_at']})"
                             for r in rows
                         ]
-                        return "Most expensive items by current price:\n" + "\n".join(lines)
+                        return "[non-LLM assistant] Most expensive items by current price:\n" + "\n".join(lines)
         except Exception:
             pass
         return "[non-LLM assistant] No pricing data available yet."
@@ -190,7 +190,7 @@ class UserInteractionAgent:
                             f"- {r['product_name']}: {r['cnt']} updates (last {r['last_update']})"
                             for r in rows
                         ]
-                        return "Trending by recent market updates:\n" + "\n".join(lines)
+                        return "[non-LLM assistant] Trending by recent market updates:\n" + "\n".join(lines)
         except Exception:
             pass
         return "[non-LLM assistant] No recent market activity found."
@@ -237,7 +237,7 @@ class UserInteractionAgent:
                     f"- {sku}: our={our:.2f}, best_comp={comp:.2f}, gap={gap:.1%}"
                     for sku, our, comp, gap in top
                 ]
-                return "Price pressure (competitors undercut us):\n" + "\n".join(lines)
+                return "[non-LLM assistant] Price pressure (competitors undercut us):\n" + "\n".join(lines)
         except Exception:
             pass
         return "[non-LLM assistant] No price pressure detected or insufficient data."
@@ -274,7 +274,7 @@ class UserInteractionAgent:
         except Exception:
             pass
         return (
-            "Stats summary:\n"
+            "[non-LLM assistant] Stats summary:\n"
             f"- product_catalog items: {total_products}\n"
             f"- market_data rows: {market_rows}\n"
             f"- market_data distinct products: {distinct_products}\n"
@@ -328,7 +328,7 @@ class UserInteractionAgent:
             pass
         if not current_line and not optimized_line:
             return f"[non-LLM assistant] No price found for {sku}."
-        lines = [f"Price for {sku}:"]
+        lines = [f"[non-LLM assistant] Price for {sku}:"]
         if current_line:
             lines.append(f"- {current_line}")
         if optimized_line:
@@ -354,7 +354,7 @@ class UserInteractionAgent:
                     ).fetchone()
                     if row and int(row["n"] or 0) > 0:
                         return (
-                            f"Competitor prices for {sku} (market_data):\n"
+                            f"[non-LLM assistant] Competitor prices for {sku} (market_data):\n"
                             f"- count: {int(row['n'])}\n"
                             f"- min: {row['minp']:.2f}\n"
                             f"- avg: {row['avgp']:.2f}\n"
@@ -378,7 +378,7 @@ class UserInteractionAgent:
                     ).fetchone()
                     if row and int(row["n"] or 0) > 0:
                         return (
-                            f"Competitor prices for {sku} (market_ticks):\n"
+                            f"[non-LLM assistant] Competitor prices for {sku} (market_ticks):\n"
                             f"- count: {int(row['n'])}\n"
                             f"- min: {row['minp']:.2f}\n"
                             f"- avg: {row['avgp']:.2f}\n"
