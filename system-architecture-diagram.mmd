@@ -1,0 +1,122 @@
+flowchart LR
+  %% Dynamic Pricing AI System Architecture
+  
+  subgraph Sources[External Sources]
+    SRC[Market Data Sources]
+    LLM["LLM Provider (OpenRouter/OpenAI/Gemini)"]
+  end
+
+  subgraph Storage[Storage Layer]
+    MarketDB[(SQLite: data/market.db)]
+    AppDB[(SQLite: app/data.db)]
+    EventsLog[(JSONL: data/events.jsonl)]
+    ChatThreads[(JSON: app/chat_threads/)]
+  end
+
+  subgraph Agents[Core Agents]
+    DC[[Data Collector]]
+    PO[[Price Optimizer]]
+    GEA[[Governance Execution Agent]]
+    AutoApplier[[Auto Applier]]
+    AS[[Alert Service]]
+    UIA[[User Interaction Agent]]
+    Supervisor[[Supervisor Agent]]
+  end
+
+  subgraph Observability[Observability]
+    Logs[[Structured Logging]]
+  end
+
+  Bus{{Async Event Bus}}
+
+  subgraph UI[User Interface]
+    UIBridge[[Pricing UI Integration]]
+    Streamlit[[Streamlit App]]
+    Frontend[[React Frontend]]
+  end
+
+  subgraph Notifiers[Notification Sinks]
+    Slack[/Slack/]
+    Email[/Email/]
+    Webhook[/Webhook/]
+    UISink[/UI Alerts/]
+  end
+
+  subgraph Backend[Backend Services]
+    AuthService[[Auth Service]]
+    BackendAPI[[FastAPI Backend]]
+  end
+
+  %% Data ingestion flow
+  SRC --> DC
+  DC --> MarketDB
+  DC -- market.tick --> Bus
+
+  %% Optimization and proposals
+  MarketDB --> PO
+  AppDB --> PO
+  PO -- price.proposal --> Bus
+
+  %% Governance execution and applying updates
+  Bus -- price.proposal --> GEA
+  Bus -- price.proposal --> AutoApplier
+  GEA --> MarketDB
+  AutoApplier -- price.update --> Bus
+
+  %% UI integration and settings
+  Bus -- price.update --> UIBridge
+  Bus -- price.proposal --> UIBridge
+  Bus -- alert.event --> UIBridge
+  UIBridge --> Streamlit
+  Streamlit <---> AppDB
+  Streamlit --> MarketDB
+  Streamlit <---> ChatThreads
+
+  %% Frontend integration
+  Frontend <--> BackendAPI
+  BackendAPI <--> AuthService
+  BackendAPI <--> MarketDB
+
+  %% Conversational tooling
+  Streamlit <---> UIA
+  UIA --> AppDB
+  UIA --> MarketDB
+  UIA --> PO
+  UIA --> LLM
+
+  %% Alerts and notifications
+  Bus -- alert.event --> AS
+  AS --> Slack
+  AS --> Email
+  AS --> Webhook
+  AS --> UISink
+  UISink --> Streamlit
+
+  %% Supervision and orchestration
+  Supervisor --> DC
+  Supervisor --> PO
+  Supervisor --> GEA
+  Supervisor --> AutoApplier
+
+  %% Events & Observability
+  Bus --> EventsLog
+  DC --> Logs
+  PO --> Logs
+  GEA --> Logs
+  AS --> Logs
+  AutoApplier --> Logs
+  UIA --> Logs
+  Supervisor --> Logs
+
+  %% Styling
+  classDef db fill:#e1f5fe,stroke:#0277bd,stroke-width:2px;
+  classDef agent fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px;
+  classDef ui fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px;
+  classDef external fill:#fff3e0,stroke:#ef6c00,stroke-width:2px;
+  classDef notification fill:#fce4ec,stroke:#c2185b,stroke-width:2px;
+  
+  class MarketDB,AppDB,EventsLog,ChatThreads db;
+  class DC,PO,GEA,AutoApplier,AS,UIA,Supervisor agent;
+  class Streamlit,Frontend,UIBridge ui;
+  class SRC,LLM external;
+  class Slack,Email,Webhook,UISink notification;

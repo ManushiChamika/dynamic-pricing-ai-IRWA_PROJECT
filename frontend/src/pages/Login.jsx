@@ -46,6 +46,7 @@ export default function Login() {
       if (!res.ok || !data?.ok) throw new Error(data?.detail || 'Login failed')
 
       const expires = new Date(data.expires_at)
+      // Set cookie for both frontend domain and pass token in URL for Streamlit
       document.cookie = `fp_session=${data.token}; Path=/; SameSite=Lax; Expires=${expires.toUTCString()}`
 
       const meRes = await fetch(`${API_URL}/api/me?token=${encodeURIComponent(data.token)}`)
@@ -54,7 +55,8 @@ export default function Login() {
 
       setSuccess('Login successful! Redirecting to dashboard...')
       setTimeout(() => {
-        window.location.href = `${STREAMLIT_URL}/?page=dashboard`
+        // Pass token in URL since cookies don't work across different ports
+        window.location.href = `${STREAMLIT_URL}/?page=dashboard&token=${encodeURIComponent(data.token)}`
       }, 1500)
     } catch (err) {
       setError(err.message || 'Login failed')

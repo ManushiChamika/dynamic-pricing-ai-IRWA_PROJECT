@@ -96,8 +96,28 @@ if os.getenv("DEBUG_LLM", "0") == "1":
 if st.query_params.get("page") != "dashboard":
     st.query_params["page"] = "dashboard"
 
-# Auth guard: ensure session from cookie; if absent, show login prompt and halt
+# Auth guard: ensure session from cookie or URL token; if absent, show login prompt and halt
 if require_login:
+    # First check if token is passed in URL (from frontend login redirect)
+    url_token = st.query_params.get("token")
+    if url_token and not st.session_state.get("session"):
+        try:
+            from core.auth_service import validate_session_token
+            from app.session_utils import set_session_cookie
+            sess = validate_session_token(url_token)
+            if sess:
+                st.session_state["session"] = sess
+                st.session_state["session_token"] = url_token
+                # Set cookie for future visits
+                set_session_cookie(url_token)
+                # Clean up URL by removing token parameter
+                st.query_params.pop("token", None)
+                st.rerun()
+        except Exception as e:
+            if os.getenv("DEBUG_LLM", "0") == "1":
+                print(f"[DEBUG] Failed to validate URL token: {e}")
+    
+    # Fallback to cookie-based session
     cookies_ready = ensure_session_from_cookie(page_key="dashboard")
     if not st.session_state.get("session"):
         if not cookies_ready:
