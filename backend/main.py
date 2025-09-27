@@ -56,11 +56,20 @@ def api_register(req: RegisterRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+
 @app.post("/api/login")
-def api_login(req: LoginRequest):
+def api_login(req: LoginRequest, response: Response):
     try:
         user = authenticate(req.email, req.password)
         token, expires_at = create_persistent_session(user_id=user["user_id"])
+        # Set the fp_session cookie for cross-app auth
+        response.set_cookie(
+            key="fp_session",
+            value=token,
+            path="/",
+            samesite="lax",
+            httponly=False,  # must be False so Streamlit can read it
+        )
         return {"ok": True, "token": token, "user": user, "expires_at": expires_at.isoformat()}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

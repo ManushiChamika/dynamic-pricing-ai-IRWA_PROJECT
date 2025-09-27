@@ -268,6 +268,7 @@ nav_items = [
     {"key": "PRICING", "icon": "💰", "label": "Pricing"},
     {"key": "ANALYTICS", "icon": "📊", "label": "Analytics"},
     {"key": "OPERATIONS", "icon": "⚡", "label": "Operations"},
+    {"key": "COMMERCIALIZE", "icon": "💼", "label": "Commercialize Plans"},
     {"key": "SETTINGS", "icon": "⚙️", "label": "Settings"}
 ]
 
@@ -312,7 +313,22 @@ for item in nav_items:
         st.rerun()
 
 # Get the selected section for routing
-section = f"🤖 {st.session_state.current_section}" if st.session_state.current_section == "AI CHAT" else f"🏠 {st.session_state.current_section}"
+if st.session_state.current_section == "AI CHAT":
+    section = "🤖 AI CHAT"
+elif st.session_state.current_section == "COMMERCIALIZE":
+    section = "💼 COMMERCIALIZE"
+elif st.session_state.current_section == "HOME":
+    section = "🏠 HOME"
+elif st.session_state.current_section == "PRICING":
+    section = "💰 PRICING"
+elif st.session_state.current_section == "ANALYTICS":
+    section = "📊 ANALYTICS"
+elif st.session_state.current_section == "OPERATIONS":
+    section = "⚡ OPERATIONS"
+elif st.session_state.current_section == "SETTINGS":
+    section = "⚙️ SETTINGS"
+else:
+    section = st.session_state.current_section
 
 # Quick Actions (no landing/logout in dashboard-only mode)
 st.sidebar.markdown("---")
@@ -358,7 +374,6 @@ if logout_clicked:
     st.toast("You have been logged out.")
     st.rerun()
 
-# Route to appropriate views - Chat First!
 if section == "🤖 AI CHAT":
     # Primary AI Chat Interface - The Core Product Feature
     from app.ui.views import chat as v_chat
@@ -485,7 +500,97 @@ if section == "🤖 AI CHAT":
 
     # Main chat interface
     v_chat.view()
+elif section == "💼 COMMERCIALIZE":
+    st.markdown("""
+        <style>
+        .plan-card {
+            background: linear-gradient(135deg, #f8fafc 60%, #e0e7ef 100%);
+            border-radius: 1.2rem;
+            box-shadow: 0 4px 24px rgba(59,130,246,0.08);
+            padding: 2rem 1.5rem 1.5rem 1.5rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            border: 2px solid #e0e7ef;
+            transition: box-shadow 0.2s;
+        }
+        .plan-card:hover {
+            box-shadow: 0 8px 32px rgba(59,130,246,0.18);
+            border-color: #3B82F6;
+        }
+        .plan-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        .plan-price {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #2563eb;
+            margin: 0.5rem 0 1rem 0;
+        }
+        .plan-desc {
+            color: #64748B;
+            min-height: 3.5rem;
+        }
+        .plan-btn button {
+            background: #111827 !important;
+            color: #fff !important;
+            font-weight: 700;
+            border-radius: 0.5rem;
+            padding: 0.7rem 1.5rem;
+            margin-top: 1rem;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+            transition: background 0.2s;
+        }
+        .plan-btn button:hover {
+            background: #000 !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    st.subheader("💼 Commercialize Plans")
+    plans = [
+        {"name": "Basic", "icon": "🌱", "description": "Essential features for individuals and small teams.", "price": "$19/mo"},
+        {"name": "Pro", "icon": "🚀", "description": "Advanced features for growing businesses.", "price": "$49/mo"},
+        {"name": "Custom", "icon": "🏢", "description": "Tailored solutions for enterprises and unique needs.", "price": "Contact us"},
+    ]
+    cols = st.columns(len(plans))
 
+    for idx, plan in enumerate(plans):
+        with cols[idx]:
+            st.markdown(f"<div class='plan-card'>"
+                        f"<div class='plan-title'>{plan['icon']} {plan['name']}</div>"
+                        f"<div class='plan-desc'>{plan['description']}</div>"
+                        f"<div class='plan-price'>{plan['price']}</div>"
+                        f"</div>", unsafe_allow_html=True)
+            st.markdown("<div class='plan-btn'>", unsafe_allow_html=True)
+            st.button(f"Select {plan['name']}", key=f"select_{plan['name']}")
+            st.markdown("</div>", unsafe_allow_html=True)
+
+    # Add a black Continue button below the plans
+    st.markdown("""
+        <style>
+        .black-btn button {
+            background: #000 !important;
+            color: #fff !important;
+            font-weight: 700;
+            border-radius: 0.6rem;
+            padding: 0.9rem 2.2rem;
+            font-size: 1.1rem;
+            margin-top: 2.2rem;
+            margin-bottom: 1.2rem;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+            transition: background 0.2s;
+        }
+        .black-btn button:hover {
+            background: #111 !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    st.markdown("<div class='black-btn' style='text-align:center;'>", unsafe_allow_html=True)
+    st.button("Continue", key="continue_black")
+    st.markdown("</div>", unsafe_allow_html=True)
 elif section == "🏠 HOME":
     # Control Center Dashboard - overview of all systems
     v_dashboard.view()

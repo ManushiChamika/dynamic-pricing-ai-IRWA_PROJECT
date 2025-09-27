@@ -27,5 +27,27 @@
         "user_named": false
       }
     ]
+  },
+  "ima@gmail.com": {
+    "threads": [
+      {
+        "id": "f15791ec-e5f3-47a0-8f62-0598568c3147",
+        "title": "Hello",
+        "created_at": "2025-09-27T18:27:11Z",
+        "updated_at": "2025-09-27T18:36:14Z",
+        "auto_named": true,
+        "llm_named": false,
+        "user_named": false
+      },
+      {
+        "id": "7145332d-de68-4dc9-8f68-e0ae9533f1ed",
+        "title": "Prices Laptops",
+        "created_at": "2025-09-27T18:38:41Z",
+        "updated_at": "2025-09-27T18:58:14Z",
+        "auto_named": true,
+        "llm_named": false,
+        "user_named": false
+      }
+    ]
   }
 }
