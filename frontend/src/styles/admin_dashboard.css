@@ -1,0 +1,96 @@
+/* AdminDashboard.css */
+
+/* General Styles */
+.admin-dashboard {
+    background-color: #f8f9fa; /* Light gray background */
+    padding: 2rem;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    font-family: 'Inter', sans-serif; /* Modern font */
+  }
+  
+  /* Logo and Title */
+  .nav__logo {
+    text-align: center; /* Center align the logo and text */
+    margin-bottom: 1.5rem; /* Add space below the logo */
+  }
+  
+  .nav__logo a {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: black ; /* Red color for the logo */
+    text-decoration: none;
+  }
+  
+  .nav__logo span {
+    color: #0245ff; /* Blue color for the dot */
+  }
+  
+  .nav__logo p {
+    font-size: 0.875rem;
+    color: #6b7280; /* Gray color for the subtitle */
+    margin-top: 0.5rem;
+  }
+  
+  hr {
+    border: 1px solid #e9ecef; /* Light gray for the divider */
+    margin: 1.5rem 0;
+  }
+  
+  /* Navigation Links */
+  .nav-items {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .nav-items li {
+    margin-bottom: 1rem;
+  }
+  
+  .nav-items a {
+    text-decoration: none;
+    font-size: 1rem;
+    color: #495057; /* Dark gray for text */
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    transition: all 0.3s ease;
+  }
+  
+  .nav-items a:hover {
+    background-color: #e9ecef; /* Light gray background on hover */
+    color: #d12222; /* Red color on hover */
+    transform: translateX(5px); /* Slight move to the right */
+  }
+  
+  .nav-items a.active {
+    background-color: #0245ff; /* Blue background for active link */
+    color: #ffffff; /* White text for active link */
+    font-weight: 600;
+    box-shadow: 0 4px 6px rgba(2, 69, 255, 0.1); /* Subtle shadow */
+  }
+  
+  /* Logout Button */
+  .logout-button {
+    background: linear-gradient(135deg, #0245ff, #d12222); /* Blue to red gradient */
+    color: #ffffff;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+  }
+  
+  .logout-button:hover {
+    transform: scale(1.02); /* Slight scale up */
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15); /* Larger shadow on hover */
+  }

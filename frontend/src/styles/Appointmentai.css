@@ -1,0 +1,213 @@
+/* Appointmentai.css */
+/* General Styles */
+.ai-chat-container {
+    width: 75%; /* 75% of the page width */
+    max-width: 1200px; /* Maximum width for larger screens */
+    margin: 40px auto; /* Added top and bottom margin */
+    padding: 30px;
+    background-color: #000000; /* Jet black background */
+    color: #ffffff; /* White text */
+    border-radius: 12px; /* Rounded corners */
+    box-shadow: 0 4px 20px rgba(255, 255, 255, 0.1); /* Subtle white shadow */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Modern font */
+  }
+  
+  .ai-chat-heading {
+    text-align: center;
+    color: #3498db; /* Blue heading */
+    font-size: 2.5rem; /* Larger heading */
+    margin-bottom: 20px;
+    font-weight: 600; /* Semi-bold */
+  }
+  
+  .ai-chat-step {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .ai-chat-step h2 {
+    color: #ffffff; /* White text */
+    font-size: 1.5rem; /* Larger step heading */
+    margin-bottom: 10px;
+    font-weight: 500; /* Medium weight */
+  }
+  
+  /* Textarea Styles */
+  textarea {
+    padding: 15px;
+    font-size: 16px;
+    border-radius: 8px; /* Rounded corners */
+    border: 1px solid #444444; /* Dark gray border */
+    background-color: #1e1e1e; /* Dark gray background */
+    color: #ffffff; /* White text */
+    resize: vertical;
+    width: 100%; /* Full width */
+    transition: border-color 0.3s ease, box-shadow 0.3s ease; /* Smooth transition */
+  }
+  
+  textarea:focus {
+    border-color: #3498db; /* Blue border on focus */
+    box-shadow: 0 0 8px rgba(52, 152, 219, 0.5); /* Subtle glow */
+    outline: none; /* Remove default outline */
+  }
+  
+  textarea::placeholder {
+    color: #999999; /* Light gray placeholder */
+  }
+  
+  /* Button Styles */
+  .button-group {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+  
+  .btn-primary {
+    padding: 12px 24px;
+    font-size: 16px;
+    background-color: #3498db; /* Blue button */
+    color: #ffffff; /* White text */
+    border: none;
+    border-radius: 8px; /* Rounded corners */
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease; /* Smooth transitions */
+  }
+  
+  .btn-primary:hover {
+    background-color: #2980b9; /* Darker blue on hover */
+    transform: translateY(-2px); /* Slight lift */
+  }
+  
+  .btn-primary:active {
+    transform: translateY(0); /* Reset lift on click */
+  }
+  
+  .btn-primary:disabled {
+    background-color: #555555; /* Gray when disabled */
+    cursor: not-allowed;
+  }
+  
+  .btn-secondary {
+    padding: 12px 24px;
+    font-size: 16px;
+    background-color: #e74c3c; /* Red button */
+    color: #ffffff; /* White text */
+    border: none;
+    border-radius: 8px; /* Rounded corners */
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease; /* Smooth transitions */
+  }
+  
+  .btn-secondary:hover {
+    background-color: #c0392b; /* Darker red on hover */
+    transform: translateY(-2px); /* Slight lift */
+  }
+  
+  .btn-secondary:active {
+    transform: translateY(0); /* Reset lift on click */
+  }
+  
+  /* Error Message Styles */
+  .ai-chat-error {
+    color: #e74c3c; /* Red error text */
+    text-align: center;
+    margin-top: 10px;
+    font-size: 14px;
+  }
+  
+  /* AI Response Styles */
+  .ai-chat-response {
+    margin-top: 20px;
+    padding: 20px;
+    background-color: #1e1e1e; /* Dark gray background */
+    border-radius: 8px; /* Rounded corners */
+    border: 1px solid #444444; /* Dark gray border */
+  }
+  
+  .ai-chat-response-heading {
+    color: #3498db; /* Blue heading */
+    font-size: 1.5rem; /* Larger response heading */
+    margin-bottom: 10px;
+    font-weight: 500; /* Medium weight */
+  }
+  
+  .ai-chat-response-text {
+    color: #ffffff; /* White text */
+    line-height: 1.6;
+    font-size: 16px;
+  }
+  
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .ai-chat-container {
+      width: 90%; /* Slightly narrower on smaller screens */
+      padding: 20px;
+      margin: 20px auto; /* Adjusted top and bottom margin for mobile */
+    }
+  
+    .ai-chat-heading {
+      font-size: 2rem; /* Smaller heading on mobile */
+    }
+  
+    .ai-chat-step h2 {
+      font-size: 1.25rem; /* Smaller step heading on mobile */
+    }
+  
+    .ai-chat-response-heading {
+      font-size: 1.25rem; /* Smaller response heading on mobile */
+    }
+  
+    .button-group {
+      flex-direction: column; /* Stack buttons vertically on mobile */
+      gap: 10px;
+    }
+  
+    .btn-primary,
+    .btn-secondary {
+      width: 100%; /* Full-width buttons on mobile */
+    }
+  }
+
+  .ai-chat-response-text {
+    font-size: 16px;
+    line-height: 1.6;
+    color:whitesmoke;
+  }
+  .ai-chat-response-text h3 {
+    font-size: 18px;
+    margin-top: 20px;
+    margin-bottom: 10px;
+    color:lightblue;
+  }
+  .ai-chat-response-text ul {
+    list-style-type: disc;
+    margin-left: 20px;
+  }
+  .ai-chat-response-text li {
+    margin-bottom: 10px;
+  }
+  .ai-chat-response-text p {
+    margin-bottom: 15px;
+  }
+
+ /* Styles for the "Book Appointment" button */
+.btn-appointment {
+  background: linear-gradient(45deg, #3498db, #e74c3c); /* Blue to red gradient */
+  color: black; /* White text */
+  border: none; /* Remove border */
+  padding: 10px 20px; /* Padding */
+  border-radius: 5px; /* Rounded corners */
+  font-size: 16px; /* Font size */
+  cursor: pointer; /* Pointer cursor on hover */
+  margin-top: 20px; /* Space above the button */
+  transition: background 0.3s ease; /* Smooth transition */
+}
+
+.btn-appointment:hover {
+  background: linear-gradient(45deg, #2980b9, #c0392b); /* Darker gradient on hover */
+}
+
+.btn-appointment:active {
+  background: linear-gradient(45deg, #1c5980, #a3291e); /* Even darker gradient on click */
+}

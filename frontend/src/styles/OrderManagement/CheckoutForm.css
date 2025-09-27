@@ -1,0 +1,126 @@
+/* CheckoutForm.css */
+
+.form-container {
+  width: 50%;
+  margin: 50px auto;
+  padding: 20px;
+  background: #2d2d2d;
+  border-radius: 10px;
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.header {
+  text-align: center;
+  color: #f1f1f1;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+}
+
+.label {
+  font-size: 16px;
+  font-weight: bold;
+  margin-top: 10px;
+  display: block;
+}
+
+.input {
+  margin: 5px 0 15px 0;
+  padding: 10px;
+  font-size: 16px;
+  border: 1px solid #333;
+  border-radius: 5px;
+  background-color: #444;
+  color: #fff;
+}
+
+.radio-label {
+  margin: 10px 0;
+  color: #ddd;
+}
+
+.submit-button {
+  margin-top: 15px;
+  padding: 10px 20px;
+  width: fit-content;
+  align-self: center;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  transition: background 0.3s, color 0.3s;
+}
+
+.delete-button {
+  margin-top: 10px;
+  padding: 10px 20px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+
+.success-order-container {
+  text-align: center;
+  color: #fff;
+}
+
+.success-header {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.order-details {
+  list-style: none;
+  padding: 0;
+}
+
+.order-details-container {
+  background-color: #333;
+  padding: 20px;
+  border-radius: 10px;
+  margin-top: 30px;
+}
+
+.input-group {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+
+.edit-input {
+  padding: 8px 12px;
+  border-radius: 5px;
+  border: 1px solid #444;
+  background-color: #555;
+  color: #fff;
+}
+
+.select-input {
+  padding: 8px 12px;
+  border-radius: 5px;
+  background-color: #555;
+  color: #fff;
+  border: 1px solid #444;
+}
+
+.save-button {
+  background-color: #007bff;
+  padding: 10px 20px;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+  font-weight: bold;
+}

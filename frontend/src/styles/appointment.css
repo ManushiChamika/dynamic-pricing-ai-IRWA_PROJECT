@@ -1,0 +1,48 @@
+/* Improve Calendar Visibility */
+.custom-calendar {
+  width: 100%;
+  background: #2d3748 !important; /* Dark background */
+  color: white !important; /* White text */
+  border-radius: 8px;
+  border: 1px solid #4a5568;
+  padding: 10px;
+}
+
+/* Change color of selected day */
+.custom-calendar .react-calendar__tile--active {
+  background: #d12222 !important; /* Red for selected date */
+  color: white !important;
+  border-radius: 5px;
+}
+
+/* Hover effect on days */
+.custom-calendar .react-calendar__tile:hover {
+  background: #0245ff !important; /* Blue hover effect */
+  color: white !important;
+}
+
+/* Fix month and year selector visibility */
+.custom-calendar .react-calendar__navigation button {
+  background: #2d3748 !important;
+  color: white !important;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+}
+
+.custom-calendar .react-calendar__navigation button:hover {
+  background: #0245ff !important; /* Blue hover effect */
+}
+
+/* Highlight today's date */
+.custom-calendar .react-calendar__tile--now {
+  background: #0245ff !important; /* Blue for today's date */
+  color: white !important;
+  border-radius: 5px;
+}
+
+/* Optional: Style for disabled dates */
+.custom-calendar .react-calendar__tile--disabled {
+  background: #4a5568 !important; /* Gray for disabled dates */
+  color: #a0aec0 !important;
+  border-radius: 5px;
+}

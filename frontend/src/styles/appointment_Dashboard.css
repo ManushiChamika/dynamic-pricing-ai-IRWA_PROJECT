@@ -1,0 +1,530 @@
+body {
+  font-family: Arial, sans-serif;
+  background-color: #ffffff; /* White background */
+  margin: 0;
+  padding: 0;
+  color: #000000; /* Black text color */
+}
+
+/* Dashboard Container */
+.dashboard-container {
+  max-width: 1200px;
+  margin: 20px auto;
+  padding: 20px;
+  background:linear-gradient(135deg, #00008B, #000000); /* Red to blue gradient */
+  background:linear-gradient(135deg, #00008B, #000000); /* Red to blue gradient */
+  background-color: black; /* Card is now black */
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  color: #ffffff; /* White text inside the card */
+  margin-bottom: 120px;
+  color: white; /* Ensure text inside the card is white */
+}
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+}
+
+/* Move buttons to top-right */
+.action-buttons {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  gap: 10px;
+}
+
+/* Appointment table */
+.appointment-details {
+  margin-top: 50px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  background-color: #222; /* Darker background for table */
+  color: white; /* White text */
+}
+
+th, td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #555;
+}
+
+th {
+  background-color: #444;
+  font-weight: bold;
+}
+
+tr:hover {
+  background-color: #555;
+}
+
+/* Buttons */
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s ease;
+  color: white;
+}
+
+.drafted-reports {
+  background-color: green;
+}
+
+.make-appointment {
+  background-color: #007bff;
+
+}
+
+.self-diagnosis {
+  background-color:#007bff;
+}
+
+.btn:hover {
+  opacity: 0.9;
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+  .dashboard-container {
+    padding: 15px;
+    margin: 10px auto;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .action-buttons {
+    position: static; /* Reset position for smaller screens */
+    margin-top: 10px;
+    justify-content: flex-start;
+  }
+
+  .btn {
+    width: 100%; /* Full-width buttons on smaller screens */
+    margin-bottom: 10px; /* Add spacing between stacked buttons */
+  }
+
+  table {
+    display: block;
+    overflow-x: auto; /* Allow horizontal scrolling for tables */
+  }
+
+  th, td {
+    padding: 8px; /* Reduce padding for smaller screens */
+    font-size: 14px; /* Smaller font size for better fit */
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-container {
+    padding: 10px;
+    margin: 5px auto;
+  }
+
+  .header h1 {
+    font-size: 24px; /* Smaller heading for very small screens */
+  }
+
+  .btn {
+    font-size: 14px; /* Smaller font size for buttons */
+    padding: 8px 16px;
+  }
+
+  th, td {
+    padding: 6px; /* Further reduce padding for very small screens */
+    font-size: 12px; /* Smaller font size */
+  }
+}
+/* Header Styles */
+.header h1 {
+  font-size: 36px; /* Larger heading */
+  margin: 0;
+  color: white;
+}
+
+.reports-list h2 {
+  font-size: 28px; /* Larger subheading */
+  margin: 20px 0;
+  color: white;
+}
+
+/* Reports List Styles */
+.reports-list {
+  margin-top: 20px;
+}
+
+.report-item {
+  background-color: #333;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  transition: background-color 0.3s ease;
+}
+
+.report-item:hover {
+  background-color: #444;
+}
+
+.report-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  cursor: pointer;
+}
+
+.report-summary h3 {
+  margin: 0;
+  font-size: 18px;
+  color: white;
+}
+
+.report-summary .arrow {
+  font-size: 16px;
+  color: white;
+}
+
+.report-details {
+  padding: 10px 20px;
+  background-color: #444;
+  border-top: 1px solid #555;
+}
+
+.report-details p {
+  margin: 0;
+  color: white;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.report-details pre {
+  white-space: pre-wrap; /* Preserve formatting but wrap text */
+  font-family: Arial, sans-serif;
+  margin: 10px 0;
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+  .header h1 {
+    font-size: 28px; /* Slightly smaller for mobile */
+  }
+
+  .reports-list h2 {
+    font-size: 24px; /* Slightly smaller for mobile */
+  }
+
+  .report-summary h3 {
+    font-size: 16px;
+  }
+
+  .report-details p {
+    font-size: 12px;
+  }
+}
+/* Modal Overlay Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.9); /* Dark semi-transparent black background */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000; /* Ensure it's on top of everything */
+}
+
+.modal {
+  background-color: black; /* Black background for the modal */
+  border-radius: 12px;
+  width: 90%;
+  max-width: 600px; /* Limit the width for better readability */
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  animation: fadeIn 0.3s ease-in-out; /* Smooth fade-in animation */
+  border: 1px solid #1e90ff; /* Blue border for accent */
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 24px;
+  color: white; /* White text for the header */
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: white; /* White close button */
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.close-btn:hover {
+  color: #1e90ff; /* Blue color on hover for accent */
+}
+
+.modal-body {
+  max-height: 70vh; /* Limit height to prevent overflow */
+  overflow-y: auto; /* Add scroll if content is too long */
+  padding-right: 10px; /* Add space for scrollbar */
+}
+
+.modal-body label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: white; /* White text for labels */
+}
+
+.modal-body input,
+.modal-body textarea {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 15px;
+  border: 1px solid #1e90ff; /* Blue border for inputs */
+  border-radius: 6px;
+  background-color: black; /* Black background for inputs */
+  color: white; /* White text for inputs */
+  font-size: 14px;
+}
+
+.modal-body textarea {
+  resize: vertical; /* Allow vertical resizing */
+  min-height: 100px;
+}
+
+.modal-body input[type="checkbox"] {
+  width: auto;
+  margin-right: 10px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.modal-footer .btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s ease;
+  color: white; /* White text for buttons */
+}
+
+.modal-footer .update-btn {
+  background-color: #28a745; /* Green for update button */
+}
+
+.modal-footer .delete-btn {
+  background-color: #dc3545; /* Red for delete button */
+}
+
+.modal-footer .btn:hover {
+  opacity: 0.9;
+}
+
+/* Fade-in animation for modal */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Progress Bar Styles */
+.progress-bar {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #111; /* Dark background for the progress bar container */
+  border-radius: 8px;
+  border: 1px solid #1e90ff; /* Blue border to match the modal */
+}
+
+.progress-bar h3 {
+  margin-bottom: 15px;
+  font-size: 18px;
+  color: white; /* White text for the heading */
+}
+
+.progress-stages {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+}
+
+.progress-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.progress-stage .circle {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: #333; /* Dark gray for inactive circles */
+  border: 2px solid #1e90ff; /* Blue border for circles */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.progress-stage.active .circle {
+  background-color: #1e90ff; /* Blue background for active circles */
+  border-color: #1e90ff;
+}
+
+.progress-stage span {
+  font-size: 12px;
+  text-align: center;
+  color: white; /* White text for stage labels */
+  margin-top: 8px;
+}
+
+/* Connector Lines Between Circles */
+.progress-stages::before {
+  content: "";
+  position: absolute;
+  top: 12px; /* Center the line vertically */
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: #1e90ff; /* Blue line for connectors */
+  z-index: 0;
+}
+
+.progress-stage:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 12px; /* Center the line vertically */
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background-color: #1e90ff; /* Blue line for connectors */
+  z-index: -1;
+  transition: background-color 0.3s ease;
+}
+
+.progress-stage.active::after {
+  background-color: #1e90ff; /* Blue line for active connectors */
+}
+
+.generate-report-btn {
+  background: linear-gradient(90deg, red, #2a5298);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 20px;
+  transition: background 0.3s ease;
+}
+
+.generate-report-btn:hover {
+  background: linear-gradient(90deg, #1e3c72, red );
+}
+
+/* Accept and Reject Buttons */
+.accept-reject-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.accept-btn {
+  background-color: green;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.reject-btn {
+  background-color: red;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+
+/* Status Info */
+.status-info {
+  margin-top: 20px;
+}
+
+.status-info p {
+  margin: 5px 0;
+}
+
+.status-accepted {
+  color: green;
+  font-weight: bold;
+}
+
+.status-rejected {
+  color: red;
+  font-weight: bold;
+}
+
+.status-pending {
+  color: orange;
+  font-weight: bold;
+}
+
+/* Disabled Buttons */
+button:disabled {
+  background-color: #ccc; /* Grey background */
+  color: #666; /* Darker grey text */
+  cursor: not-allowed; /* Show "not allowed" cursor */
+  opacity: 0.7; /* Reduce opacity */
+  border: 1px solid #999; /* Grey border */
+}
+
+/* Specific Button Styles */
+.generate-report-btn:disabled,
+.update-btn:disabled,
+.delete-btn:disabled {
+  background-color: #ccc; /* Grey background */
+  color: #666; /* Darker grey text */
+  cursor: not-allowed; /* Show "not allowed" cursor */
+  opacity: 0.7; /* Reduce opacity */
+  border: 1px solid #999; /* Grey border */
+}

@@ -1,0 +1,254 @@
+/* Main container */
+.invoice-management-container {
+    padding: 20px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #121212;
+    color: #e0e0e0;
+}
+
+/* Report section */
+.report-section {
+    background-color: #1e1e1e;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.05);
+}
+
+.report-section h2 {
+    margin-bottom: 10px;
+    color: #ffffff;
+}
+
+.report-section p {
+    font-size: 16px;
+    margin: 5px 0;
+}
+
+/* Filter Buttons */
+.filter-buttons {
+    margin-bottom: 20px;
+    display: flex;
+    gap: 10px;
+}
+
+.filter-buttons button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    background-color: #2c2c2c;
+    color: #e0e0e0;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.filter-buttons button.active,
+.filter-buttons button:hover {
+    background-color: #007bff;
+    color: white;
+}
+
+/* Grid Layout */
+.content-grid {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 20px;
+}
+
+/* Invoice Form */
+.invoice-form {
+    background-color: #1e1e1e;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.05);
+}
+
+.invoice-form h2 {
+    margin-bottom: 20px;
+    color: #ffffff;
+}
+
+.form-group {
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group label {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.form-group input,
+.form-group select {
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+}
+
+/* Add/Remove Buttons */
+.add-btn,
+.remove-btn {
+    margin-top: 8px;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.3s;
+}
+
+.add-btn:hover {
+    background-color: #218838;
+}
+
+.remove-btn {
+    background-color: #dc3545;
+    margin-left: 8px;
+}
+
+.remove-btn:hover {
+    background-color: #c82333;
+}
+
+/* Submit/Cancel Buttons */
+.button-group {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.submit-btn,
+.cancel-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.3s;
+}
+
+.submit-btn {
+    background-color: #007bff;
+    color: white;
+}
+
+.submit-btn:hover {
+    background-color: #0056b3;
+}
+
+.cancel-btn {
+    background-color: #6c757d;
+    color: white;
+}
+
+.cancel-btn:hover {
+    background-color: #5a6268;
+}
+
+/* Invoice List */
+.invoice-list {
+    background-color: #1e1e1e;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.05);
+    overflow-y: auto;
+    max-height: 80vh;
+}
+
+.invoice-list h2 {
+    margin-bottom: 20px;
+    color: #ffffff;
+}
+
+.invoice-item {
+    border: 1px solid #333;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    background-color: #2a2a2a;
+}
+
+.invoice-item h3 {
+    margin: 0 0 8px 0;
+}
+
+.invoice-item p {
+    margin: 4px 0;
+}
+
+.item-details {
+    margin-top: 10px;
+    padding-left: 10px;
+}
+
+.item-details span {
+    display: inline-block;
+    margin-right: 8px;
+}
+
+/* Invoice Item Buttons */
+.invoice-item .button-group {
+    margin-top: 10px;
+    display: flex;
+    gap: 10px;
+}
+
+.invoice-item button {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.invoice-item button:hover {
+    opacity: 0.9;
+}
+
+.invoice-item button:first-child {
+    background-color: #17a2b8;
+    color: white;
+}
+
+.invoice-item button.delete-btn {
+    background-color: #dc3545;
+    color: white;
+}
+
+.top-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px; /* space between search bar and button */
+    margin: 20px 0; /* space at top and bottom */
+}
+
+.search-bar input {
+    padding: 10px 15px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    width: 250px;
+}
+
+.generate-report button {
+    padding: 10px 20px;
+    font-size: 16px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.generate-report button:hover {
+    background-color: #45a049;
+}
