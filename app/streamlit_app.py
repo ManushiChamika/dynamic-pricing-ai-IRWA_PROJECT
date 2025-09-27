@@ -233,6 +233,24 @@ st.sidebar.markdown("""
 # AI Assistant Section
 st.sidebar.markdown('<div class="nav-header">🤖 AI Assistant</div>', unsafe_allow_html=True)
 
+# Additional CSS for Back to Landing button
+st.sidebar.markdown("""
+<style>
+.back-to-landing-btn {
+    background: linear-gradient(135deg, #6366F1, #4F46E5) !important;
+    color: white !important;
+    border-color: #4F46E5 !important;
+    font-weight: 600 !important;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3) !important;
+}
+
+.back-to-landing-btn:hover {
+    background: linear-gradient(135deg, #4F46E5, #4338CA) !important;
+    box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4) !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # Quick Chat Button with special styling
 quick_chat_clicked = st.sidebar.button("💬 **Quick Chat**", key="quick_chat", use_container_width=True)
 if quick_chat_clicked:
@@ -320,7 +338,35 @@ st.sidebar.markdown('<div class="nav-header">Quick Actions</div>', unsafe_allow_
 
 quick_actions_box = st.sidebar.container()
 logout_clicked = False
+back_to_landing_clicked = False
 with quick_actions_box:
+    # Back to Landing Page button
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+    try:
+        back_to_landing_clicked = st.link_button(
+            "🏠 Back to Landing",
+            frontend_url,
+            use_container_width=True
+        )
+    except Exception:
+        # Fallback for older Streamlit versions
+        st.markdown(f"""
+        <a href="{frontend_url}" target="_self" style="
+            display: block;
+            width: 100%;
+            text-decoration: none;
+            background: linear-gradient(135deg, #6366F1, #4F46E5);
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            font-weight: 600;
+            margin: 0.25rem 0;
+            transition: all 0.2s ease;
+            border: 1px solid #4F46E5;
+        ">🏠 Back to Landing</a>
+        """, unsafe_allow_html=True)
+    
     if st.session_state.get("session"):
         user_email = st.session_state["session"].get("email")
         if user_email:

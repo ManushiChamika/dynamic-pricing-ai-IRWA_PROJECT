@@ -1,0 +1,12 @@
+[
+  {
+    "role": "user",
+    "content": "hi",
+    "ts": "2025-09-27T20:13:31Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Hello! I'm here to help you with pricing optimization, inventory management, and market analysis. How can I assist you today?",
+    "ts": "2025-09-27T20:13:41Z"
+  }
+]
