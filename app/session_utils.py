@@ -81,6 +81,7 @@ def ensure_session_from_cookie(page_key: str = "root") -> bool:
 
     token = cookies.get(COOKIE_NAME)
     if not token:
+        st.session_state.pop("session_token", None)
         return True
 
     try:
@@ -90,6 +91,8 @@ def ensure_session_from_cookie(page_key: str = "root") -> bool:
 
     if sess:
         st.session_state["session"] = sess
+        st.session_state["session_token"] = token
         return True
 
+    st.session_state.pop("session_token", None)
     return True

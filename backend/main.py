@@ -1,8 +1,15 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response, Cookie
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from core.auth_db import init_db
-from core.auth_service import RegisterIn, register_user, authenticate, create_persistent_session, validate_session_token
+from core.auth_service import (
+    RegisterIn,
+    register_user,
+    authenticate,
+    create_persistent_session,
+    validate_session_token,
+    revoke_session_token,
+)
 
 app = FastAPI(title="FluxPricer Auth API")
 
@@ -26,6 +33,10 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: str
     password: str
+
+
+class LogoutRequest(BaseModel):
+    token: str | None = None
 
 
 @app.on_event("startup")
@@ -61,3 +72,13 @@ def api_me(token: str):
     if not sess:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     return {"ok": True, "user": sess}
+
+
+@app.post("/api/logout")
+def api_logout(req: LogoutRequest, response: Response, fp_session: str | None = Cookie(default=None)):
+    token = req.token or fp_session
+    if not token:
+        raise HTTPException(status_code=400, detail="No session token provided")
+    revoke_session_token(token)
+    response.delete_cookie("fp_session", path="/")
+    return {"ok": True}

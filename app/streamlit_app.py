@@ -43,7 +43,8 @@ from core.agents.alert_service import api as alerts  # <-- safe now
 
 # 4) Session setup (do not force-stop if cookie manager hasn't initialized yet)
 import os  # Move import up here
-from app.session_utils import ensure_session_from_cookie
+from app.session_utils import ensure_session_from_cookie, clear_session_cookie
+from core.auth_service import revoke_session_token
 # This top-level session check is problematic and causes premature redirects.
 # The individual pages (login, register, dashboard) are now responsible for
 # calling ensure_session_from_cookie() themselves.
@@ -296,6 +297,46 @@ section = f"🤖 {st.session_state.current_section}" if st.session_state.current
 # Quick Actions (no landing/logout in dashboard-only mode)
 st.sidebar.markdown("---")
 st.sidebar.markdown('<div class="nav-header">Quick Actions</div>', unsafe_allow_html=True)
+
+quick_actions_box = st.sidebar.container()
+logout_clicked = False
+with quick_actions_box:
+    if st.session_state.get("session"):
+        user_email = st.session_state["session"].get("email")
+        if user_email:
+            st.markdown(f"<div style='font-size:0.8rem;color:#475569;'><strong>Signed in:</strong> {user_email}</div>", unsafe_allow_html=True)
+
+    logout_clicked = st.button(
+        "🚪 Log out",
+        key="logout_button",
+        use_container_width=True,
+        disabled=not st.session_state.get("session"),
+    )
+
+if logout_clicked:
+    token = st.session_state.get("session_token")
+
+    try:
+        if token:
+            revoke_session_token(token)
+    except Exception as e:
+        if os.getenv("DEBUG_LLM", "0") == "1":
+            print(f"[DEBUG] Failed to revoke session token: {e}")
+
+    clear_session_cookie()
+    st.session_state.pop("session", None)
+    st.session_state.pop("session_token", None)
+    st.session_state["current_section"] = "AI CHAT"
+    st.session_state["_skip_cookie_restore_once"] = True
+
+    if "section" in st.query_params:
+        try:
+            del st.query_params["section"]
+        except Exception:
+            st.query_params["section"] = ""
+
+    st.toast("You have been logged out.")
+    st.rerun()
 
 # Route to appropriate views - Chat First!
 if section == "🤖 AI CHAT":

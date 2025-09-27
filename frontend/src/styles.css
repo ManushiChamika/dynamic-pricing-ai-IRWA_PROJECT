@@ -14,8 +14,13 @@ html, body, #root { height: 100%; margin: 0; font-family: Inter, system-ui, -app
 /* Buttons */
 .btn { padding: 10px 14px; border-radius: 10px; border: 1px solid #cbd5e1; background: white; color: #0f172a; text-decoration: none; font-weight: 600; }
 .btn.primary { background: #2563eb; color: white; border-color: #2563eb; }
+.btn.secondary { background: #f8fafc; border-color: #cbd5e1; color: #1f2937; }
+.btn.secondary:hover { background: #e2e8f0; }
 .btn.small { padding: 8px 12px; font-size: 14px; }
 .btn:hover { filter: brightness(0.98); }
+
+.nav-status { color: #64748b; font-size: 14px; display: flex; align-items: center; }
+.user-pill { background: #1d4ed8; color: white; padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
 
 /* Layout */
 .container { max-width: 1080px; margin: 0 auto; padding: 24px; }
