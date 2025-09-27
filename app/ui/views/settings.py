@@ -46,9 +46,15 @@ def view() -> None:
     # Show env presence (masked)
     or_key_present = bool(os.getenv("OPENROUTER_API_KEY"))
     oa_key_present = bool(os.getenv("OPENAI_API_KEY"))
+    gem_key_present = bool(os.getenv("GEMINI_API_KEY"))
     st.write(
-        f"OPENROUTER_API_KEY: {'present' if or_key_present else 'missing'} · "
-        f"OPENAI_API_KEY: {'present' if oa_key_present else 'missing'}"
+        " · ".join(
+            [
+                f"OPENROUTER_API_KEY: {'present' if or_key_present else 'missing'}",
+                f"OPENAI_API_KEY: {'present' if oa_key_present else 'missing'}",
+                f"GEMINI_API_KEY: {'present' if gem_key_present else 'missing'}",
+            ]
+        )
     )
 
     provider = model = status = reason = None
@@ -66,6 +72,7 @@ def view() -> None:
         cols[0].metric("Provider", provider or "none")
         cols[1].metric("Model", model or "<auto>")
         cols[2].metric("Status", status)
+        st.caption("Fallback order: OpenRouter → OpenAI → Gemini (if configured).")
         if reason and status != "available":
             st.info(f"LLM unavailable: {reason}")
 

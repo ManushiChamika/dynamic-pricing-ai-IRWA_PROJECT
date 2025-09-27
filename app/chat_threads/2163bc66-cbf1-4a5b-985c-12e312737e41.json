@@ -1,1 +1,22 @@
-[]
+[
+  {
+    "role": "user",
+    "content": "what is the item i should buy under 50 usd",
+    "ts": "2025-09-27T12:58:23Z"
+  },
+  {
+    "role": "assistant",
+    "content": "[non-LLM assistant] No response generated. If you intended an AI reply, try a pricing-related question or configure an API key.",
+    "ts": "2025-09-27T12:58:40Z"
+  },
+  {
+    "role": "user",
+    "content": "what are the prices",
+    "ts": "2025-09-27T12:59:50Z"
+  },
+  {
+    "role": "assistant",
+    "content": "[non-LLM assistant] No response generated. If you intended an AI reply, try a pricing-related question or configure an API key.",
+    "ts": "2025-09-27T13:00:09Z"
+  }
+]

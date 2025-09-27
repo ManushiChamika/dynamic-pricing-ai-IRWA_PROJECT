@@ -3,18 +3,27 @@ flowchart LR
 
   subgraph Sources[External Sources]
     SRC[Market Data Sources]
+    LLM["LLM Provider (OpenRouter/OpenAI)"]
   end
 
   subgraph Storage[Storage]
     MarketDB[(SQLite: data/market.db)]
     AppDB[(SQLite: app/data.db)]
+    EventsLog[(JSONL: data/events.jsonl)]
+    ChatThreads[(JSON: app/chat_threads/)]
   end
 
   subgraph Agents[Core Agents]
     DC[[Data Collector]]
     PO[[Price Optimizer]]
     GEA[[Governance Execution Agent]]
+    AutoApplier[[Auto Applier]]
     AS[[Alert Service]]
+    UIA[[User Interaction Agent]]
+  end
+
+  subgraph Observability[Observability]
+    Logs[[Structured Logging]]
   end
 
   Bus{{Async Event Bus}}
@@ -38,19 +47,30 @@ flowchart LR
 
   %% Optimization and proposals
   MarketDB --> PO
+  AppDB --> PO
   PO -- price.proposal --> Bus
-  Bus -- price.proposal --> GEA
 
-  %% Governance execution, guardrails, and updates
-  AppDB --> GEA
+  %% Governance execution and applying updates
+  Bus -- price.proposal --> GEA
+  Bus -- price.proposal --> AutoApplier
   GEA --> MarketDB
-  GEA -- price.update --> Bus
+  AutoApplier -- price.update --> Bus
 
   %% UI integration and settings
   Bus -- price.update --> UIBridge
+  Bus -- price.proposal --> UIBridge
+  Bus -- alert.event --> UIBridge
   UIBridge --> Streamlit
   Streamlit <---> AppDB
   Streamlit --> MarketDB
+  Streamlit <---> ChatThreads
+
+  %% Conversational tooling
+  Streamlit <---> UIA
+  UIA --> AppDB
+  UIA --> MarketDB
+  UIA --> PO
+  UIA --> LLM
 
   %% Alerts
   Bus -- alert.event --> AS
@@ -60,6 +80,15 @@ flowchart LR
   AS --> UISink
   UISink --> Streamlit
 
+  %% Events & Observability
+  Bus --> EventsLog
+  DC --> Logs
+  PO --> Logs
+  GEA --> Logs
+  AS --> Logs
+  AutoApplier --> Logs
+  UIA --> Logs
+
   %% Notes
   classDef db fill:#eef,stroke:#99f,stroke-width:1px;
-  class MarketDB,AppDB db;
+  class MarketDB,AppDB,EventsLog,ChatThreads db;
