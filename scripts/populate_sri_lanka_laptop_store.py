@@ -10,7 +10,7 @@ import json
 from datetime import datetime, timedelta
 
 def create_realistic_laptop_data():
-    """Generate 100 realistic laptop products for Sri Lankan market"""
+    """Generate 20 realistic laptop products for Sri Lankan market"""
     
     # Sri Lankan laptop brands commonly available
     brands = {
@@ -103,8 +103,8 @@ def create_realistic_laptop_data():
     
     laptops = []
     
-    # Generate 100 laptops
-    for i in range(100):
+    # Generate 20 laptops
+    for i in range(20):
         # Select brand based on market share
         brand_weights = [(brand, data['market_share']) for brand, data in brands.items()]
         brand = random.choices([b[0] for b in brand_weights], [b[1] for b in brand_weights])[0]
@@ -179,11 +179,11 @@ def create_realistic_laptop_data():
     
     return laptops
 
-def populate_database(db_path='market.db'):
+def populate_database(db_path='data/market.db'):
     """Populate the database with laptop data"""
     
     # Generate laptop data
-    print("Generating 100 realistic Sri Lankan laptop products...")
+    print("Generating 20 realistic Sri Lankan laptop products...")
     laptops = create_realistic_laptop_data()
     
     # Connect to database
