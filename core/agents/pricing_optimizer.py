@@ -104,12 +104,13 @@ class LLMBrain:
 	It decides which tool/algorithm to use based on user intent and data context.
 	"""
 
-	def __init__(self, api_key: str | None = None, base_url: str | None = None, model: str | None = None):
+	def __init__(self, api_key: str | None = None, base_url: str | None = None, model: str | None = None, strict_ai_selection: bool | None = None):
 		# Try to import OpenAI dynamically. If not available, fall back to None
 		# Prefer explicitly passed api_key, else try OPENROUTER_API_KEY then OPENAI_API_KEY
 		api_key = api_key or os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
 		base_url = base_url or os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1"
 		self.model = model or os.getenv("OPENROUTER_MODEL") or os.getenv("OPENAI_MODEL") or "z-ai/glm-4.5-air:free"
+		self.strict_ai_selection = strict_ai_selection if strict_ai_selection is not None else os.getenv("STRICT_AI_SELECTION", "true").lower() == "true"
 		self.client = None
 		if api_key:
 			try:
@@ -130,77 +131,157 @@ class LLMBrain:
 						pass
 					self.client = openai_mod
 			except ModuleNotFoundError:
-				print("WARNING: openai package not installed; LLMBrain will use deterministic fallback")
+				if self.strict_ai_selection:
+					print("ERROR: openai package not installed and strict_ai_selection=True; AI tool selection will fail")
+				else:
+					print("WARNING: openai package not installed; LLMBrain will use deterministic fallback")
 		else:
-			print("WARNING: No OpenRouter/OpenAI API key set; LLMBrain will use deterministic fallback")
-
-	def decide_tool(self, user_intent: str, available_tools: dict[str, object]):
-		"""
-		General-purpose tool selector. Returns a dict like:
-		{"tool_name": str, "arguments": { ... }}
-
-		If no LLM available, uses simple heuristics:
-		- If URL present, choose fetch_competitor_price with that url
-		- Else if intent mentions profit, choose profit_maximization
-		- Else if few records (heuristic not available here), default rule_based
-		"""
-		# Build concise descriptions for the prompt
-		descriptions = []
-		for name in available_tools.keys():
-			if name == "rule_based":
-				descriptions.append({"name": name, "description": "Average competitor price minus 2%."})
-			elif name == "ml_model":
-				descriptions.append({"name": name, "description": "Machine learning model for pricing."})
-			elif name == "profit_maximization":
-				descriptions.append({"name": name, "description": "+10% markup over average competitor price."})
+			if self.strict_ai_selection:
+				print("ERROR: No OpenRouter/OpenAI API key set and strict_ai_selection=True; AI tool selection will fail")
 			else:
-				descriptions.append({"name": name, "description": "Tool"})
+				print("WARNING: No OpenRouter/OpenAI API key set; LLMBrain will use deterministic fallback")
+
+	def decide_tool(self, user_intent: str, available_tools: dict[str, object], market_context: dict = None):
+		"""
+		AI-powered tool selector. Returns a dict like:
+		{"tool_name": str, "arguments": {...}, "reason": str} or {"error": str}
+
+		Requires LLM client when strict_ai_selection=True.
+		"""
+		# Build detailed tool descriptions with schema info
+		tool_descriptions = []
+		for name, tool_func in available_tools.items():
+			if name == "rule_based":
+				tool_descriptions.append({
+					"name": name, 
+					"description": "Conservative competitive pricing: averages competitor prices and applies 2% discount to undercut market",
+					"use_case": "When maintaining market share is priority over profit margins",
+					"arguments": {}
+				})
+			elif name == "ml_model":
+				tool_descriptions.append({
+					"name": name,
+					"description": "Machine learning model for demand-aware pricing based on historical patterns",
+					"use_case": "When sufficient historical data exists and sophisticated analysis is needed",
+					"arguments": {}
+				})
+			elif name == "profit_maximization":
+				tool_descriptions.append({
+					"name": name,
+					"description": "Aggressive profit-focused pricing: adds 10% markup over average competitor price",
+					"use_case": "When maximizing margins is priority over market share",
+					"arguments": {}
+				})
+			else:
+				tool_descriptions.append({
+					"name": name,
+					"description": "Generic pricing tool",
+					"use_case": "General purpose pricing",
+					"arguments": {}
+				})
+
+		# Include market context in prompt
+		context_info = ""
+		if market_context:
+			record_count = market_context.get("record_count", 0)
+			latest_price = market_context.get("latest_price")
+			avg_price = market_context.get("avg_price")
+			context_info = f"\nMarket Context:\n- Available competitor records: {record_count}\n"
+			if latest_price: context_info += f"- Latest competitor price: ${latest_price}\n"
+			if avg_price: context_info += f"- Average competitor price: ${avg_price}\n"
 
 		prompt = (
-			"You are an AI agent brain. Based on the user's request, select the best tool to use from the "
-			"following list and determine its arguments.\n\n" \
-			f"User Request: \"{user_intent}\"\n\n" \
-			f"Available Tools:\n{descriptions}\n\n" \
-			"Respond with only a JSON object specifying the tool name and its arguments. "
-			"Example: {\"tool_name\": \"fetch_competitor_price\", \"arguments\": {\"url\": \"http://example.com\"}}"
+			"You are an AI pricing agent brain. Analyze the user's request and market context to select the most appropriate pricing tool.\n\n"
+			f"User Request: \"{user_intent}\"\n"
+			f"{context_info}\n"
+			f"Available Tools:\n{json.dumps(tool_descriptions, indent=2)}\n\n"
+			"Requirements:\n"
+			"1. Consider user intent, market conditions, and business objectives\n"
+			"2. Choose the tool that best aligns with the stated goal\n"
+			"3. Provide a brief reason for your selection\n\n"
+			"Respond with ONLY a JSON object in this exact format:\n"
+			'{"tool_name": "<selected_tool>", "arguments": {}, "reason": "<brief_explanation>"}'
 		)
 
-		def _extract_first_url(text: str) -> str | None:
-			if not text:
-				return None
-			m = re.search(r"https?://\S+", text)
-			return m.group(0) if m else None
-
-		def _default_selection():
-			intent = (user_intent or "").lower()
-			if "profit" in intent or "maximize" in intent:
-				return {"tool_name": "profit_maximization", "arguments": {}}
-			# fallback
-			return {"tool_name": "rule_based", "arguments": {}}
+		# AI-only selection logic
+		if not self.client:
+			if self.strict_ai_selection:
+				return {"error": "ai_selection_failed", "message": "No LLM client available and strict_ai_selection=True"}
+			else:
+				# Legacy fallback mode
+				intent = (user_intent or "").lower()
+				if "profit" in intent or "maximize" in intent:
+					return {"tool_name": "profit_maximization", "arguments": {}, "reason": "fallback: keyword 'profit' detected"}
+				return {"tool_name": "rule_based", "arguments": {}, "reason": "fallback: default conservative approach"}
 
 		try:
-			if not self.client:
-				return _default_selection()
-
 			resp = self.client.chat.completions.create(
 				model=self.model,
 				messages=[{"role": "user", "content": prompt}],
-				max_tokens=200,
+				max_tokens=300,
 				temperature=0.0,
 			)
 			raw = resp.choices[0].message.content or ""
-			# extract JSON
+			
+			# Enhanced telemetry: log raw LLM decision (redacted for safety)
+			try:
+				from core.agents.agent_sdk.activity_log import activity_log as act_log
+				redacted_raw = raw[:100] + "..." if len(raw) > 100 else raw
+				act_log.log("llm_brain", "decide_tool.request", "info", 
+					message=f"model={self.model} prompt_len={len(prompt)} response_len={len(raw)}", 
+					details={"raw_response_preview": redacted_raw, "available_tools": list(available_tools.keys())})
+			except Exception:
+				pass  # Don't fail on logging errors
+			
+			# Parse JSON response
 			start = raw.find("{")
 			end = raw.rfind("}")
-			parsed = json.loads(raw[start : end + 1]) if start != -1 and end != -1 else {}
-			name = parsed.get("tool_name") if isinstance(parsed, dict) else None
-			args = parsed.get("arguments", {}) if isinstance(parsed, dict) else {}
-			if name in available_tools:
-				return {"tool_name": name, "arguments": args if isinstance(args, dict) else {}}
-			return _default_selection()
+			if start == -1 or end == -1:
+				return {"error": "ai_selection_failed", "message": "LLM response missing JSON format"}
+			
+			try:
+				parsed = json.loads(raw[start : end + 1])
+			except json.JSONDecodeError as e:
+				return {"error": "ai_selection_failed", "message": f"Invalid JSON from LLM: {e}"}
+			
+			# Validate response structure
+			if not isinstance(parsed, dict):
+				return {"error": "ai_selection_failed", "message": "LLM response not a JSON object"}
+			
+			tool_name = parsed.get("tool_name")
+			arguments = parsed.get("arguments", {})
+			reason = parsed.get("reason", "No reason provided")
+			
+			if not tool_name:
+				return {"error": "ai_selection_failed", "message": "Missing tool_name in LLM response"}
+			
+			if tool_name not in available_tools:
+				return {"error": "ai_selection_failed", "message": f"Invalid tool_name '{tool_name}', available: {list(available_tools.keys())}"}
+			
+			if not isinstance(arguments, dict):
+				return {"error": "ai_selection_failed", "message": "Arguments must be a dictionary"}
+			
+			# Enhanced telemetry: log successful AI decision
+			try:
+				from core.agents.agent_sdk.activity_log import activity_log as act_log
+				act_log.log("llm_brain", "decide_tool.success", "completed", 
+					message=f"selected={tool_name} reason='{reason}'", 
+					details={"tool_name": tool_name, "arguments": arguments, "reason": reason, "market_context": market_context})
+			except Exception:
+				pass  # Don't fail on logging errors
+			
+			return {"tool_name": tool_name, "arguments": arguments, "reason": reason}
+			
 		except Exception as e:
-			print("ERROR: LLM error:", e)
-			return _default_selection()
+			# Enhanced telemetry: log LLM request failures
+			try:
+				from core.agents.agent_sdk.activity_log import activity_log as act_log
+				act_log.log("llm_brain", "decide_tool.failed", "failed", 
+					message=f"LLM request failed: {str(e)}", 
+					details={"error": str(e), "model": self.model})
+			except Exception:
+				pass  # Don't fail on logging errors
+			return {"error": "ai_selection_failed", "message": f"LLM request failed: {str(e)}"}
 
 	async def _request_fresh_data(self, user_request: str, product_name: str, wait_seconds: int, max_wait_attempts: int, activity_log=None):
 		"""Request fresh market data via event bus and wait for completion."""
@@ -350,33 +431,36 @@ class LLMBrain:
 			# We still allow a scrape-first workflow if requested
 			records = []
 
-		# First decision: may be scraper or an algorithm
-		selection = self.decide_tool(user_request, dict(TOOLS))
-		tool_name = selection.get("tool_name") if isinstance(selection, dict) else None
-		arguments = selection.get("arguments", {}) if isinstance(selection, dict) else {}
-		if _act:
-			_act.log("llm_brain", "decide_tool", "completed", message=f"tool={tool_name}", details={"args": arguments})
+		# Build market context for AI decision
+		market_context = {
+			"record_count": len(records),
+			"latest_price": records[0][0] if records else None,
+			"avg_price": sum(r[0] for r in records) / len(records) if records else None
+		}
 
-		# Data collection is now handled via event bus - no direct scraping here
-
-		# Ensure we have some data before pricing
-		if not records:
-			return err("no market data available")
-
-		# Second decision: choose pricing algorithm (limit tools to algorithms)
+		# AI-only algorithm selection (limit to pricing algorithms only)
 		algo_tools = {k: v for k, v in TOOLS.items() if k in ("rule_based", "ml_model", "profit_maximization")}
-		selection2 = self.decide_tool(user_request, dict(algo_tools))
-		algo = selection2.get("tool_name") if isinstance(selection2, dict) else None
-		if algo not in algo_tools:
-			# simple heuristic fallback
-			n = len(records)
-			intent = (user_request or "").lower()
-			if ("max" in intent and "profit" in intent) or ("maximize" in intent):
-				algo = "profit_maximization"
-			elif n < 100:
-				algo = "rule_based"
-			else:
-				algo = "ml_model"
+		selection = self.decide_tool(user_request, dict(algo_tools), market_context)
+		
+		# Handle AI selection errors
+		if "error" in selection:
+			if _act:
+				_act.log("llm_brain", "decide_tool", "failed", 
+						message=f"AI selection failed: {selection.get('message', 'unknown error')}", 
+						details={"error": selection, "market_context": market_context})
+			return err(f"AI tool selection failed: {selection.get('message', 'unknown error')}")
+		
+		algo = selection.get("tool_name")
+		reason = selection.get("reason", "No reason provided")
+		
+		if _act:
+			_act.log("llm_brain", "decide_tool", "completed", 
+					message=f"algo={algo} reason={reason}", 
+					details={"market_context": market_context, "selection": selection})
+
+		# Ensure we have some data before pricing (unless AI explicitly chose a tool that can work without data)
+		if not records and algo != "profit_maximization":  # profit_maximization might use fallback logic
+			return err("no market data available for selected algorithm")
 
 		# Step 4: Calculate price using selected algorithm
 		try:
@@ -483,11 +567,17 @@ PricingOptimizerAgent = LLMBrain
 
 # --- Example run loop using the unified agent ---
 if __name__ == "__main__":
-	agent = PricingOptimizerAgent()
-	# Use process_full_workflow to run the full workflow end-to-end
-	while True:
-		res = agent.process_full_workflow("maximize profit", "iphone15")
-		print(res)
-		time.sleep(30)
+	import asyncio
+	import time
+	
+	async def main():
+		agent = PricingOptimizerAgent()
+		# Use process_full_workflow to run the full workflow end-to-end
+		while True:
+			res = await agent.process_full_workflow("maximize profit", "iphone15")
+			print(res)
+			await asyncio.sleep(30)  # Use asyncio.sleep instead of time.sleep
+	
+	asyncio.run(main())
 
 
