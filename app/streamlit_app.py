@@ -43,6 +43,8 @@ from core.agents.alert_service import api as alerts  # <-- safe now
 
 # 4) Session setup (do not force-stop if cookie manager hasn't initialized yet)
 import os  # Move import up here
+from app.session_utils import ensure_session_from_cookie, clear_session_cookie
+from core.auth_service import revoke_session_token
 # This top-level session check is problematic and causes premature redirects.
 # The individual pages (login, register, dashboard) are now responsible for
 # calling ensure_session_from_cookie() themselves.
@@ -59,8 +61,8 @@ import os  # Move import up here
 #     pass
 st.session_state.setdefault("session", None)
 
-# Dashboard-only mode: no login gating
-require_login = False
+# Require login to access the dashboard
+require_login = True
 
 # 5) Start the alert service once (schedule onto background loop)
 if "_alerts_started" not in st.session_state:
@@ -93,6 +95,24 @@ if os.getenv("DEBUG_LLM", "0") == "1":
 # Ensure URL shows dashboard during navigation
 if st.query_params.get("page") != "dashboard":
     st.query_params["page"] = "dashboard"
+
+# Auth guard: ensure session from cookie; if absent, show login prompt and halt
+if require_login:
+    cookies_ready = ensure_session_from_cookie(page_key="dashboard")
+    if not st.session_state.get("session"):
+        if not cookies_ready:
+            st.title("🔐 Loading your dashboard")
+            st.info("Hold on while we restore your session…")
+        else:
+            frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+            login_url = f"{frontend_url}/login"
+            st.title("🔒 Authentication Required")
+            st.info("You need to log in to access the dashboard.")
+            try:
+                st.link_button("Go to Login", login_url, use_container_width=True)
+            except Exception:
+                st.markdown(f"[Go to Login]({login_url})")
+        st.stop()
 
 # Dashboard Mode - Full App Interface
 # Apply theme from session (supports dark toggle)
@@ -277,6 +297,46 @@ section = f"🤖 {st.session_state.current_section}" if st.session_state.current
 # Quick Actions (no landing/logout in dashboard-only mode)
 st.sidebar.markdown("---")
 st.sidebar.markdown('<div class="nav-header">Quick Actions</div>', unsafe_allow_html=True)
+
+quick_actions_box = st.sidebar.container()
+logout_clicked = False
+with quick_actions_box:
+    if st.session_state.get("session"):
+        user_email = st.session_state["session"].get("email")
+        if user_email:
+            st.markdown(f"<div style='font-size:0.8rem;color:#475569;'><strong>Signed in:</strong> {user_email}</div>", unsafe_allow_html=True)
+
+    logout_clicked = st.button(
+        "🚪 Log out",
+        key="logout_button",
+        use_container_width=True,
+        disabled=not st.session_state.get("session"),
+    )
+
+if logout_clicked:
+    token = st.session_state.get("session_token")
+
+    try:
+        if token:
+            revoke_session_token(token)
+    except Exception as e:
+        if os.getenv("DEBUG_LLM", "0") == "1":
+            print(f"[DEBUG] Failed to revoke session token: {e}")
+
+    clear_session_cookie()
+    st.session_state.pop("session", None)
+    st.session_state.pop("session_token", None)
+    st.session_state["current_section"] = "AI CHAT"
+    st.session_state["_skip_cookie_restore_once"] = True
+
+    if "section" in st.query_params:
+        try:
+            del st.query_params["section"]
+        except Exception:
+            st.query_params["section"] = ""
+
+    st.toast("You have been logged out.")
+    st.rerun()
 
 # Route to appropriate views - Chat First!
 if section == "🤖 AI CHAT":
