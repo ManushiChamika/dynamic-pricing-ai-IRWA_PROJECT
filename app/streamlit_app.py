@@ -90,14 +90,27 @@ from app.ui.views import landing as v_landing
 from app.ui.views import login as v_login
 from app.ui.views import register as v_register
 
+
+def _normalize_query_param(value, default):
+    """Streamlit may return list values for query params; coerce to a single string."""
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            if item:
+                return str(item)
+        return default
+    if value is None:
+        return default
+    value_str = str(value).strip()
+    return value_str if value_str else default
+
 # More robust page routing logic
 # If user is logged in, default to dashboard, otherwise landing
 if st.session_state.get("session"):
-    page = st.query_params.get("page", "dashboard")
+    page = _normalize_query_param(st.query_params.get("page"), "dashboard")
 else:
-    page = st.query_params.get("page", "landing")
+    page = _normalize_query_param(st.query_params.get("page"), "landing")
 
-section_param = st.query_params.get("section", None)
+section_param = _normalize_query_param(st.query_params.get("section", None), None)
 
 # Guard: logged-in users should not see login/register pages
 if st.session_state.get("session") and page in {"login", "register"}:
@@ -117,9 +130,14 @@ if page == "landing":
         print("[DEBUG] Rendering landing page")
     v_landing.view()
     st.stop()  # Don't render dashboard navigation
-elif page == "login":
+elif page == "login" or st.session_state.get("_force_login_page", False):
     if os.getenv("DEBUG_LLM", "0") == "1":
         print("[DEBUG] Rendering login page")
+    if st.session_state.get("_force_login_page", False):
+        # Force login page even if query params were lost
+        st.session_state["_force_login_page"] = False
+        st.query_params.clear()
+        st.query_params["page"] = "login"
     v_login.view()
     st.stop()  # Don't render dashboard navigation
 elif page == "register":

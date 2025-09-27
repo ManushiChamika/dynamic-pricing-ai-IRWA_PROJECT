@@ -123,8 +123,10 @@ def view() -> None:
                 
                 # Auto-redirect to login page after success
                 st.session_state["_registration_success"] = True
+                st.session_state["_force_login_page"] = True
                 if os.getenv("DEBUG_LLM", "0") == "1":
                     print("[DEBUG] Registration successful, redirecting to login")
+                st.query_params.clear()
                 st.query_params["page"] = "login"
                 st.rerun()
                 
