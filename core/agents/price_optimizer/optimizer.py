@@ -18,6 +18,7 @@ def optimize(
     min_price: float,
     max_price: float,
     min_margin: float = 0.12,
+    trace_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Heuristic v0:
@@ -51,7 +52,7 @@ def optimize(
     # Clamp to bounds
     base = min(max(base, min_price), max_price)
 
-    return {
+    result = {
         "recommended_price": round(base, 2),
         "confidence": 0.6,  # placeholder
         "rationale": "; ".join(rationale) or "No change",
@@ -61,6 +62,45 @@ def optimize(
             "min_margin": min_margin,
         },
     }
+    
+    # Publish price proposal event
+    try:
+        if trace_id:
+            from datetime import datetime
+            from core.agents.agent_sdk.activity_log import should_trace, activity_log, safe_redact
+            from core.events.journal import write_event
+            if should_trace():
+                activity_log.log(
+                    agent="PriceOptimizer",
+                    action="proposal.generated",
+                    status="completed",
+                    message=f"Price proposal for {f.sku}: {f.our_price} → {result['recommended_price']}",
+                    details=safe_redact({
+                        "trace_id": trace_id,
+                        "sku": f.sku,
+                        "old_price": f.our_price,
+                        "new_price": result["recommended_price"],
+                        "confidence": result["confidence"],
+                        "rationale": result["rationale"]
+                    })
+                )
+                write_event("price.proposal", {
+                    "trace_id": trace_id,
+                    "sku": f.sku,
+                    "old_price": f.our_price,
+                    "new_price": result["recommended_price"],
+                    "competitor_price": f.competitor_price,
+                    "cost": f.cost,
+                    "confidence": result["confidence"],
+                    "rationale": result["rationale"],
+                    "constraints": result["constraints_evaluation"],
+                    "timestamp": datetime.now().isoformat()
+                })
+    except Exception:
+        # Best-effort logging; never break the flow
+        pass
+    
+    return result
 
 
 

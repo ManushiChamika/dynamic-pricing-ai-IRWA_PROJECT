@@ -4,6 +4,9 @@ from typing import Dict, Iterable, Mapping
 REQUIRED_KEYS: Dict[str, Iterable[str]] = {
     "price.proposal": ("proposal_id", "product_id", "previous_price", "proposed_price"),
     "price.update": ("proposal_id", "product_id", "final_price"),
+    "market.fetch.request": ("request_id", "sku", "market", "sources", "horizon_minutes", "depth"),
+    "market.fetch.ack": ("request_id", "job_id", "status"),
+    "market.fetch.done": ("request_id", "job_id", "status", "tick_count"),
 }
 
 

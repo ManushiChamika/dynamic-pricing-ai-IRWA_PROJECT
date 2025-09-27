@@ -13,6 +13,7 @@ import json
 import sqlite3
 import time
 import importlib
+import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -87,22 +88,12 @@ def profit_maximization(records):
 	return round(avg * 1.10, 2)
 
 
-# Toolbox mapping (dictionary of available tools)
-try:
-	# Lazy import; if bs4/requests missing in env, optimizer still works without this tool
-	from core.agents.data_collector.connectors.web_scraper import fetch_competitor_price
-except Exception:
-	fetch_competitor_price = None  # type: ignore
-
-
+# Toolbox mapping (dictionary of available tools) - removed web scraping
 TOOLS = {
 	"rule_based": rule_based,
 	"ml_model": ml_model,
 	"profit_maximization": profit_maximization,
 }
-
-if fetch_competitor_price is not None:
-	TOOLS["fetch_competitor_price"] = fetch_competitor_price
 
 
 # --- Step 2: LLM Brain ---
@@ -156,9 +147,7 @@ class LLMBrain:
 		# Build concise descriptions for the prompt
 		descriptions = []
 		for name in available_tools.keys():
-			if name == "fetch_competitor_price":
-				descriptions.append({"name": name, "description": "Fetches a competitor price from a product page URL."})
-			elif name == "rule_based":
+			if name == "rule_based":
 				descriptions.append({"name": name, "description": "Average competitor price minus 2%."})
 			elif name == "ml_model":
 				descriptions.append({"name": name, "description": "Machine learning model for pricing."})
@@ -184,9 +173,6 @@ class LLMBrain:
 
 		def _default_selection():
 			intent = (user_intent or "").lower()
-			url = _extract_first_url(user_intent or "")
-			if url and "fetch_competitor_price" in available_tools:
-				return {"tool_name": "fetch_competitor_price", "arguments": {"url": url}}
 			if "profit" in intent or "maximize" in intent:
 				return {"tool_name": "profit_maximization", "arguments": {}}
 			# fallback
@@ -216,7 +202,48 @@ class LLMBrain:
 			print("ERROR: LLM error:", e)
 			return _default_selection()
 
-	def process_full_workflow(self, user_request: str, product_name: str, db_path: str = "data/market.db", notify_alert_fn=None, wait_seconds: int = 3, max_wait_attempts: int = 5, monitor_timeout: int = 0):
+	async def _request_fresh_data(self, user_request: str, product_name: str, wait_seconds: int, max_wait_attempts: int, activity_log=None):
+		"""Request fresh market data via event bus and wait for completion."""
+		try:
+			from core.agents.agent_sdk.bus_factory import get_bus
+			from core.agents.agent_sdk.protocol import Topic
+			from core.payloads import MarketFetchRequestPayload
+			
+			# Extract URLs from user request if any
+			urls = re.findall(r'https?://\S+', user_request or '')
+			
+			# Create fetch request
+			request_id = str(uuid.uuid4())
+			fetch_request: MarketFetchRequestPayload = {
+				"request_id": request_id,
+				"sku": product_name,
+				"market": "DEFAULT",
+				"sources": ["web_scraper"] if urls else [],
+				"urls": urls if urls else None,
+				"horizon_minutes": 60,  # 1 hour freshness target
+				"depth": min(len(urls), 5) if urls else 1
+			}
+			
+			bus = get_bus()
+			await bus.publish(Topic.MARKET_FETCH_REQUEST.value, fetch_request)
+			
+			if activity_log:
+				activity_log.log("pricing_optimizer", "market.fetch.request", "info", 
+					message=f"request_id={request_id} sku={product_name}")
+			
+			# Wait for completion (simplified - in production could listen for DONE events)
+			import asyncio
+			for attempt in range(max_wait_attempts):
+				await asyncio.sleep(wait_seconds)
+				# In a real implementation, we'd check for completion events
+				# For now, we'll just wait and let the caller re-check data freshness
+			
+		except Exception as e:
+			print(f"[pricing_optimizer] Failed to request fresh data: {e}")
+			if activity_log:
+				activity_log.log("pricing_optimizer", "market.fetch.request", "failed", message=str(e))
+
+	async def process_full_workflow(self, user_request: str, product_name: str, db_path: str = "data/market.db", notify_alert_fn=None, wait_seconds: int = 3, max_wait_attempts: int = 5, monitor_timeout: int = 0):
 		"""
 		Execute the full pricing workflow described in the system prompt.
 		Returns strict JSON dict on success or error.
@@ -234,19 +261,30 @@ class LLMBrain:
 		def err(msg: str):
 			return {"status": "error", "message": msg}
 
-		# open DB connection locally
+		# Use DataRepo to access market data from app/data.db
 		try:
-			conn = sqlite3.connect(db_path, check_same_thread=False)
-			cursor = conn.cursor()
+			from core.agents.data_collector.repo import DataRepo
+			repo = DataRepo("app/data.db")  # Use app/data.db instead of data/market.db
+			await repo.init()
 		except Exception as e:
-			return err(f"DB connection failed: {e}")
+			return err(f"DataRepo initialization failed: {e}")
 
-		# helper: fetch records
-		def fetch_records():
+		# helper: fetch records from market_ticks table
+		async def fetch_records():
 			try:
-				cursor.execute("SELECT price, update_time FROM market_data WHERE product_name=?", (product_name,))
-				return cursor.fetchall()
+				# Get recent ticks for this SKU
+				since_iso = (datetime.now() - timedelta(days=7)).isoformat()  # Last 7 days
+				features = await repo.features_for(product_name, "DEFAULT", since_iso)
+				
+				# Convert to the old format for compatibility with existing algorithms
+				records = []
+				if features.get("count", 0) > 0:
+					comp_price = features.get("features", {}).get("competitor_price")
+					if comp_price is not None:
+						records.append((comp_price, features.get("as_of", datetime.now().isoformat())))
+				return records
 			except Exception as e:
+				print(f"[pricing_optimizer] Error fetching records: {e}")
 				return []
 
 		# helper: parse timestamp
@@ -277,7 +315,7 @@ class LLMBrain:
 
 
 		# Step 1 & 2: Check data freshness and request update if needed
-		records = fetch_records()
+		records = await fetch_records()
 		stale = False
 		if not records:
 			stale = True
@@ -292,31 +330,22 @@ class LLMBrain:
 				stale = True
 
 		if stale:
-			# send market data collect request (simulated)
-			msg = f"UPDATE market_data for {product_name}"
-			print(msg)
-			if _act:
-				_act.log("pricing_optimizer", "market.request_update", "info", message=msg)
-			# Poll DB for confirmation (simulated) up to max_wait_attempts
-			attempt = 0
-			while attempt < max_wait_attempts:
-				time.sleep(wait_seconds)
-				records = fetch_records()
-				if records:
-					# re-evaluate freshness
-					latest = None
-					for r in records:
-						ts = _parse_time(r[1])
-						if ts and (latest is None or ts > latest):
-							latest = ts
-					if latest and (datetime.now() - latest) <= timedelta(hours=24):
-						break
-				attempt += 1
-			if attempt >= max_wait_attempts and (not records or latest is None or (datetime.now() - (latest or datetime.min)) > timedelta(hours=24)):
-				return err("market data not refreshed after request")
+			# Send market data fetch request via event bus
+			await self._request_fresh_data(user_request, product_name, wait_seconds, max_wait_attempts, _act)
+			# Re-fetch records after data collection
+			records = await fetch_records()
+			if not records:
+				# re-evaluate freshness after request
+				latest = None
+				for r in records:
+					ts = _parse_time(r[1])
+					if ts and (latest is None or ts > latest):
+						latest = ts
+				if not latest or (datetime.now() - latest) > timedelta(hours=24):
+					return err("market data not refreshed after request")
 
 		# Step 3: Process data & choose tool/algorithm using agentic selection
-		records = fetch_records()
+		records = await fetch_records()
 		if not records:
 			# We still allow a scrape-first workflow if requested
 			records = []
@@ -328,34 +357,7 @@ class LLMBrain:
 		if _act:
 			_act.log("llm_brain", "decide_tool", "completed", message=f"tool={tool_name}", details={"args": arguments})
 
-		# Optional pre-step: run scraper to augment data
-		if tool_name == "fetch_competitor_price" and TOOLS.get("fetch_competitor_price"):
-			url = arguments.get("url") if isinstance(arguments, dict) else None
-			# fallback URL extraction from user text
-			if not url:
-				m = re.search(r"https?://\S+", user_request or "")
-				url = m.group(0) if m else None
-			if url:
-				try:
-					res = TOOLS["fetch_competitor_price"](url)
-					if isinstance(res, dict) and res.get("status") == "success" and "price" in res:
-						# Append a synthetic record with current timestamp
-						records.append((float(res["price"]), datetime.utcnow().isoformat()))
-						# Also persist to market_data to be traceable
-						try:
-							cursor.execute(
-								"INSERT INTO market_data (product_name, price, features, update_time) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
-								(product_name, float(res["price"]), "scraped"),
-							)
-							conn.commit()
-						except Exception:
-							pass
-						if _act:
-							_act.log("web_scraper", "fetch_competitor_price", "completed", message=f"price={res['price']}", details={"url": url})
-				except Exception as e_scrape:
-					print(f"[pricing_optimizer] scraper tool failed: {e_scrape}")
-					if _act:
-						_act.log("web_scraper", "fetch_competitor_price", "failed", message=str(e_scrape), details={"url": url})
+		# Data collection is now handled via event bus - no direct scraping here
 
 		# Ensure we have some data before pricing
 		if not records:
@@ -396,59 +398,42 @@ class LLMBrain:
 			from core.agents.agent_sdk.protocol import Topic as _Topic
 			from core.payloads import PriceProposalPayload as _PPayload
 
-			# Read current and cost from app/data.db (read-only), and prior optimized price from market.db
-			from pathlib import Path as _Path
-			_root = _Path(__file__).resolve().parents[2]
-			_app_db = _root / "app" / "data.db"
-			_market_db = _root / "data" / "market.db"
-
-			def _ro_conn(p: _Path):
-				try:
-					return _sqlite3.connect(f"file:{p.as_posix()}?mode=ro", uri=True, check_same_thread=False)
-				except Exception:
-					# Fallback to normal open; we only perform SELECTs
-					return _sqlite3.connect(p.as_posix(), check_same_thread=False)
-
+			# Read current price from product catalog and previous price from price proposals
+			# Both are now in app/data.db via DataRepo
 			current_price_val = None
+			previous_price_val = None
+			
 			try:
-				c2 = _ro_conn(_app_db)
-				cur2 = c2.cursor()
-				cur2.execute(
-					"CREATE TABLE IF NOT EXISTS product_catalog (\n"
-					"  sku TEXT PRIMARY KEY,\n"
-					"  title TEXT, currency TEXT, current_price REAL, cost REAL,\n"
-					"  stock INTEGER, updated_at TEXT\n"
-					")"
-				)
-				cur2.execute(
+				import sqlite3 as _sqlite3
+				from pathlib import Path as _Path
+				
+				_root = _Path(__file__).resolve().parents[2]
+				_app_db = _root / "app" / "data.db"
+				
+				conn = _sqlite3.connect(_app_db.as_posix(), check_same_thread=False)
+				cursor = conn.cursor()
+				
+				# Get current price from product catalog
+				cursor.execute(
 					"SELECT current_price FROM product_catalog WHERE sku=? LIMIT 1",
 					(product_name,),
 				)
-				rowc = cur2.fetchone()
-				if rowc:
-					current_price_val = float(rowc[0]) if rowc[0] is not None else None
-			finally:
-				try:
-					c2.close()  # type: ignore[name-defined]
-				except Exception:
-					pass
-
-			previous_price_val = None
-			try:
-				cm = _ro_conn(_market_db)
-				curm = cm.cursor()
-				curm.execute(
-					"SELECT optimized_price FROM pricing_list WHERE product_name=?",
+				row = cursor.fetchone()
+				if row and row[0] is not None:
+					current_price_val = float(row[0])
+				
+				# Get most recent proposed price from price_proposals
+				cursor.execute(
+					"SELECT proposed_price FROM price_proposals WHERE sku=? ORDER BY ts DESC LIMIT 1",
 					(product_name,),
 				)
-				rowm = curm.fetchone()
-				if rowm and rowm[0] is not None:
-					previous_price_val = float(rowm[0])
-			finally:
-				try:
-					cm.close()  # type: ignore[name-defined]
-				except Exception:
-					pass
+				row = cursor.fetchone()
+				if row and row[0] is not None:
+					previous_price_val = float(row[0])
+				
+				conn.close()
+			except Exception as e:
+				print(f"[pricing_optimizer] Error reading prices: {e}")
 
 			proposal_id = str(_uuid.uuid4())
 			pp: _PPayload = {

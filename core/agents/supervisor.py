@@ -8,11 +8,10 @@ from pathlib import Path
 
 from core.agents.data_collector.repo import DataRepo
 from core.agents.data_collector.collector import DataCollector
-from core.agents.data_collector import mcp_server
+from core.agents.agent_sdk.mcp_client import get_data_collector_client
+import uuid
 from core.agents.pricing_optimizer import PricingOptimizerAgent
-from core.bus import bus
-from core.protocol import Topic
-from core.models import PriceProposal
+
 
 
 class Supervisor:
@@ -32,6 +31,7 @@ class Supervisor:
         self.repo = repo or DataRepo()
         self.collector = collector or DataCollector(self.repo)
         self.optimizer = optimizer or PricingOptimizerAgent()
+        self.dc_client = get_data_collector_client()
         self.concurrency = max(1, int(concurrency))
 
     async def run_for_catalog(
@@ -57,7 +57,7 @@ class Supervisor:
                     await self.repo.upsert_products([row])
 
                     # 2) Start collection job via MCP
-                    start_res = await mcp_server.start_collection(
+                    start_res = await self.dc_client.start_collection(
                         sku, market=market, connector=connector, depth=depth
                     )
                     if not start_res.get("ok"):
@@ -71,7 +71,7 @@ class Supervisor:
                     t0 = time.time()
                     status = None
                     while time.time() - t0 < timeout_s:
-                        st = await mcp_server.get_job_status(job_id)
+                        st = await self.dc_client.get_job_status(job_id)
                         job = st.get("job") if st.get("ok") else None
                         status = (job or {}).get("status")
                         if status in {"DONE", "FAILED", "CANCELLED"}:

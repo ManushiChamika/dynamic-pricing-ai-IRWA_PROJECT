@@ -16,6 +16,7 @@ import logging
 from pathlib import Path
 from typing import Optional, Any, Dict, List, Callable
 import json
+from datetime import datetime
 
 
 def _load_dotenv_if_present() -> None:
@@ -238,6 +239,7 @@ class LLMClient:
         max_rounds: int = 3,
         max_tokens: int = 256,
         temperature: float = 0.2,
+        trace_id: Optional[str] = None,
     ) -> str:
         """OpenAI-style tool calling loop.
 
@@ -311,7 +313,39 @@ class LLMClient:
                             args = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
                         except Exception:
                             args = {}
+                        
+                        # Log tool call start
+                        tool_start_time = datetime.now()
+                        try:
+                            if trace_id:
+                                from core.agents.agent_sdk.activity_log import should_trace, activity_log, safe_redact
+                                from core.events.journal import write_event
+                                if should_trace():
+                                    activity_log.log(
+                                        agent="LLM",
+                                        action="tool_call.start",
+                                        status="in_progress",
+                                        message=f"Calling {fn_name}",
+                                        details=safe_redact({
+                                            "trace_id": trace_id,
+                                            "tool_name": fn_name,
+                                            "call_id": call_id,
+                                            "args": args
+                                        })
+                                    )
+                                    write_event("chat.tool_call", {
+                                        "trace_id": trace_id,
+                                        "action": "start",
+                                        "tool_name": fn_name,
+                                        "call_id": call_id,
+                                        "args": args,
+                                        "timestamp": tool_start_time.isoformat()
+                                    })
+                        except Exception:
+                            pass
+                        
                         result: Any
+                        error_occurred = False
                         if fn_name in functions_map:
                             try:
                                 result = functions_map[fn_name](**args)
@@ -319,8 +353,42 @@ class LLMClient:
                                 result = functions_map[fn_name](args)
                             except Exception as tool_exc:
                                 result = {"error": str(tool_exc)}
+                                error_occurred = True
                         else:
                             result = {"error": f"unknown tool: {fn_name}"}
+                            error_occurred = True
+
+                        # Log tool call completion
+                        try:
+                            if trace_id:
+                                duration_ms = int((datetime.now() - tool_start_time).total_seconds() * 1000)
+                                if should_trace():
+                                    status = "failed" if error_occurred else "completed"
+                                    activity_log.log(
+                                        agent="LLM",
+                                        action="tool_call.done",
+                                        status=status,
+                                        message=f"Tool {fn_name} {'failed' if error_occurred else 'completed'}",
+                                        details=safe_redact({
+                                            "trace_id": trace_id,
+                                            "tool_name": fn_name,
+                                            "call_id": call_id,
+                                            "duration_ms": duration_ms,
+                                            "error": error_occurred,
+                                            "result_size": len(str(result))
+                                        })
+                                    )
+                                    write_event("chat.tool_call", {
+                                        "trace_id": trace_id,
+                                        "action": "done",
+                                        "tool_name": fn_name,
+                                        "call_id": call_id,
+                                        "duration_ms": duration_ms,
+                                        "error": error_occurred,
+                                        "timestamp": datetime.now().isoformat()
+                                    })
+                        except Exception:
+                            pass
 
                         try:
                             content_str = result if isinstance(result, str) else json.dumps(result, ensure_ascii=False)

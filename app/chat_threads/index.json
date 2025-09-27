@@ -27,5 +27,27 @@
         "user_named": false
       }
     ]
+  },
+  "demo@example.com": {
+    "threads": [
+      {
+        "id": "43af2099-5ee1-49b5-8230-3f0b98b32775",
+        "title": "Hello There Options Have",
+        "created_at": "2025-09-27T17:53:51Z",
+        "updated_at": "2025-09-27T17:56:12Z",
+        "auto_named": true,
+        "llm_named": false,
+        "user_named": false
+      },
+      {
+        "id": "5f01a361-7c5b-4f00-b92e-ef76197ad65a",
+        "title": "New chat",
+        "created_at": "2025-09-27T17:54:57Z",
+        "updated_at": "2025-09-27T17:54:57Z",
+        "auto_named": false,
+        "llm_named": false,
+        "user_named": false
+      }
+    ]
   }
 }
