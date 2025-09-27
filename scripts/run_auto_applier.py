@@ -10,19 +10,25 @@ if str(_root0) not in _Sys0.path:
     _Sys0.path.insert(0, str(_root0))
 
 from core.agents.governance_execution_agent import GovernanceExecutionAgent
+from core.observability.logging import init_logging, new_correlation_id, get_logger
 
 
 async def main() -> None:
+    init_logging(agent_name="governance-execution-agent")
+    new_correlation_id()
+    log = get_logger("runner")
+
     agent = GovernanceExecutionAgent()
     await agent.start()
-    print("GovernanceExecutionAgent started. Press Ctrl+C to stop.")
+    log.info("agent_started", message="GovernanceExecutionAgent started. Press Ctrl+C to stop.")
     try:
         while True:
             await asyncio.sleep(1)
     except KeyboardInterrupt:
-        print("Stopping...")
+        log.info("agent_stopping")
     finally:
         await agent.stop()
+        log.info("agent_stopped")
 
 
 if __name__ == "__main__":

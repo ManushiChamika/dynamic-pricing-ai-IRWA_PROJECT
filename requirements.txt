@@ -21,3 +21,4 @@ beautifulsoup4
 pyarrow
 openai>=1.30.0,<2
 python-dotenv>=1.0.1
+structlog>=24.1.0

@@ -11,6 +11,7 @@ from typing import Optional, Dict, Any
 from core.agents.agent_sdk.bus_factory import get_bus
 from core.agents.agent_sdk.protocol import Topic
 from core.payloads import PriceProposalPayload, PriceUpdatePayload
+from core.observability.logging import get_logger
 
 
 def _utc_now_iso() -> str:
@@ -43,13 +44,16 @@ class GovernanceExecutionAgent:
                 self._handle_price_proposal(payload)  # offload inside
             except Exception as e:
                 try:
-                    print(f"[GEA] on_price_proposal error: {e}")
+                    get_logger("ge_agent").warning("on_price_proposal_error", error=str(e))
                 except Exception:
                     pass
 
         self._callback = on_price_proposal
         get_bus().subscribe(Topic.PRICE_PROPOSAL.value, self._callback)
-        print("GovernanceExecutionAgent: subscribed to price.proposal")
+        try:
+            get_logger("ge_agent").info("subscribed", topic=Topic.PRICE_PROPOSAL.value)
+        except Exception:
+            pass
 
     async def stop(self) -> None:
         self._callback = None
@@ -137,7 +141,7 @@ class GovernanceExecutionAgent:
             )
         except Exception as e:
             try:
-                print(f"[GEA] invalid payload: {e} -> {payload}")
+                get_logger("ge_agent").warning("invalid_payload", error=str(e), payload=payload)
             except Exception:
                 pass
             return
@@ -226,6 +230,15 @@ class GovernanceExecutionAgent:
                         "final_price": float(pp["proposed_price"]),
                     }
                     self._publish_update_async(upd)
+                    try:
+                        get_logger("ge_agent").info(
+                            "applied_auto",
+                            product_id=pp["product_id"],
+                            proposal_id=pp["proposal_id"],
+                            final_price=float(pp["proposed_price"]),
+                        )
+                    except Exception:
+                        pass
                 else:
                     # stale
                     cur.execute(
@@ -258,6 +271,10 @@ class GovernanceExecutionAgent:
                         (str(e), _utc_now_iso(), pp["proposal_id"]),
                     )
                     conn.commit()
+                except Exception:
+                    pass
+                try:
+                    get_logger("ge_agent").warning("apply_failed", error=str(e), proposal_id=pp["proposal_id"], product_id=pp["product_id"])
                 except Exception:
                     pass
             finally:
@@ -294,7 +311,7 @@ class GovernanceExecutionAgent:
                 await get_bus().publish(Topic.PRICE_UPDATE.value, upd)
             except Exception as e:
                 try:
-                    print(f"[GEA] publish price.update failed: {e}")
+                    get_logger("ge_agent").warning("publish_update_failed", error=str(e))
                 except Exception:
                     pass
         try:
