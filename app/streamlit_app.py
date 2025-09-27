@@ -43,6 +43,7 @@ from core.agents.alert_service import api as alerts  # <-- safe now
 
 # 4) Session setup (do not force-stop if cookie manager hasn't initialized yet)
 import os  # Move import up here
+from app.session_utils import ensure_session_from_cookie
 # This top-level session check is problematic and causes premature redirects.
 # The individual pages (login, register, dashboard) are now responsible for
 # calling ensure_session_from_cookie() themselves.
@@ -59,8 +60,8 @@ import os  # Move import up here
 #     pass
 st.session_state.setdefault("session", None)
 
-# Dashboard-only mode: no login gating
-require_login = False
+# Require login to access the dashboard
+require_login = True
 
 # 5) Start the alert service once (schedule onto background loop)
 if "_alerts_started" not in st.session_state:
@@ -93,6 +94,24 @@ if os.getenv("DEBUG_LLM", "0") == "1":
 # Ensure URL shows dashboard during navigation
 if st.query_params.get("page") != "dashboard":
     st.query_params["page"] = "dashboard"
+
+# Auth guard: ensure session from cookie; if absent, show login prompt and halt
+if require_login:
+    cookies_ready = ensure_session_from_cookie(page_key="dashboard")
+    if not st.session_state.get("session"):
+        if not cookies_ready:
+            st.title("🔐 Loading your dashboard")
+            st.info("Hold on while we restore your session…")
+        else:
+            frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+            login_url = f"{frontend_url}/login"
+            st.title("🔒 Authentication Required")
+            st.info("You need to log in to access the dashboard.")
+            try:
+                st.link_button("Go to Login", login_url, use_container_width=True)
+            except Exception:
+                st.markdown(f"[Go to Login]({login_url})")
+        st.stop()
 
 # Dashboard Mode - Full App Interface
 # Apply theme from session (supports dark toggle)

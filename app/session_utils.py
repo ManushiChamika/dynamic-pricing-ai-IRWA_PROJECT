@@ -57,22 +57,31 @@ def clear_session_cookie() -> None:
     except Exception:
         pass
 
-def ensure_session_from_cookie(page_key: str = "root") -> None:
+def ensure_session_from_cookie(page_key: str = "root") -> bool:
+    """Attempt to hydrate st.session_state['session'] from the fp_session cookie.
+
+    Returns True when the CookieManager has responded (regardless of whether a valid
+    cookie was found). Returns False while the CookieManager component is still
+    mounting and has not provided any cookie data yet.
+    """
+
     if st.session_state.pop("_skip_cookie_restore_once", False):
-        return
+        return True
     if st.session_state.get("session"):
-        return
+        return True
 
     # Use cookie manager to restore session when available
     cm = cookie_mgr()
-    cookies = cm.get_all(key=f"get_all_{page_key}")
+    import time
+    unique_key = f"get_all_{page_key}_{int(time.time() * 1000000)}"
+    cookies = cm.get_all(key=unique_key)
     if cookies is None:
         # Cookie manager not ready yet; allow page to continue
-        return
+        return False
 
     token = cookies.get(COOKIE_NAME)
     if not token:
-        return
+        return True
 
     try:
         sess = validate_session_token(token)
@@ -81,3 +90,6 @@ def ensure_session_from_cookie(page_key: str = "root") -> None:
 
     if sess:
         st.session_state["session"] = sess
+        return True
+
+    return True
