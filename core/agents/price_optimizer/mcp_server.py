@@ -1,6 +1,7 @@
-from __future__ import annotations
+
 
 import asyncio
+import inspect
 from typing import Dict, Any, Optional
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -31,24 +32,30 @@ class ProposalActionRequest(BaseModel):
     proposal_id: str = Field(..., min_length=1)
 
 
-async def main():
+# We construct the MCP app at import so serve() can run synchronously
+_mcp_instance: Optional[FastMCP] = None  # type: ignore
+
+
+def _build_mcp() -> FastMCP:
+    global _mcp_instance
+    if _mcp_instance is not None:
+        return _mcp_instance
     if FastMCP is None:
         raise RuntimeError("MCP not available: install the MCP package to run this server.")
-
     mcp = FastMCP("price-optimizer-service")
 
     @mcp.tool()
     async def propose_price(
         sku: str,
         our_price: float,
-        competitor_price: float = None,
-        demand_index: float = None,
-        cost: float = None,
-        min_price: float = None,
-        max_price: float = None,
+        competitor_price: Optional[float] = None,
+        demand_index: Optional[float] = None,
+        cost: Optional[float] = None,
+        min_price: Optional[float] = None,
+        max_price: Optional[float] = None,
         min_margin: float = 0.12,
         capability_token: str = ""
-    ) -> Dict[str, Any]:
+    ) -> dict:
         """Generate price optimization proposal with validation."""
         try:
             # Validate auth
@@ -116,7 +123,7 @@ async def main():
             return {"ok": False, "error": str(e), "error_code": "optimization_error"}
 
     @mcp.tool()
-    async def explain_proposal(proposal_id: str, capability_token: str = "") -> Dict[str, Any]:
+    async def explain_proposal(proposal_id: str, capability_token: str = "") -> dict:
         """Explain optimization reasoning for a proposal with validation."""
         try:
             # Validate auth
@@ -149,7 +156,7 @@ async def main():
             return {"ok": False, "error": "internal_error", "message": str(e)}
 
     @mcp.tool()
-    async def apply_proposal(proposal_id: str, capability_token: str = "") -> Dict[str, Any]:
+    async def apply_proposal(proposal_id: str, capability_token: str = "") -> dict:
         """Apply approved price proposal with validation."""
         try:
             # Validate auth
@@ -180,7 +187,7 @@ async def main():
             return {"ok": False, "error": "internal_error", "message": str(e)}
 
     @mcp.tool()
-    async def cancel_proposal(proposal_id: str, capability_token: str = "") -> Dict[str, Any]:
+    async def cancel_proposal(proposal_id: str, capability_token: str = "") -> dict:
         """Cancel pending proposal with validation."""
         try:
             # Validate auth
@@ -212,7 +219,7 @@ async def main():
 
     # Legacy tool for backward compatibility
     @mcp.tool()
-    async def optimize_price(payload: Dict[str, Any], capability_token: str = "") -> Dict[str, Any]:
+    async def optimize_price(payload: dict, capability_token: str = "") -> dict:
         """Legacy optimize_price tool - redirects to propose_price with payload unpacking."""
         try:
             return await propose_price(
@@ -231,22 +238,22 @@ async def main():
 
     # Health tools
     @mcp.tool()
-    async def ping_health() -> Dict[str, Any]:
+    async def ping_health() -> dict:
         """Basic connectivity test."""
         return await ping()
 
     @mcp.tool() 
-    async def version_info() -> Dict[str, Any]:
+    async def version_info() -> dict:
         """Server version information."""
         return await version()
 
     @mcp.tool()
-    async def health_check() -> Dict[str, Any]:
+    async def health_check() -> dict:
         """Detailed health status."""
         return await health("price-optimizer", check_dependencies=True)
 
     @mcp.tool()
-    async def auth_metrics(capability_token: str = "") -> Dict[str, Any]:
+    async def auth_metrics(capability_token: str = "") -> dict:
         """Get authentication metrics for this service."""
         try:
             # Validate auth - requires admin scope to view metrics
@@ -266,11 +273,31 @@ async def main():
         except Exception as e:
             return {"ok": False, "error": "internal_error", "message": str(e)}
 
-    await mcp.run()
+    _mcp_instance = mcp
+    return mcp
+
+
+def _call_mcp_run(mcp: FastMCP) -> None:
+    run_fn = getattr(mcp, "run", None)
+    if run_fn is None:
+        raise RuntimeError("FastMCP.run not available")
+    if inspect.iscoroutinefunction(run_fn):
+        asyncio.run(run_fn())
+    else:
+        run_fn()
+
+
+def serve() -> None:
+    mcp = _build_mcp()
+    _call_mcp_run(mcp)
+
+
+# Backwards-compatible async main that avoids nested event loops
+async def main():
+    mcp = _build_mcp()
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, _call_mcp_run, mcp)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
-
-
-
+    serve()

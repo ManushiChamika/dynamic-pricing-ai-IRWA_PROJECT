@@ -4,7 +4,7 @@ import os
 import uuid
 from collections import deque
 from dataclasses import dataclass, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from threading import Lock
 from typing import Any, Deque, Dict, List, Optional
 
@@ -73,7 +73,7 @@ class _ActivityLog:
         details: Optional[Dict[str, Any]] = None,
     ) -> None:
         rec = Activity(
-            ts=datetime.utcnow().isoformat(timespec="seconds") + "Z",
+            ts=datetime.now(timezone.utc).isoformat(timespec="seconds") + "Z",
             agent=agent,
             action=action,
             status=status,

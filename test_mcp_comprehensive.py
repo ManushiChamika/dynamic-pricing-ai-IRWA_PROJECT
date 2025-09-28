@@ -46,11 +46,9 @@ def test_auth_functionality():
             assert len(token) > 0
         print("[OK] Service token generation works")
         
-        return True
-        
     except Exception as e:
         print(f"[FAIL] Auth functionality test failed: {e}")
-        return False
+        assert False, f"Auth functionality test failed: {e}"
 
 
 def test_mcp_tool_import():
@@ -77,11 +75,9 @@ def test_mcp_tool_import():
         # The price optimizer uses a different pattern - it creates the MCP instance when imported
         print("[OK] Price optimizer imports successfully")
         
-        return True
-        
     except Exception as e:
         print(f"[FAIL] MCP tool import test failed: {e}")
-        return False
+        assert False, f"MCP tool import test failed: {e}"
 
 
 def test_auth_scenarios():
@@ -119,11 +115,9 @@ def test_auth_scenarios():
         assert result["error"] == "auth_error"
         print("[OK] Expired/invalid token correctly rejected")
         
-        return True
-        
     except Exception as e:
         print(f"[FAIL] Auth scenarios test failed: {e}")
-        return False
+        assert False, f"Auth scenarios test failed: {e}"
 
 
 def run_comprehensive_tests():

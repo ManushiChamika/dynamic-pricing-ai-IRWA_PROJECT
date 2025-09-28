@@ -60,7 +60,7 @@ def simulate_registration_flow():
         print("   ✅ Registration success flag set in session")
     except Exception as e:
         print(f"   ❌ Registration failed: {e}")
-        return False
+        assert False, f"Registration failed: {e}"
     
     # Step 4: Success message displayed
     print("\n4. 🎉 Registration success page...")
@@ -82,10 +82,10 @@ def simulate_registration_flow():
             print(f"   ✅ User info retrieved: {user_info}")
         else:
             print("   ❌ Authentication failed")
-            return False
+            assert False, "Authentication failed"
     except Exception as e:
         print(f"   ❌ Authentication error: {e}")
-        return False
+        assert False, f"Authentication error: {e}"
     
     # Step 7: Redirect to dashboard
     print("\n7. 🏠 Redirect to dashboard...")
@@ -107,7 +107,6 @@ def simulate_registration_flow():
     
     print("\n🎯 COMPLETE REGISTRATION FLOW SIMULATION: SUCCESS!")
     print("All steps in the registration process work correctly.")
-    return True
 
 def test_navigation_logic():
     """Test the navigation logic and URL parameters."""
@@ -136,8 +135,6 @@ def test_navigation_logic():
     print("\nSupported Navigation Flows:")
     for flow in navigation_flows:
         print(f"✅ {flow}")
-    
-    return True
 
 if __name__ == "__main__":
     print("Testing FluxPricer AI Authentication System")

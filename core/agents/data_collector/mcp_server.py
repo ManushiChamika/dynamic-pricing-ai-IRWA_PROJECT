@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional
 import json
@@ -86,6 +87,8 @@ async def fetch_market_features(
         # Ensure result has proper structure
         if not isinstance(result, dict):
             result = {"ok": True, "features": result}
+        # Ensure standard fields
+        result.setdefault("ok", True)
         result.setdefault("sku", request.sku)
         result.setdefault("market", request.market)
         result.setdefault("time_window", request.time_window)
@@ -222,7 +225,7 @@ async def start_collection(
         return {"ok": False, "error": "internal_error", "message": str(e)}
 
 
-@mcp.tool()
+@mcp.tool()  
 async def get_job_status(job_id: str, capability_token: str = "") -> dict:
     """Return current job status with validation."""
     try:
@@ -325,12 +328,28 @@ async def auth_metrics(capability_token: str = "") -> Dict[str, Any]:
         return {"ok": False, "error": "internal_error", "message": str(e)}
 
 
+def _call_mcp_run() -> None:
+    run_fn = getattr(mcp, "run", None)
+    if run_fn is None:
+        raise RuntimeError("FastMCP.run not available")
+    if inspect.iscoroutinefunction(run_fn):
+        asyncio.run(run_fn())
+    else:
+        run_fn()
+
+
+def serve() -> None:
+    asyncio.run(_repo.init())
+    _call_mcp_run()
+
+
+# Keep async main for backward compatibility if imported elsewhere, but avoid nested loops
 async def main():
+    # Initialize repository, then run the server in a separate thread to avoid nested event loops
     await _repo.init()
-    await mcp.run()
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, _call_mcp_run)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
-
-
+    serve()

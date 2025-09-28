@@ -7,6 +7,57 @@ from core.agents.user_interact.user_interaction_agent import UserInteractionAgen
 from app.ui.services import chat_threads as ct
 
 
+def _check_if_requires_poa(message: str) -> bool:
+    """Check if a message requires Price Optimization Agent."""
+    message_lower = message.lower()
+    
+    # Complex pricing keywords that suggest POA is needed
+    poa_keywords = [
+        "optimize price", "pricing strategy", "maximize profit", "competitive pricing",
+        "market analysis", "algorithm", "ml model", "profit maximization", 
+        "rule based", "competitor price", "pricing workflow", "complex pricing",
+        "advanced pricing", "ai pricing", "intelligent pricing"
+    ]
+    
+    # Simple queries that UIA can handle alone
+    simple_keywords = [
+        "current price", "list products", "show inventory", "what is the price",
+        "price of", "cost of", "how much", "market price", "proposals"
+    ]
+    
+    # Check if it's a simple query first
+    if any(keyword in message_lower for keyword in simple_keywords):
+        # But if it also has complex keywords, it still needs POA
+        if any(keyword in message_lower for keyword in poa_keywords):
+            return True
+        return False
+    
+    # Check for complex pricing needs
+    return any(keyword in message_lower for keyword in poa_keywords)
+
+
+def _check_if_triggers_dca(message: str) -> bool:
+    """Heuristic to detect if message likely triggers Data Collection Agent (collect_market_data)."""
+    m = message.lower()
+    dca_keywords = [
+        "collect market data", "collect data", "data collection", "gather data", "refresh data",
+        "update market", "fetch market", "scrape", "web scraper", "competitor data",
+        "ingest data", "pull latest data", "update pricing data"
+    ]
+    return any(k in m for k in dca_keywords)
+
+
+def _check_if_triggers_ana(message: str) -> bool:
+    """Heuristic to detect if message likely triggers Alert & Notification Agent (scan_for_alerts)."""
+    m = message.lower()
+    ana_keywords = [
+        "alerts", "scan alerts", "check alerts", "critical", "anomaly", "anomalies",
+        "margin breach", "breach", "undercut", "competitor undercut", "risk", "monitor",
+        "scan for", "situations", "issues", "problems", "warning", "incident"
+    ]
+    return any(k in m for k in ana_keywords)
+
+
 def _get_agent() -> UserInteractionAgent:
     user = (st.session_state.get("session") or {}).get("full_name") or "User"
     if "_chat_agent" not in st.session_state:
@@ -27,24 +78,42 @@ def _ensure_state() -> None:
 
 def _ensure_thread_initialized() -> str:
     user = current_user()
-    # Prefer URL param when present, but validate it exists for this user
+    
+    # Debug logging
+    import os
+    debug = os.getenv("DEBUG_LLM", "0") == "1"
+    if debug:
+        print(f"[DEBUG] _ensure_thread_initialized - URL: {st.query_params.get('thread')}, Session: {st.session_state.get('current_thread_id')}")
+    
+    # Always prefer URL param when present and valid
     tid = st.query_params.get("thread")
     if tid and ct.thread_exists(user, tid):
+        if debug:
+            print(f"[DEBUG] Using URL thread: {tid}")
         st.session_state["current_thread_id"] = tid
         return tid
 
     # Fallback to session value if valid
-    if st.session_state.get("current_thread_id") and ct.thread_exists(user, st.session_state["current_thread_id"]):
-        return st.session_state["current_thread_id"]
+    session_tid = st.session_state.get("current_thread_id")
+    if session_tid and ct.thread_exists(user, session_tid):
+        if debug:
+            print(f"[DEBUG] Using session thread: {session_tid}")
+        # Update URL to match session state
+        st.query_params["thread"] = session_tid
+        return session_tid
 
     # Otherwise, pick the most recent existing thread or create one
     first = ct.first_thread_id(user)
     if first:
+        if debug:
+            print(f"[DEBUG] Using first available thread: {first}")
         st.session_state["current_thread_id"] = first
         st.query_params["thread"] = first
         return first
 
     new_tid = ct.create_thread(user, title="New chat")
+    if debug:
+        print(f"[DEBUG] Created new thread: {new_tid}")
     st.session_state["current_thread_id"] = new_tid
     st.query_params["thread"] = new_tid
     return new_tid
@@ -161,6 +230,11 @@ def view() -> None:
     # Ensure a thread exists and migrate any legacy session history
     tid = _ensure_thread_initialized()
     _migrate_legacy_history_to_thread(tid)
+    
+    # Debug: log current thread state
+    import os
+    if os.getenv("DEBUG_LLM", "0") == "1":
+        print(f"[DEBUG] Chat view - Current thread: {tid}, Session thread: {st.session_state.get('current_thread_id')}, URL thread: {st.query_params.get('thread')}")
 
     # Header with click-to-rename title (no persistent text input)
     user = current_user()
@@ -251,6 +325,146 @@ def view() -> None:
                 """,
                 unsafe_allow_html=True,
             )
+            
+            # Show staged feedback depending on detected intent
+            requires_poa = _check_if_requires_poa(awaiting)
+            triggers_ana = _check_if_triggers_ana(awaiting)
+            triggers_dca = _check_if_triggers_dca(awaiting)
+            if requires_poa:
+                # Show enhanced POA status with multiple stages
+                import time
+                
+                # Stage 1: Analyzing request
+                ph.markdown(
+                    """
+                    <div class="typing-bubble" style="background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%); border-color: #F59E0B; color: #92400E;">
+                        <div class="typing-dots"><span style="background: linear-gradient(135deg, #F59E0B, #D97706);"></span><span style="background: linear-gradient(135deg, #F59E0B, #D97706);"></span><span style="background: linear-gradient(135deg, #F59E0B, #D97706);"></span></div>
+                        <div class="typing-text">🤖 Price Optimization Agent: Analyzing request...</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                time.sleep(1)
+                
+                # Stage 2: AI algorithm selection
+                ph.markdown(
+                    """
+                    <div class="typing-bubble" style="background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%); border-color: #3B82F6; color: #1D4ED8;">
+                        <div class="typing-dots"><span style="background: linear-gradient(135deg, #3B82F6, #1D4ED8);"></span><span style="background: linear-gradient(135deg, #3B82F6, #1D4ED8);"></span><span style="background: linear-gradient(135deg, #3B82F6, #1D4ED8);"></span></div>
+                        <div class="typing-text">🧠 AI Brain: Selecting optimal algorithm...</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                time.sleep(1)
+                
+                # Stage 3: Market analysis
+                ph.markdown(
+                    """
+                    <div class="typing-bubble" style="background: linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%); border-color: #10B981; color: #047857;">
+                        <div class="typing-dots"><span style="background: linear-gradient(135deg, #10B981, #047857);"></span><span style="background: linear-gradient(135deg, #10B981, #047857);"></span><span style="background: linear-gradient(135deg, #10B981, #047857);"></span></div>
+                        <div class="typing-text">📊 Market Analysis: Processing competitive data...</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                time.sleep(1)
+                
+                # Stage 4: Executing optimization
+                ph.markdown(
+                    """
+                    <div class="typing-bubble" style="background: linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 100%); border-color: #EC4899; color: #BE185D;">
+                        <div class="typing-dots"><span style="background: linear-gradient(135deg, #EC4899, #BE185D);"></span><span style="background: linear-gradient(135deg, #EC4899, #BE185D);"></span><span style="background: linear-gradient(135deg, #EC4899, #BE185D);"></span></div>
+                        <div class="typing-text">⚡ Executing pricing optimization...</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            elif triggers_dca:
+                import time
+                # DCA staged feedback
+                ph.markdown(
+                    """
+                    <div class="typing-bubble" style="background: linear-gradient(135deg, #E0E7FF 0%, #C7D2FE 100%); border-color: #6366F1; color: #3730A3;">
+                        <div class="typing-dots"><span style="background: linear-gradient(135deg, #6366F1, #3730A3);"></span><span style="background: linear-gradient(135deg, #6366F1, #3730A3);"></span><span style="background: linear-gradient(135deg, #6366F1, #3730A3);"></span></div>
+                        <div class="typing-text">🗂️ Data Collection: Planning sources...</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                time.sleep(0.9)
+                ph.markdown(
+                    """
+                    <div class="typing-bubble" style="background: linear-gradient(135deg, #F0FDFA 0%, #CCFBF1 100%); border-color: #14B8A6; color: #0F766E;">
+                        <div class="typing-dots"><span style="background: linear-gradient(135deg, #14B8A6, #0F766E);"></span><span style="background: linear-gradient(135deg, #14B8A6, #0F766E);"></span><span style="background: linear-gradient(135deg, #14B8A6, #0F766E);"></span></div>
+                        <div class="typing-text">🔌 Connecting to data sources...</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                time.sleep(0.9)
+                ph.markdown(
+                    """
+                    <div class="typing-bubble" style="background: linear-gradient(135deg, #FAF5FF 0%, #E9D5FF 100%); border-color: #A855F7; color: #6B21A8;">
+                        <div class="typing-dots"><span style="background: linear-gradient(135deg, #A855F7, #6B21A8);"></span><span style="background: linear-gradient(135deg, #A855F7, #6B21A8);"></span><span style="background: linear-gradient(135deg, #A855F7, #6B21A8);"></span></div>
+                        <div class="typing-text">📥 Ingesting and normalizing market data...</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                time.sleep(0.9)
+                ph.markdown(
+                    """
+                    <div class="typing-bubble" style="background: linear-gradient(135deg, #FFF7ED 0%, #FED7AA 100%); border-color: #F97316; color: #9A3412;">
+                        <div class="typing-dots"><span style="background: linear-gradient(135deg, #F97316, #9A3412);"></span><span style="background: linear-gradient(135deg, #F97316, #9A3412);"></span><span style="background: linear-gradient(135deg, #F97316, #9A3412);"></span></div>
+                        <div class="typing-text">📊 Updating insights and dashboard...</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            elif triggers_ana:
+                import time
+                # ANA staged feedback
+                ph.markdown(
+                    """
+                    <div class="typing-bubble" style="background: linear-gradient(135deg, #FDE68A 0%, #FCA5A5 100%); border-color: #F59E0B; color: #7C2D12;">
+                        <div class="typing-dots"><span style="background: linear-gradient(135deg, #F59E0B, #B45309);"></span><span style="background: linear-gradient(135deg, #F59E0B, #B45309);"></span><span style="background: linear-gradient(135deg, #F59E0B, #B45309);"></span></div>
+                        <div class="typing-text">🛡️ Alert Scanner: Loading detection rules...</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                time.sleep(0.9)
+                ph.markdown(
+                    """
+                    <div class="typing-bubble" style="background: linear-gradient(135deg, #E5E7EB 0%, #D1D5DB 100%); border-color: #6B7280; color: #374151;">
+                        <div class="typing-dots"><span style="background: linear-gradient(135deg, #6B7280, #374151);"></span><span style="background: linear-gradient(135deg, #6B7280, #374151);"></span><span style="background: linear-gradient(135deg, #6B7280, #374151);"></span></div>
+                        <div class="typing-text">🔍 Scanning recent pricing and market signals...</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                time.sleep(0.9)
+                ph.markdown(
+                    """
+                    <div class="typing-bubble" style="background: linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%); border-color: #0EA5E9; color: #075985;">
+                        <div class="typing-dots"><span style="background: linear-gradient(135deg, #0EA5E9, #075985);"></span><span style="background: linear-gradient(135deg, #0EA5E9, #075985);"></span><span style="background: linear-gradient(135deg, #0EA5E9, #075985);"></span></div>
+                        <div class="typing-text">⚖️ Evaluating severity and impact...</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                time.sleep(0.9)
+                ph.markdown(
+                    """
+                    <div class="typing-bubble" style="background: linear-gradient(135deg, #ECFCCB 0%, #D9F99D 100%); border-color: #84CC16; color: #3F6212;">
+                        <div class="typing-dots"><span style="background: linear-gradient(135deg, #84CC16, #3F6212);"></span><span style="background: linear-gradient(135deg, #84CC16, #3F6212);"></span><span style="background: linear-gradient(135deg, #84CC16, #3F6212);"></span></div>
+                        <div class="typing-text">📣 Compiling alerts and recommendations...</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            
             try:
                 reply = agent.get_response(awaiting)
             except Exception as e:
@@ -316,9 +530,11 @@ def view() -> None:
 
     prompt = st.chat_input("Ask about prices, rules, proposals, or market trends…")
     if prompt and prompt.strip():
-        ct.append_message(current_user(), tid, "user", prompt.strip())
+        # Ensure we're using the current thread (re-check in case it changed)
+        current_tid = _ensure_thread_initialized()
+        ct.append_message(current_user(), current_tid, "user", prompt.strip())
         st.session_state["awaiting"] = prompt.strip()
         st.query_params["page"] = "dashboard"
         st.query_params["section"] = "chat"
-        st.query_params["thread"] = tid
+        st.query_params["thread"] = current_tid
         st.rerun()

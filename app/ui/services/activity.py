@@ -69,12 +69,29 @@ def ensure_bus_bridge() -> bool:
         try:
             d = _to_dict(ev)
             trace_id = d.get("trace_id", "")
-            sku = str(d.get("sku", ""))
-            old_p = d.get("old_price")
-            new_p = d.get("new_price")
-            rationale = d.get("rationale", "")
-            confidence = d.get("confidence", 0)
-            msg = f"{sku}: {old_p} → {new_p} ({confidence:.1%} confidence)"
+            
+            # Support both typed (new) and legacy (old) payload formats
+            if "product_id" in d:
+                # Typed payload format: {proposal_id, product_id, previous_price, proposed_price}
+                sku = str(d.get("product_id", ""))
+                old_p = d.get("previous_price")
+                new_p = d.get("proposed_price")
+                rationale = d.get("rationale", "")
+                confidence = d.get("confidence", 0)
+            else:
+                # Legacy payload format: {sku, old_price, new_price, rationale, confidence}
+                sku = str(d.get("sku", ""))
+                old_p = d.get("old_price")
+                new_p = d.get("new_price")
+                rationale = d.get("rationale", "")
+                confidence = d.get("confidence", 0)
+            
+            # Format message with confidence if available
+            if confidence > 0:
+                msg = f"{sku}: {old_p} → {new_p} ({confidence:.1%} confidence)"
+            else:
+                msg = f"{sku}: {old_p} → {new_p}"
+            
             details = dict(d)
             if trace_id:
                 details["trace_id"] = trace_id
@@ -141,11 +158,34 @@ def ensure_bus_bridge() -> bool:
             pass
 
     try:
+        def on_market_fetch_ack(ev: Any):
+            try:
+                d = _to_dict(ev)
+                status = str(d.get("status", "")).upper()
+                job = d.get("job_id", "")
+                msg = f"job={job} {status}"
+                st = "in_progress" if status in ("QUEUED", "RUNNING") else ("failed" if status == "FAILED" else "info")
+                activity_log.log(agent="DataCollector", action="market.fetch.ack", status=st, message=msg, details=d)
+            except Exception:
+                pass
+
+        def on_market_fetch_done(ev: Any):
+            try:
+                d = _to_dict(ev)
+                cnt = d.get("tick_count", 0)
+                job = d.get("job_id", "")
+                msg = f"job={job} collected {cnt} ticks"
+                activity_log.log(agent="DataCollector", action="market.fetch.done", status="completed", message=msg, details=d)
+            except Exception:
+                pass
+
         bus.subscribe(Topic.ALERT.value, on_alert)
         bus.subscribe(Topic.PRICE_UPDATE.value, on_price_update)
         bus.subscribe(Topic.PRICE_PROPOSAL.value, on_price_proposal)
         bus.subscribe(Topic.CHAT_PROMPT.value, on_chat_prompt)
         bus.subscribe(Topic.CHAT_TOOL_CALL.value, on_chat_tool_call)
+        bus.subscribe(Topic.MARKET_FETCH_ACK.value, on_market_fetch_ack)
+        bus.subscribe(Topic.MARKET_FETCH_DONE.value, on_market_fetch_done)
         _bridge_started = True
         return True
     except Exception:

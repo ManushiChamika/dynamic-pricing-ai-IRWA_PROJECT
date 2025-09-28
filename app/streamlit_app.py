@@ -77,6 +77,22 @@ if "_alerts_started" not in st.session_state:
     asyncio.run_coroutine_threadsafe(alerts.start(), loop)
     st.session_state["_alerts_started"] = True
 
+# 5.1) Start DataCollector (subscribe to market.fetch.* and init repo) once
+try:
+    if "_dc_started" not in st.session_state:
+        from core.agents.data_collector.repo import DataRepo
+        from core.agents.data_collector.collector import DataCollector
+        # Initialize repo on background loop
+        _repo = DataRepo()
+        asyncio.run_coroutine_threadsafe(_repo.init(), _ensure_bg_loop())
+        # Instantiate collector to register bus subscriptions
+        st.session_state["_dc_instance"] = DataCollector(repo=_repo)
+        st.session_state["_dc_started"] = True
+except Exception:
+    # Best-effort; UI still works without data collector
+    pass
+
+
 
 # 6) URL-based routing for Landing vs Dashboard
 from app.ui.theme.inject import apply_theme

@@ -4,8 +4,8 @@ import os
 os.environ.setdefault("STREAMLIT_SERVER_HEADLESS", "true")
 
 app = AppTest.from_file("app/streamlit_app.py")
-# Comment out to simulate logged out state
-# app.session_state["session"] = {"user_id": 1, "full_name": "Test User", "email": "test@example.com"}
+# Enable session for chat test
+app.session_state["session"] = {"user_id": 1, "full_name": "Test User", "email": "test@example.com"}
 app.session_state["current_section"] = "AI CHAT"
 app.session_state["is_dark_mode"] = False
 app.query_params["page"] = "dashboard"

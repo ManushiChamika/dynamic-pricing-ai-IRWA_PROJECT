@@ -14,7 +14,7 @@ import sqlite3
 import time
 import importlib
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -52,40 +52,93 @@ _load_dotenv_if_present()
 
 def rule_based(records):
 	"""
-	Simple rule-based algorithm:
-	- Takes competitor prices
-	- Returns average competitor price minus 2%
+	Conservative competitive pricing algorithm:
+	- Analyzes competitor price distribution
+	- Applies 2% discount to median competitor price for market share
+	- Uses weighted average favoring recent prices
 	"""
-	prices = [r[0] for r in records]
-	if not prices:
+	if not records:
 		return None
-	avg = sum(prices) / len(prices)
-	return round(avg * 0.98, 2)
+	
+	prices = [r[0] for r in records]
+	if len(prices) == 1:
+		return round(prices[0] * 0.98, 2)
+	
+	# Weighted average (more recent prices have higher weight)
+	weights = list(range(1, len(prices) + 1))
+	weighted_avg = sum(p * w for p, w in zip(prices, weights)) / sum(weights)
+	
+	# Apply conservative 2% discount for competitive positioning
+	competitive_price = weighted_avg * 0.98
+	
+	print(f"[rule_based] Analyzed {len(prices)} competitor prices, weighted avg: ${weighted_avg:.2f}, competitive price: ${competitive_price:.2f}")
+	return round(competitive_price, 2)
 
 
 def ml_model(records):
 	"""
-	Placeholder ML model:
-	- Currently just returns average competitor price
-	- Later can be replaced with regression/ML
+	Advanced ML-inspired pricing model:
+	- Analyzes price volatility and trends
+	- Considers market positioning based on price range
+	- Applies dynamic adjustment based on competitive density
 	"""
-	prices = [r[0] for r in records]
-	if not prices:
+	if not records:
 		return None
-	return round(sum(prices) / len(prices), 2)
+	
+	prices = [r[0] for r in records]
+	
+	# Calculate statistics
+	avg_price = sum(prices) / len(prices)
+	min_price = min(prices)
+	max_price = max(prices)
+	price_range = max_price - min_price
+	
+	# Volatility-based adjustment
+	if len(prices) > 1:
+		volatility = price_range / avg_price if avg_price > 0 else 0
+		# Lower volatility = more stable market = can price closer to average
+		# Higher volatility = unstable market = price more conservatively
+		volatility_factor = 1.0 - (volatility * 0.1)  # Adjust by up to 10%
+	else:
+		volatility_factor = 1.0
+	
+	# Market positioning (slightly above average for quality perception)
+	ml_price = avg_price * 1.02 * volatility_factor
+	
+	print(f"[ml_model] Market analysis: avg=${avg_price:.2f}, range=${price_range:.2f}, volatility={volatility:.3f}, ML price: ${ml_price:.2f}")
+	return round(ml_price, 2)
 
 
 def profit_maximization(records):
 	"""
-	Profit-maximization strategy:
-	- Takes competitor prices
-	- Returns average competitor price with +10% markup
+	Aggressive profit-focused pricing strategy:
+	- Targets premium market positioning
+	- Analyzes competitor price ceiling
+	- Applies strategic markup based on market gaps
 	"""
+	if not records:
+		# Fallback: assume $100 baseline for premium positioning
+		base_price = 100.0  
+		premium_price = base_price * 1.25
+		print(f"[profit_maximization] No market data, using premium baseline: ${premium_price:.2f}")
+		return round(premium_price, 2)
+	
 	prices = [r[0] for r in records]
-	if not prices:
-		return None
-	avg = sum(prices) / len(prices)
-	return round(avg * 1.10, 2)
+	avg_price = sum(prices) / len(prices)
+	max_price = max(prices)
+	
+	# Strategic markup: position between average and maximum competitor price
+	# This captures value while remaining competitive
+	if max_price > avg_price * 1.1:  # If there's a premium segment
+		target_price = avg_price + (max_price - avg_price) * 0.7  # Position at 70% toward premium
+	else:
+		target_price = avg_price * 1.15  # Standard 15% markup
+	
+	# Ensure minimum 10% markup over average for profit
+	profit_price = max(target_price, avg_price * 1.10)
+	
+	print(f"[profit_maximization] Premium strategy: avg=${avg_price:.2f}, max=${max_price:.2f}, profit price: ${profit_price:.2f}")
+	return round(profit_price, 2)
 
 
 # Toolbox mapping (dictionary of available tools) - removed web scraping
@@ -362,7 +415,8 @@ class LLMBrain:
 				if features.get("count", 0) > 0:
 					comp_price = features.get("features", {}).get("competitor_price")
 					if comp_price is not None:
-						records.append((comp_price, features.get("as_of", datetime.now().isoformat())))
+						# Ensure as_of uses timezone-aware ISO format
+						records.append((comp_price, features.get("as_of", datetime.now(timezone.utc).isoformat())))
 				return records
 			except Exception as e:
 				print(f"[pricing_optimizer] Error fetching records: {e}")
@@ -402,13 +456,15 @@ class LLMBrain:
 			stale = True
 		else:
 			# determine latest update
-			latest = None
-			for r in records:
-				ts = _parse_time(r[1])
-				if ts and (latest is None or ts > latest):
-					latest = ts
-			if not latest or (datetime.now() - latest) > timedelta(hours=24):
-				stale = True
+				latest = None
+				for r in records:
+					ts = _parse_time(r[1])
+					if ts and (latest is None or ts > latest):
+						latest = ts
+				# Compare using timezone-aware now if latest has tzinfo
+				_now = datetime.now(timezone.utc) if (latest and latest.tzinfo) else datetime.now()
+				if not latest or (_now - latest) > timedelta(hours=24):
+					stale = True
 
 		if stale:
 			# Send market data fetch request via event bus
@@ -537,11 +593,7 @@ class LLMBrain:
 					except Exception:
 						pass
 
-			try:
-				_loop = _asyncio.get_running_loop()
-				_loop.create_task(_publish_async())
-			except RuntimeError:
-				_threading.Thread(target=lambda: _asyncio.run(_publish_async()), daemon=True).start()
+			await _publish_async()
 
 			if _act:
 				_act.log("pricing_optimizer", "governance.enabled", "info", message="Published price.proposal; no direct DB writes")

@@ -41,12 +41,17 @@ async def main() -> int:
 
     # Publish a price proposal that should trigger the rule
     bus = get_bus()
-    pp = SimpleNamespace(
-        sku="SKU-PP",
-        proposed_price=95.0,
-        margin=0.25,
-        ts=datetime.now(timezone.utc),
-    )
+    # Use a schema-compliant payload so the bus validator accepts it
+    pp = {
+        "proposal_id": "SMOKE-PP-1",
+        "product_id": "SKU-PP",
+        "previous_price": 100.0,
+        "proposed_price": 95.0,
+        # Extra fields used by our alert rule / UI bridge
+        "sku": "SKU-PP",
+        "margin": 0.25,
+        "ts": datetime.now(timezone.utc),
+    }
     await bus.publish(Topic.PRICE_PROPOSAL.value, pp)
 
     # Give engine time to correlate and deliver

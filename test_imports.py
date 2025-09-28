@@ -42,7 +42,7 @@ def test_imports():
         
     except Exception as e:
         print(f"[FAIL] Auth module import failed: {e}")
-        return False
+        assert False, f"Auth module import failed: {e}"
     
     try:
         # Test MCP server imports
@@ -50,23 +50,21 @@ def test_imports():
         print("[OK] Alert service MCP imports successful")
     except Exception as e:
         print(f"[FAIL] Alert service MCP import failed: {e}")
-        return False
+        assert False, f"Alert service MCP import failed: {e}"
     
     try:
         from core.agents.data_collector.mcp_server import fetch_market_features, start_collection
         print("[OK] Data collector MCP imports successful")
     except Exception as e:
         print(f"[FAIL] Data collector MCP import failed: {e}")
-        return False
+        assert False, f"Data collector MCP import failed: {e}"
     
     try:
         from core.agents.price_optimizer.mcp_server import main
         print("[OK] Price optimizer MCP imports successful")
     except Exception as e:
         print(f"[FAIL] Price optimizer MCP import failed: {e}")
-        return False
-    
-    return True
+        assert False, f"Price optimizer MCP import failed: {e}"
 
 def test_auth_functionality():
     """Test basic auth functionality."""
@@ -89,16 +87,14 @@ def test_auth_functionality():
     # Test insufficient scope
     try:
         verify_capability(token, "admin")
-        print("[FAIL] Should have failed with insufficient scope")
-        return False
+        assert False, "Should have failed with insufficient scope"
     except InsufficientScopeError:
         print("[OK] Insufficient scope detection works")
     
     # Test invalid token
     try:
         verify_capability("invalid", "read")
-        print("[FAIL] Should have failed with invalid token")
-        return False
+        assert False, "Should have failed with invalid token"
     except InvalidTokenError:
         print("[OK] Invalid token detection works")
     
@@ -107,8 +103,6 @@ def test_auth_functionality():
     result = verify_capability(alert_token, "create_rule")
     assert result["valid"] is True
     print("[OK] Service token functionality works")
-    
-    return True
 
 if __name__ == "__main__":
     print("=" * 50)

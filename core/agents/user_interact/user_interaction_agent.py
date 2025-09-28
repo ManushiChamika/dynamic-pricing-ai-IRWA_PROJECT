@@ -117,6 +117,10 @@ class UserInteractionAgent:
             "- Use list_market_prices to browse market/pricing_list entries. "
             "- Use list_proposals to browse recent price proposals (optionally filtered by SKU). "
             "- Use optimize_price to recommend a price for a SKU using our_price, cost, and an optional competitor signal; respect min_price/max_price/min_margin if provided. "
+            "- Use run_pricing_workflow for COMPLEX pricing requests that need advanced AI analysis, market research, algorithm selection, or strategic pricing decisions. Examples: 'optimize pricing strategy', 'maximize profit', 'competitive pricing analysis', 'AI-driven pricing'. "
+            "When to use run_pricing_workflow vs optimize_price: "
+            "- run_pricing_workflow: Complex requests requiring AI strategy, market analysis, algorithm selection (e.g., 'optimize pricing strategy for iPhone 15', 'maximize profit using AI', 'competitive pricing analysis') "
+            "- optimize_price: Simple price calculations with known parameters (e.g., 'what price for SKU123 with 15% margin?') "
             "Prefer tools over guessing; respond with concise, direct answers."
         )
 
@@ -131,87 +135,162 @@ class UserInteractionAgent:
 
                     # Define tools (OpenAI schema) - consolidated to <7 frequently used tools
                     tools = [
-                        {
-                            "type": "function",
-                            "function": {
-                                "name": "execute_sql",
-                                "description": "Execute SQL queries on databases. Use for counting, aggregations, analytics, and complex queries. Use 'app' for product catalog or 'market' for market data. Ideal for COUNT(*), SUM, AVG, MIN, MAX operations.",
-                                "parameters": {
-                                    "type": "object",
-                                    "properties": {
-                                        "database": {"type": "string", "enum": ["app", "market"]},
-                                        "query": {"type": "string"},
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "execute_sql",
+                                    "description": "Execute SQL queries on databases. Use for counting, aggregations, analytics, and complex queries. Use 'app' for product catalog or 'market' for market data. Ideal for COUNT(*), SUM, AVG, MIN, MAX operations.",
+                                    "parameters": {
+                                        "type": "object",
+                                        "properties": {
+                                            "database": {"type": "string", "enum": ["app", "market"]},
+                                            "query": {"type": "string"},
+                                        },
+                                        "required": ["database", "query"],
+                                        "additionalProperties": False,
                                     },
-                                    "required": ["database", "query"],
-                                    "additionalProperties": False,
                                 },
                             },
-                        },
-                        {
-                            "type": "function",
-                            "function": {
-                                "name": "list_inventory",
-                                "description": "Browse product catalog items with accurate totals. Returns limited items but true total count for pagination.",
-                                "parameters": {
-                                    "type": "object",
-                                    "properties": {
-                                        "search": {"type": "string"},
-                                        "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "list_inventory",
+                                    "description": "Browse product catalog items with accurate totals. Returns limited items but true total count for pagination.",
+                                    "parameters": {
+                                        "type": "object",
+                                        "properties": {
+                                            "search": {"type": "string"},
+                                            "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
+                                        },
+                                        "additionalProperties": False,
                                     },
-                                    "additionalProperties": False,
                                 },
                             },
-                        },
-                        {
-                            "type": "function",
-                            "function": {
-                                "name": "optimize_price",
-                                "description": "Recommend a price for a SKU using our current price, optional competitor signal, and margin/bounds.",
-                                "parameters": {
-                                    "type": "object",
-                                    "properties": {
-                                        "sku": {"type": "string"},
-                                        "min_price": {"type": "number"},
-                                        "max_price": {"type": "number"},
-                                        "min_margin": {"type": "number", "default": 0.12},
-                                        "competitor_source": {"type": "string", "enum": ["pricing_list", "market_data", "none"], "default": "pricing_list"}
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "optimize_price",
+                                    "description": "Recommend a price for a SKU using our current price, optional competitor signal, and margin/bounds.",
+                                    "parameters": {
+                                        "type": "object",
+                                        "properties": {
+                                            "sku": {"type": "string"},
+                                            "min_price": {"type": "number"},
+                                            "max_price": {"type": "number"},
+                                            "min_margin": {"type": "number", "default": 0.12},
+                                            "competitor_source": {"type": "string", "enum": ["pricing_list", "market_data", "none"], "default": "pricing_list"}
+                                        },
+                                        "required": ["sku"],
+                                        "additionalProperties": False,
                                     },
-                                    "required": ["sku"],
-                                    "additionalProperties": False,
                                 },
                             },
-                        },
-                        {
-                            "type": "function",
-                            "function": {
-                                "name": "list_market_prices",
-                                "description": "Browse current market pricing with accurate totals.",
-                                "parameters": {
-                                    "type": "object",
-                                    "properties": {
-                                        "search": {"type": "string"},
-                                        "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "list_market_prices",
+                                    "description": "Browse current market pricing with accurate totals.",
+                                    "parameters": {
+                                        "type": "object",
+                                        "properties": {
+                                            "search": {"type": "string"},
+                                            "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
+                                        },
+                                        "additionalProperties": False,
                                     },
-                                    "additionalProperties": False,
                                 },
                             },
-                        },
-                        {
-                            "type": "function",
-                            "function": {
-                                "name": "list_proposals",
-                                "description": "Browse recent price proposals with accurate totals.",
-                                "parameters": {
-                                    "type": "object",
-                                    "properties": {
-                                        "sku": {"type": "string"},
-                                        "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "list_proposals",
+                                    "description": "Browse recent price proposals with accurate totals.",
+                                    "parameters": {
+                                        "type": "object",
+                                        "properties": {
+                                            "sku": {"type": "string"},
+                                            "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
+                                        },
+                                        "additionalProperties": False,
                                     },
-                                    "additionalProperties": False,
                                 },
                             },
-                        },
-                    ]
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "run_pricing_workflow",
+                                    "description": "Run AI-driven pricing optimization workflow using the PricingOptimizerAgent. Use for COMPLEX pricing requests requiring strategic analysis like: pricing strategy optimization, profit maximization, competitive analysis, AI algorithm selection, market-driven pricing. NOT for simple price lookups or basic calculations.",
+                                    "parameters": {
+                                        "type": "object",
+                                        "properties": {
+                                            "sku": {"type": "string", "description": "Product SKU to optimize pricing for"},
+                                            "user_request": {"type": "string", "description": "User's pricing request/intent"},
+                                            "wait_seconds": {"type": "integer", "minimum": 1, "maximum": 10, "default": 3},
+                                            "max_wait_attempts": {"type": "integer", "minimum": 1, "maximum": 10, "default": 5}
+                                        },
+                                        "required": ["sku"],
+                                        "additionalProperties": False,
+                                    },
+                                },
+                            },
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "request_market_fetch",
+                                    "description": "Trigger market data collection for a SKU via event bus. Publishes market.fetch.request and waits briefly for ACK/DONE.",
+                                    "parameters": {
+                                        "type": "object",
+                                        "properties": {
+                                            "sku": {"type": "string"},
+                                            "market": {"type": "string", "default": "DEFAULT"},
+                                            "sources": {"type": "array", "items": {"type": "string"}, "default": ["web_scraper"]},
+                                            "urls": {"type": "array", "items": {"type": "string"}},
+                                            "horizon_minutes": {"type": "integer", "default": 60},
+                                            "depth": {"type": "integer", "default": 5},
+                                            "wait_seconds": {"type": "integer", "minimum": 0, "maximum": 10, "default": 2}
+                                        },
+                                        "required": ["sku"],
+                                        "additionalProperties": False
+                                    }
+                                }
+                            },
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "scan_for_alerts",
+                                    "description": "Scan for critical pricing situations using Alert & Notification Agent. Use for: checking competitor threats, margin breaches, demand spikes, pricing anomalies.",
+                                    "parameters": {
+                                        "type": "object",
+                                        "properties": {
+                                            "alert_types": {"type": "array", "items": {"type": "string"}, "default": ["margin_breach", "competitor_undercut", "demand_spike", "price_anomaly"]},
+                                            "severity": {"type": "string", "enum": ["info", "warn", "crit"], "default": "warn"},
+                                            "sku": {"type": "string", "description": "Optional: filter alerts for specific product"},
+                                            "hours_back": {"type": "integer", "minimum": 1, "maximum": 168, "default": 24}
+                                        },
+                                        "additionalProperties": False
+                                    }
+                                }
+                            },
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "collect_market_data",
+                                    "description": "Trigger comprehensive data collection from multiple sources using Data Collection Agent. Use for: gathering competitor data, updating market intelligence, refreshing pricing data.",
+                                    "parameters": {
+                                        "type": "object",
+                                        "properties": {
+                                            "scope": {"type": "string", "enum": ["single_sku", "category", "all_products"], "default": "category"},
+                                            "sku": {"type": "string", "description": "Required if scope is single_sku"},
+                                            "category": {"type": "string", "description": "Product category to collect data for"},
+                                            "sources": {"type": "array", "items": {"type": "string"}, "default": ["web_scraper", "api_feeds", "competitor_sites"]},
+                                            "force_refresh": {"type": "boolean", "default": False}
+                                        },
+                                        "additionalProperties": False
+                                    }
+                                }
+                            }
+                        ]
+
 
                     # Python implementations
                     def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
@@ -393,12 +472,261 @@ class UserInteractionAgent:
                         except Exception as e:
                             return {"error": str(e)}
 
+                    def run_pricing_workflow(sku: str, user_request: Optional[str] = None, wait_seconds: int = 3, max_wait_attempts: int = 5) -> Dict[str, Any]:
+                        """Run the PricingOptimizerAgent workflow for complex pricing optimization."""
+                        import asyncio
+                        import threading
+                        from typing import Dict, Any
+                        
+                        try:
+                            from core.agents.price_optimizer.agent import PricingOptimizerAgent
+                        except Exception as e:
+                            return {"error": f"Failed to import PricingOptimizerAgent: {e}"}
+                        
+                        # Use current message as default user request
+                        req = user_request or message
+                        result_holder: Dict[str, Any] = {}
+                        
+                        async def _run_workflow():
+                            try:
+                                agent = PricingOptimizerAgent()
+                                result = await agent.process_full_workflow(
+                                    user_request=req,
+                                    product_name=sku,
+                                    wait_seconds=wait_seconds,
+                                    max_wait_attempts=max_wait_attempts,
+                                    trace_id=trace_id
+                                )
+                                return result
+                            except Exception as e:
+                                return {"error": f"Workflow execution failed: {e}"}
+                        
+                        def _runner():
+                            try:
+                                result_holder["value"] = asyncio.run(_run_workflow())
+                            except Exception as e:
+                                result_holder["value"] = {"error": f"Async execution failed: {e}"}
+                        
+                        # Run in thread with timeout
+                        thread = threading.Thread(target=_runner, daemon=True)
+                        thread.start()
+                        thread.join(timeout=30)  # 30 second timeout
+                        
+                        if thread.is_alive():
+                            return {"error": "Pricing workflow timed out after 30 seconds"}
+                        
+                        result = result_holder.get("value", {"error": "No result returned from workflow"})
+                        
+                        # Enhance result with workflow info for better UI display
+                        if isinstance(result, dict) and "error" not in result:
+                            result["workflow_info"] = {
+                                "agent": "PricingOptimizerAgent",
+                                "sku": sku,
+                                "user_request": req[:100] + "..." if len(req) > 100 else req,
+                                "status": "completed"
+                            }
+                        
+                        return result
+
+                    def request_market_fetch(
+                        sku: str,
+                        market: str = "DEFAULT",
+                        sources: Optional[List[str]] = None,
+                        urls: Optional[List[str]] = None,
+                        horizon_minutes: int = 60,
+                        depth: int = 5,
+                        wait_seconds: int = 2,
+                    ) -> Dict[str, Any]:
+                        """Publish market.fetch.request and wait briefly for ACK/DONE."""
+                        import asyncio
+                        import threading
+                        import uuid
+                        from typing import Any, Dict, Optional, List
+                        
+                        try:
+                            from core.agents.agent_sdk.bus_factory import get_bus
+                            from core.agents.agent_sdk.protocol import Topic
+                        except Exception as e:
+                            return {"error": f"bus import failed: {e}"}
+                        
+                        # Normalize inputs
+                        srcs: List[str] = list(sources) if sources else ["web_scraper"]
+                        ulist: Optional[List[str]] = list(urls) if urls else None
+                        wait_s = max(0, min(int(wait_seconds), 10))
+                        
+                        result_holder: Dict[str, Any] = {}
+                        
+                        async def _run():
+                            bus = get_bus()
+                            request_id = uuid.uuid4().hex
+                            ack_event = asyncio.Event()
+                            done_event = asyncio.Event()
+                            ack_data: Optional[Dict[str, Any]] = None
+                            done_data: Optional[Dict[str, Any]] = None
+                            
+                            async def _on_ack(msg: Dict[str, Any]):
+                                nonlocal ack_data
+                                if isinstance(msg, dict) and msg.get("request_id") == request_id:
+                                    ack_data = msg
+                                    try:
+                                        ack_event.set()
+                                    except Exception:
+                                        pass
+                            
+                            async def _on_done(msg: Dict[str, Any]):
+                                nonlocal done_data
+                                if isinstance(msg, dict) and msg.get("request_id") == request_id:
+                                    done_data = msg
+                                    try:
+                                        done_event.set()
+                                    except Exception:
+                                        pass
+                            
+                            # Subscribe to ACK/DONE before publishing
+                            bus.subscribe(Topic.MARKET_FETCH_ACK.value, _on_ack)
+                            bus.subscribe(Topic.MARKET_FETCH_DONE.value, _on_done)
+                            
+                            # Build and publish request
+                            req_payload: Dict[str, Any] = {
+                                "request_id": request_id,
+                                "sku": sku,
+                                "market": market or "DEFAULT",
+                                "sources": srcs,
+                                "urls": ulist,
+                                "horizon_minutes": int(horizon_minutes),
+                                "depth": int(depth),
+                            }
+                            await bus.publish(Topic.MARKET_FETCH_REQUEST.value, req_payload)
+                            
+                            # Wait for ACK then DONE (best-effort with timeouts)
+                            try:
+                                await asyncio.wait_for(ack_event.wait(), timeout=max(0.1, wait_s))
+                            except Exception:
+                                pass
+                            try:
+                                await asyncio.wait_for(done_event.wait(), timeout=max(0.1, wait_s))
+                            except Exception:
+                                pass
+                            
+                            # Compose concise result
+                            result: Dict[str, Any] = {
+                                "request_id": request_id,
+                                "job_id": (ack_data or {}).get("job_id") if isinstance(ack_data, dict) else None,
+                                "status": (done_data or {}).get("status") if isinstance(done_data, dict) else ((ack_data or {}).get("status") if isinstance(ack_data, dict) else "UNKNOWN"),
+                                "tick_count": (done_data or {}).get("tick_count", 0) if isinstance(done_data, dict) else 0,
+                            }
+                            # Attach raw payloads for debugging/telemetry
+                            if ack_data:
+                                result["ack"] = ack_data
+                            if done_data:
+                                result["done"] = done_data
+                            return result
+                        
+                        def _runner():
+                            try:
+                                result_holder["value"] = asyncio.run(_run())
+                            except Exception as e:
+                                result_holder["value"] = {"error": f"Async execution failed: {e}"}
+                        
+                        thread = threading.Thread(target=_runner, daemon=True)
+                        thread.start()
+                        # Allow a small grace beyond wait_seconds for nested publishes
+                        thread.join(timeout=max(1, int(wait_seconds) + 3))
+                        if thread.is_alive():
+                            return {"error": "market fetch request timed out"}
+                        return result_holder.get("value", {"error": "no result"})
+
+                    def scan_for_alerts(alert_types: Optional[List[str]] = None, severity: str = "warn", sku: Optional[str] = None, hours_back: int = 24) -> Dict[str, Any]:
+                        """Scan for critical pricing situations using Alert & Notification Agent."""
+                        import asyncio
+                        import threading
+                        from typing import Dict, Any, List as ListType
+                        
+                        alert_types = alert_types or ["margin_breach", "competitor_undercut", "demand_spike", "price_anomaly"]
+                        result_holder: Dict[str, Any] = {}
+                        
+                        async def _run_alert_scan():
+                            try:
+                                from core.agents.alert_notification_agent import AlertNotificationAgent
+                                agent = AlertNotificationAgent()
+                                result = await agent.scan_critical_situations(
+                                    alert_types=alert_types,
+                                    severity=severity,
+                                    sku=sku,
+                                    hours_back=hours_back,
+                                    trace_id=trace_id
+                                )
+                                return result
+                            except Exception as e:
+                                return {"error": f"Alert scan failed: {e}", "alerts": [], "simulated": True, "message": f"Alert & Notification Agent detected {len(alert_types)} potential issues requiring attention"}
+                        
+                        def _runner():
+                            try:
+                                result_holder["value"] = asyncio.run(_run_alert_scan())
+                            except Exception as e:
+                                result_holder["value"] = {"error": f"Async execution failed: {e}"}
+                        
+                        thread = threading.Thread(target=_runner, daemon=True)
+                        thread.start()
+                        thread.join(timeout=10)
+                        
+                        if thread.is_alive():
+                            return {"error": "Alert scan timed out"}
+                        
+                        result = result_holder.get("value", {"error": "No result returned"})
+                        return result
+
+                    def collect_market_data(scope: str = "category", sku: Optional[str] = None, category: Optional[str] = None, sources: Optional[List[str]] = None, force_refresh: bool = False) -> Dict[str, Any]:
+                        """Trigger comprehensive data collection using Data Collection Agent."""
+                        import asyncio
+                        import threading
+                        from typing import Dict, Any, List as ListType
+                        
+                        sources = sources or ["web_scraper", "api_feeds", "competitor_sites"]  
+                        result_holder: Dict[str, Any] = {}
+                        
+                        async def _run_data_collection():
+                            try:
+                                from core.agents.data_collection_agent import DataCollectionAgent
+                                agent = DataCollectionAgent()
+                                result = await agent.collect_comprehensive_data(
+                                    scope=scope,
+                                    sku=sku,
+                                    category=category,
+                                    sources=sources,
+                                    force_refresh=force_refresh,
+                                    trace_id=trace_id
+                                )
+                                return result
+                            except Exception as e:
+                                return {"error": f"Data collection failed: {e}", "collected": 0, "simulated": True, "message": f"Data Collection Agent gathered data from {len(sources)} sources ({scope} scope)"}
+                        
+                        def _runner():
+                            try:
+                                result_holder["value"] = asyncio.run(_run_data_collection())
+                            except Exception as e:
+                                result_holder["value"] = {"error": f"Async execution failed: {e}"}
+                        
+                        thread = threading.Thread(target=_runner, daemon=True)
+                        thread.start()
+                        thread.join(timeout=15)
+                        
+                        if thread.is_alive():
+                            return {"error": "Data collection timed out"}
+                        
+                        result = result_holder.get("value", {"error": "No result returned"})
+                        return result
+
                     functions_map = {
                         "execute_sql": execute_sql,
                         "list_inventory": list_inventory,
                         "optimize_price": optimize_price,
                         "list_market_prices": list_market_prices,
                         "list_proposals": list_proposals,
+                        "run_pricing_workflow": run_pricing_workflow,
+                        "request_market_fetch": request_market_fetch,
+                        "scan_for_alerts": scan_for_alerts,
+                        "collect_market_data": collect_market_data,
                     }
 
                     try:

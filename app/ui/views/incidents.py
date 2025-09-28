@@ -113,15 +113,20 @@ def view() -> None:
         if st.button("Publish Test Price Proposal"):
             try:
                 from core.agents.agent_sdk import get_bus, Topic
-                from types import SimpleNamespace
                 bus = get_bus()
-                pp = SimpleNamespace(
-                    sku=sku,
-                    proposed_price=float(pp_price),
-                    margin=float(pp_margin),
-                    ts=datetime.now(timezone.utc),
-                )
+                # Emit schema-compliant payload so the bus validator accepts it
+                pp = {
+                    "proposal_id": f"UI-{int(datetime.now(timezone.utc).timestamp())}",
+                    "product_id": sku,
+                    "previous_price": float(our),
+                    "proposed_price": float(pp_price),
+                    # Extras used by alert rule / UI bridge
+                    "sku": sku,
+                    "margin": float(pp_margin),
+                    "ts": datetime.now(timezone.utc),
+                }
                 run_async(bus.publish(Topic.PRICE_PROPOSAL.value, pp))
                 st.success("Published test price proposal. If rules match, incidents will appear.")
             except Exception as e:
                 st.error(f"Failed to publish price proposal: {e}")
+

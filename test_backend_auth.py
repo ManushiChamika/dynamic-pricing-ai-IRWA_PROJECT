@@ -50,7 +50,7 @@ def test_registration_backend():
             
     except Exception as e:
         print(f"FAIL: Registration test failed: {e}")
-        return False
+        assert False, f"Registration test failed: {e}"
     
     # Test login
     print("\n2. Testing user authentication...")
@@ -61,11 +61,11 @@ def test_registration_backend():
             print(f"SUCCESS: Authentication worked for user: {test_email}")
         else:
             print(f"FAIL: Authentication failed for user: {test_email}")
-            return False
+            assert False, f"Authentication failed for user: {test_email}"
             
     except Exception as e:
         print(f"FAIL: Authentication test failed: {e}")
-        return False
+        assert False, f"Authentication test failed: {e}"
         
     # Clean up
     print("\n3. Cleaning up test data...")
@@ -80,7 +80,6 @@ def test_registration_backend():
         print(f"WARNING: Could not clean up test data: {e}")
     
     print("\nAll backend tests passed!")
-    return True
 
 if __name__ == "__main__":
     success = test_registration_backend()

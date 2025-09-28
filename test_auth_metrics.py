@@ -82,7 +82,6 @@ def test_metrics_collection():
     assert final_metrics["expired_tokens"] == 1, f"Expected 1 expired token, got {final_metrics['expired_tokens']}"
     
     print("All metrics collection tests passed!")
-    return True
 
 if __name__ == "__main__":
     try:

@@ -1,5 +1,6 @@
 # Full-featured MCP server for alert service with JSON schema validation
 import asyncio, os
+import inspect
 import json
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
@@ -35,7 +36,7 @@ class SubscribeAlertsRequest(BaseModel):
     callback_url: Optional[str] = None
 
 @mcp.tool()
-async def list_alerts(status: str = None, rule_id: str = None, limit: int = 100, capability_token: str = ""):
+async def list_alerts(status: Optional[str] = None, rule_id: Optional[str] = None, limit: int = 100, capability_token: str = ""):
     """List active alerts with optional filtering."""
     try:
         # Validate input
@@ -52,6 +53,8 @@ async def list_alerts(status: str = None, rule_id: str = None, limit: int = 100,
         
     except ValidationError as e:
         return {"ok": False, "error": "validation_error", "details": e.errors()}
+    except (AuthError, PermissionError) as e:
+        return {"ok": False, "error": "auth_error", "message": str(e)}
     except Exception as e:
         return {"ok": False, "error": "internal_error", "message": str(e)}
 
@@ -69,6 +72,8 @@ async def create_alert(spec: dict, capability_token: str):
         
     except ValidationError as e:
         return {"ok": False, "error": "validation_error", "details": e.errors()}
+    except (AuthError, PermissionError) as e:
+        return {"ok": False, "error": "auth_error", "message": str(e)}
     except Exception as e:
         return {"ok": False, "error": "internal_error", "message": str(e)}
 
@@ -86,6 +91,8 @@ async def ack_alert(alert_id: str, capability_token: str):
         
     except ValidationError as e:
         return {"ok": False, "error": "validation_error", "details": e.errors()}
+    except (AuthError, PermissionError) as e:
+        return {"ok": False, "error": "auth_error", "message": str(e)}
     except Exception as e:
         return {"ok": False, "error": "internal_error", "message": str(e)}
 
@@ -103,11 +110,13 @@ async def resolve_alert(alert_id: str, capability_token: str):
         
     except ValidationError as e:
         return {"ok": False, "error": "validation_error", "details": e.errors()}
+    except (AuthError, PermissionError) as e:
+        return {"ok": False, "error": "auth_error", "message": str(e)}
     except Exception as e:
         return {"ok": False, "error": "internal_error", "message": str(e)}
 
 @mcp.tool()
-async def subscribe_alerts(rule_id: str = None, severity: str = None, callback_url: str = None, capability_token: str = ""):
+async def subscribe_alerts(rule_id: Optional[str] = None, severity: Optional[str] = None, callback_url: Optional[str] = None, capability_token: str = ""):
     """Subscribe to alert notifications."""
     try:
         # Validate input
@@ -124,6 +133,8 @@ async def subscribe_alerts(rule_id: str = None, severity: str = None, callback_u
         
     except ValidationError as e:
         return {"ok": False, "error": "validation_error", "details": e.errors()}
+    except (AuthError, PermissionError) as e:
+        return {"ok": False, "error": "auth_error", "message": str(e)}
     except Exception as e:
         return {"ok": False, "error": "internal_error", "message": str(e)}
 
@@ -140,16 +151,20 @@ async def list_rules(capability_token: str):
         verify_capability(capability_token, "read")
         result = await tools.list_rules()
         return result
+    except (AuthError, PermissionError) as e:
+        return {"ok": False, "error": "auth_error", "message": str(e)}
     except Exception as e:
         return {"ok": False, "error": "internal_error", "message": str(e)}
 
 @mcp.tool()
-async def list_incidents(status: str = None, capability_token: str = ""):
+async def list_incidents(status: Optional[str] = None, capability_token: str = ""):
     """List incidents (alerts that have been triggered)."""
     try:
         verify_capability(capability_token, "read")
         result = await tools.list_incidents(status)
         return result
+    except (AuthError, PermissionError) as e:
+        return {"ok": False, "error": "auth_error", "message": str(e)}
     except Exception as e:
         return {"ok": False, "error": "internal_error", "message": str(e)}
 
@@ -195,15 +210,34 @@ async def auth_metrics(capability_token: str = "") -> Dict[str, Any]:
                 "timestamp": datetime.now(timezone.utc).isoformat()
             }
         }
-    except AuthError as e:
+    except (AuthError, PermissionError) as e:
         return {"ok": False, "error": "auth_error", "message": str(e)}
     except Exception as e:
         return {"ok": False, "error": "internal_error", "message": str(e)}
 
+def _call_mcp_run() -> None:
+    run_fn = getattr(mcp, "run", None)
+    if run_fn is None:
+        raise RuntimeError("FastMCP.run not available")
+    if inspect.iscoroutinefunction(run_fn):
+        asyncio.run(run_fn())
+    else:
+        run_fn()
+
+
+def serve() -> None:
+    asyncio.run(repo.init())
+    asyncio.run(engine.start())
+    _call_mcp_run()
+
+
+# Keep async main for backward compatibility if imported elsewhere, but avoid nested loops
 async def main():
     await repo.init()
     await engine.start()
-    await mcp.run()
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, _call_mcp_run)
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    serve()

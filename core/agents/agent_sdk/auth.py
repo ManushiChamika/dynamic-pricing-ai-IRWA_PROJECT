@@ -11,6 +11,8 @@ import logging
 import uuid
 
 # Always use standard logging for now to avoid compatibility issues
+# Back-compat: tests import STRUCTURED_LOGGING from auth; expose flag
+STRUCTURED_LOGGING = False
 logger = logging.getLogger("mcp.auth")
 
 def new_correlation_id():
@@ -47,7 +49,7 @@ class AuthMetrics:
             "scope_requests": {}
         }
     
-    def token_created(self, scopes: Set[str], service: str = None):
+    def token_created(self, scopes: Set[str], service: Optional[str] = None):
         self._metrics["tokens_created"] += 1
         if service:
             self._metrics["service_tokens"][service] = self._metrics["service_tokens"].get(service, 0) + 1
@@ -79,10 +81,16 @@ DEFAULT_SCOPES = {
     "admin": {"read", "write", "create_rule", "subscribe", "collect", "import", "propose", "apply", "explain", "admin"}
 }
 
-# Global secret from environment
-AUTH_SECRET = os.getenv("MCP_AUTH_SECRET", "dev-mcp-secret")
-TOKEN_EXPIRY_SECONDS = int(os.getenv("MCP_TOKEN_EXPIRY", "3600"))  # 1 hour default
-METRICS_ENABLED = os.getenv("MCP_AUTH_METRICS", "1").lower() in ("1", "true", "yes", "on")
+# Import centralized config
+from core.config import get_config
+
+# Initialize config-based globals
+def _get_auth_config():
+    """Get auth configuration from centralized config."""
+    config = get_config()
+    return config.auth_secret, config.token_expiry_seconds, config.auth_metrics_enabled
+
+AUTH_SECRET, TOKEN_EXPIRY_SECONDS, METRICS_ENABLED = _get_auth_config()
 
 class AuthError(Exception):
     """Base exception for authentication/authorization failures."""
@@ -100,7 +108,7 @@ class InsufficientScopeError(AuthError):
     """Token lacks required scope."""
     pass
 
-def create_token(scopes: Set[str], expiry_seconds: int = None, correlation_id: str = None, service: str = None) -> str:
+def create_token(scopes: Set[str], expiry_seconds: Optional[int] = None, correlation_id: Optional[str] = None, service: Optional[str] = None) -> str:
     """Create a capability token with specified scopes.
     
     Args:
@@ -109,18 +117,29 @@ def create_token(scopes: Set[str], expiry_seconds: int = None, correlation_id: s
         correlation_id: Optional correlation ID for tracking
     
     Returns:
-        Token string in format: iat:exp:scope1,scope2.signature
+        Token string in legacy format: iat:scope1,scope2.signature
     """
+    # Get current config values (may have changed)
+    auth_secret, default_expiry, _ = _get_auth_config()
+    
+    if not auth_secret:
+        raise AuthError("AUTH_SECRET not configured. Set MCP_AUTH_SECRET environment variable.")
+    
     if expiry_seconds is None:
-        expiry_seconds = TOKEN_EXPIRY_SECONDS
+        expiry_seconds = default_expiry
     
     iat = int(time.time())
     exp = iat + expiry_seconds
     scope_str = ",".join(sorted(scopes))
-    payload = f"{iat}:{exp}:{scope_str}"
+    
+    # Use v2 format if custom expiry specified, legacy format otherwise
+    if expiry_seconds != default_expiry:
+        payload = f"{iat}:{exp}:{scope_str}"
+    else:
+        payload = f"{iat}:{scope_str}"
     
     signature = hmac.new(
-        AUTH_SECRET.encode(),
+        auth_secret.encode(),
         payload.encode(),
         hashlib.sha256
     ).hexdigest()
@@ -137,7 +156,7 @@ def create_token(scopes: Set[str], expiry_seconds: int = None, correlation_id: s
     
     return token
 
-def verify_capability(token: str, required_scope: str, correlation_id: str = None) -> dict:
+def verify_capability(token: str, required_scope: str, correlation_id: Optional[str] = None) -> dict:
     """Verify a capability token has the required scope.
     
     Args:
@@ -166,9 +185,14 @@ def verify_capability(token: str, required_scope: str, correlation_id: str = Non
         # Parse token - support both old and new formats
         payload, signature = token.rsplit(".", 1)
         
+        # Get current auth secret
+        auth_secret, default_expiry, _ = _get_auth_config()
+        if not auth_secret:
+            raise AuthError("AUTH_SECRET not configured. Set MCP_AUTH_SECRET environment variable.")
+        
         # Verify signature first
         expected_sig = hmac.new(
-            AUTH_SECRET.encode(),
+            auth_secret.encode(),
             payload.encode(),
             hashlib.sha256
         ).hexdigest()
@@ -186,7 +210,7 @@ def verify_capability(token: str, required_scope: str, correlation_id: str = Non
             # Old format: iat:scopes
             iat_str, scope_str = parts
             iat = int(iat_str)
-            exp = iat + TOKEN_EXPIRY_SECONDS
+            exp = iat + default_expiry
             token_format = "legacy"
         elif len(parts) == 3:
             # New format: iat:exp:scopes
@@ -311,7 +335,7 @@ def require_scope(scope: str):
         return wrapper
     return decorator
 
-def get_service_token(service_name: str, correlation_id: str = None) -> str:
+def get_service_token(service_name: str, correlation_id: Optional[str] = None) -> str:
     """Get a default token for a service with its standard scopes.
     
     Args:
@@ -331,7 +355,7 @@ def get_service_token(service_name: str, correlation_id: str = None) -> str:
     token = create_token(scopes, correlation_id=correlation_id, service=service_name)
     return token
 
-def get_admin_token(correlation_id: str = None) -> str:
+def get_admin_token(correlation_id: Optional[str] = None) -> str:
     """Get an admin token with all scopes."""
     log_structured("warning", "Admin token requested", correlation_id=correlation_id)
     return create_token(DEFAULT_SCOPES["admin"], correlation_id=correlation_id)

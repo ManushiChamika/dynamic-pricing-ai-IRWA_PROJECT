@@ -3,7 +3,6 @@
 CLI entrypoint for MCP servers with standardized configuration.
 """
 import argparse
-import asyncio
 import logging
 import os
 import sys
@@ -17,20 +16,20 @@ def setup_logging(level: str) -> None:
         datefmt='%Y-%m-%d %H:%M:%S'
     )
 
-async def run_data_collector(args) -> None:
-    """Run data collector MCP server."""
-    from core.agents.data_collector.mcp_server import main
-    await main()
+def run_data_collector(args) -> None:
+    """Run data collector MCP server synchronously."""
+    from core.agents.data_collector.mcp_server import serve
+    serve()
 
-async def run_alerts(args) -> None:
-    """Run alerts MCP server."""
-    from core.agents.alert_service.mcp_server import main
-    await main()
+def run_alerts(args) -> None:
+    """Run alerts MCP server synchronously."""
+    from core.agents.alert_service.mcp_server import serve
+    serve()
 
-async def run_price_optimizer(args) -> None:
-    """Run price optimizer MCP server."""  
-    from core.agents.price_optimizer.mcp_server import main
-    await main()
+def run_price_optimizer(args) -> None:
+    """Run price optimizer MCP server synchronously."""  
+    from core.agents.price_optimizer.mcp_server import serve
+    serve()
 
 def create_parser() -> argparse.ArgumentParser:
     """Create CLI argument parser."""
@@ -79,8 +78,8 @@ def load_env_file(path: str) -> None:
                     key, value = line.split('=', 1)
                     os.environ[key] = value
 
-async def main() -> None:
-    """Main entry point."""
+def main() -> None:
+    """Main entry point (synchronous to avoid nested event loops)."""
     parser = create_parser()
     args = parser.parse_args()
     
@@ -105,11 +104,11 @@ async def main() -> None:
     # Route to appropriate server
     try:
         if args.service == "data-collector":
-            await run_data_collector(args)
+            run_data_collector(args)
         elif args.service == "alerts":
-            await run_alerts(args)
+            run_alerts(args)
         elif args.service == "price-optimizer":
-            await run_price_optimizer(args)
+            run_price_optimizer(args)
     except KeyboardInterrupt:
         logger.info("Server shutting down...")
     except Exception as e:
@@ -117,4 +116,4 @@ async def main() -> None:
         sys.exit(1)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
