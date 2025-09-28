@@ -8,5 +8,25 @@
     "role": "assistant",
     "content": "[non-LLM assistant] LLM is not available. Please ensure the LLM client is configured properly.",
     "ts": "2025-09-27T21:01:18Z"
+  },
+  {
+    "role": "user",
+    "content": "hello",
+    "ts": "2025-09-27T21:10:06Z"
+  },
+  {
+    "role": "assistant",
+    "content": "[non-LLM assistant] LLM is not available. Please ensure the LLM client is configured properly.",
+    "ts": "2025-09-27T21:10:13Z"
+  },
+  {
+    "role": "user",
+    "content": "heloo",
+    "ts": "2025-09-27T21:12:43Z"
+  },
+  {
+    "role": "assistant",
+    "content": "[non-LLM assistant] LLM is not available. Please ensure the LLM client is configured properly.",
+    "ts": "2025-09-27T21:12:58Z"
   }
 ]
