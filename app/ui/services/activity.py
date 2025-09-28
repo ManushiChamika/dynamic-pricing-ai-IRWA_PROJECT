@@ -65,9 +65,87 @@ def ensure_bus_bridge() -> bool:
         except Exception:
             pass
 
+    def on_price_proposal(ev: Any):
+        try:
+            d = _to_dict(ev)
+            trace_id = d.get("trace_id", "")
+            sku = str(d.get("sku", ""))
+            old_p = d.get("old_price")
+            new_p = d.get("new_price")
+            rationale = d.get("rationale", "")
+            confidence = d.get("confidence", 0)
+            msg = f"{sku}: {old_p} → {new_p} ({confidence:.1%} confidence)"
+            details = dict(d)
+            if trace_id:
+                details["trace_id"] = trace_id
+            activity_log.log(agent="PriceOptimizer", action="proposal.generated", status="completed", message=msg, details=details)
+        except Exception:
+            pass
+
+    def on_chat_prompt(ev: Any):
+        try:
+            d = _to_dict(ev)
+            trace_id = d.get("trace_id", "")
+            action = d.get("action", "unknown")
+            user = d.get("user", "")
+            duration_ms = d.get("duration_ms")
+            
+            if action == "start":
+                msg = f"Processing prompt from {user}" if user else "Processing prompt"
+                status = "in_progress"
+            elif action == "done":
+                msg = f"Response generated ({duration_ms}ms)" if duration_ms else "Response generated"
+                status = "completed"
+            elif action == "fallback":
+                msg = f"LLM unavailable, using fallback ({duration_ms}ms)" if duration_ms else "LLM unavailable"
+                status = "completed"
+            else:
+                msg = f"Chat {action}"
+                status = "info"
+            
+            details = dict(d)
+            if trace_id:
+                details["trace_id"] = trace_id
+            activity_log.log(agent="Chat", action=f"prompt.{action}", status=status, message=msg, details=details)
+        except Exception:
+            pass
+
+    def on_chat_tool_call(ev: Any):
+        try:
+            d = _to_dict(ev)
+            trace_id = d.get("trace_id", "")
+            action = d.get("action", "unknown")
+            tool_name = d.get("tool_name", "unknown")
+            duration_ms = d.get("duration_ms")
+            error = d.get("error", False)
+            
+            if action == "start":
+                msg = f"Calling {tool_name}"
+                status = "in_progress"
+            elif action == "done":
+                if error:
+                    msg = f"Tool {tool_name} failed ({duration_ms}ms)" if duration_ms else f"Tool {tool_name} failed"
+                    status = "failed"
+                else:
+                    msg = f"Tool {tool_name} completed ({duration_ms}ms)" if duration_ms else f"Tool {tool_name} completed"
+                    status = "completed"
+            else:
+                msg = f"Tool {tool_name} {action}"
+                status = "info"
+            
+            details = dict(d)
+            if trace_id:
+                details["trace_id"] = trace_id
+            activity_log.log(agent="LLM", action=f"tool_call.{action}", status=status, message=msg, details=details)
+        except Exception:
+            pass
+
     try:
         bus.subscribe(Topic.ALERT.value, on_alert)
         bus.subscribe(Topic.PRICE_UPDATE.value, on_price_update)
+        bus.subscribe(Topic.PRICE_PROPOSAL.value, on_price_proposal)
+        bus.subscribe(Topic.CHAT_PROMPT.value, on_chat_prompt)
+        bus.subscribe(Topic.CHAT_TOOL_CALL.value, on_chat_tool_call)
         _bridge_started = True
         return True
     except Exception:

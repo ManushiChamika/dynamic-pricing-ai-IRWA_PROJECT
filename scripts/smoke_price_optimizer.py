@@ -80,8 +80,9 @@ def run_smoke() -> int:
     bus.subscribe(Topic.PRICE_UPDATE.value, _on_update)
 
     # Run optimizer end-to-end
+    import asyncio
     agent = PricingOptimizerAgent()
-    res = agent.process_full_workflow("maximize profit", SKU, db_path=market_db.as_posix())
+    res = asyncio.run(agent.process_full_workflow("maximize profit", SKU, db_path=market_db.as_posix()))
     print("optimizer_result:", res)
 
     if not isinstance(res, dict) or res.get("status") != "success":

@@ -24,5 +24,5 @@ def write_event(topic: str, payload: Mapping[str, Any]) -> None:
         with _JOURNAL_FILE.open("a", encoding="utf-8") as f:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
     except Exception:
-        # best effort
+        # best effort: never raise from journaling
         pass

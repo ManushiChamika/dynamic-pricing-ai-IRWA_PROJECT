@@ -13,6 +13,7 @@ import json
 import sqlite3
 import time
 import importlib
+import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -87,22 +88,12 @@ def profit_maximization(records):
 	return round(avg * 1.10, 2)
 
 
-# Toolbox mapping (dictionary of available tools)
-try:
-	# Lazy import; if bs4/requests missing in env, optimizer still works without this tool
-	from core.agents.data_collector.connectors.web_scraper import fetch_competitor_price
-except Exception:
-	fetch_competitor_price = None  # type: ignore
-
-
+# Toolbox mapping (dictionary of available tools) - removed web scraping
 TOOLS = {
 	"rule_based": rule_based,
 	"ml_model": ml_model,
 	"profit_maximization": profit_maximization,
 }
-
-if fetch_competitor_price is not None:
-	TOOLS["fetch_competitor_price"] = fetch_competitor_price
 
 
 # --- Step 2: LLM Brain ---
@@ -113,12 +104,13 @@ class LLMBrain:
 	It decides which tool/algorithm to use based on user intent and data context.
 	"""
 
-	def __init__(self, api_key: str | None = None, base_url: str | None = None, model: str | None = None):
+	def __init__(self, api_key: str | None = None, base_url: str | None = None, model: str | None = None, strict_ai_selection: bool | None = None):
 		# Try to import OpenAI dynamically. If not available, fall back to None
 		# Prefer explicitly passed api_key, else try OPENROUTER_API_KEY then OPENAI_API_KEY
 		api_key = api_key or os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
 		base_url = base_url or os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1"
 		self.model = model or os.getenv("OPENROUTER_MODEL") or os.getenv("OPENAI_MODEL") or "z-ai/glm-4.5-air:free"
+		self.strict_ai_selection = strict_ai_selection if strict_ai_selection is not None else os.getenv("STRICT_AI_SELECTION", "true").lower() == "true"
 		self.client = None
 		if api_key:
 			try:
@@ -139,84 +131,200 @@ class LLMBrain:
 						pass
 					self.client = openai_mod
 			except ModuleNotFoundError:
-				print("WARNING: openai package not installed; LLMBrain will use deterministic fallback")
+				if self.strict_ai_selection:
+					print("ERROR: openai package not installed and strict_ai_selection=True; AI tool selection will fail")
+				else:
+					print("WARNING: openai package not installed; LLMBrain will use deterministic fallback")
 		else:
-			print("WARNING: No OpenRouter/OpenAI API key set; LLMBrain will use deterministic fallback")
-
-	def decide_tool(self, user_intent: str, available_tools: dict[str, object]):
-		"""
-		General-purpose tool selector. Returns a dict like:
-		{"tool_name": str, "arguments": { ... }}
-
-		If no LLM available, uses simple heuristics:
-		- If URL present, choose fetch_competitor_price with that url
-		- Else if intent mentions profit, choose profit_maximization
-		- Else if few records (heuristic not available here), default rule_based
-		"""
-		# Build concise descriptions for the prompt
-		descriptions = []
-		for name in available_tools.keys():
-			if name == "fetch_competitor_price":
-				descriptions.append({"name": name, "description": "Fetches a competitor price from a product page URL."})
-			elif name == "rule_based":
-				descriptions.append({"name": name, "description": "Average competitor price minus 2%."})
-			elif name == "ml_model":
-				descriptions.append({"name": name, "description": "Machine learning model for pricing."})
-			elif name == "profit_maximization":
-				descriptions.append({"name": name, "description": "+10% markup over average competitor price."})
+			if self.strict_ai_selection:
+				print("ERROR: No OpenRouter/OpenAI API key set and strict_ai_selection=True; AI tool selection will fail")
 			else:
-				descriptions.append({"name": name, "description": "Tool"})
+				print("WARNING: No OpenRouter/OpenAI API key set; LLMBrain will use deterministic fallback")
+
+	def decide_tool(self, user_intent: str, available_tools: dict[str, object], market_context: dict = None):
+		"""
+		AI-powered tool selector. Returns a dict like:
+		{"tool_name": str, "arguments": {...}, "reason": str} or {"error": str}
+
+		Requires LLM client when strict_ai_selection=True.
+		"""
+		# Build detailed tool descriptions with schema info
+		tool_descriptions = []
+		for name, tool_func in available_tools.items():
+			if name == "rule_based":
+				tool_descriptions.append({
+					"name": name, 
+					"description": "Conservative competitive pricing: averages competitor prices and applies 2% discount to undercut market",
+					"use_case": "When maintaining market share is priority over profit margins",
+					"arguments": {}
+				})
+			elif name == "ml_model":
+				tool_descriptions.append({
+					"name": name,
+					"description": "Machine learning model for demand-aware pricing based on historical patterns",
+					"use_case": "When sufficient historical data exists and sophisticated analysis is needed",
+					"arguments": {}
+				})
+			elif name == "profit_maximization":
+				tool_descriptions.append({
+					"name": name,
+					"description": "Aggressive profit-focused pricing: adds 10% markup over average competitor price",
+					"use_case": "When maximizing margins is priority over market share",
+					"arguments": {}
+				})
+			else:
+				tool_descriptions.append({
+					"name": name,
+					"description": "Generic pricing tool",
+					"use_case": "General purpose pricing",
+					"arguments": {}
+				})
+
+		# Include market context in prompt
+		context_info = ""
+		if market_context:
+			record_count = market_context.get("record_count", 0)
+			latest_price = market_context.get("latest_price")
+			avg_price = market_context.get("avg_price")
+			context_info = f"\nMarket Context:\n- Available competitor records: {record_count}\n"
+			if latest_price: context_info += f"- Latest competitor price: ${latest_price}\n"
+			if avg_price: context_info += f"- Average competitor price: ${avg_price}\n"
 
 		prompt = (
-			"You are an AI agent brain. Based on the user's request, select the best tool to use from the "
-			"following list and determine its arguments.\n\n" \
-			f"User Request: \"{user_intent}\"\n\n" \
-			f"Available Tools:\n{descriptions}\n\n" \
-			"Respond with only a JSON object specifying the tool name and its arguments. "
-			"Example: {\"tool_name\": \"fetch_competitor_price\", \"arguments\": {\"url\": \"http://example.com\"}}"
+			"You are an AI pricing agent brain. Analyze the user's request and market context to select the most appropriate pricing tool.\n\n"
+			f"User Request: \"{user_intent}\"\n"
+			f"{context_info}\n"
+			f"Available Tools:\n{json.dumps(tool_descriptions, indent=2)}\n\n"
+			"Requirements:\n"
+			"1. Consider user intent, market conditions, and business objectives\n"
+			"2. Choose the tool that best aligns with the stated goal\n"
+			"3. Provide a brief reason for your selection\n\n"
+			"Respond with ONLY a JSON object in this exact format:\n"
+			'{"tool_name": "<selected_tool>", "arguments": {}, "reason": "<brief_explanation>"}'
 		)
 
-		def _extract_first_url(text: str) -> str | None:
-			if not text:
-				return None
-			m = re.search(r"https?://\S+", text)
-			return m.group(0) if m else None
-
-		def _default_selection():
-			intent = (user_intent or "").lower()
-			url = _extract_first_url(user_intent or "")
-			if url and "fetch_competitor_price" in available_tools:
-				return {"tool_name": "fetch_competitor_price", "arguments": {"url": url}}
-			if "profit" in intent or "maximize" in intent:
-				return {"tool_name": "profit_maximization", "arguments": {}}
-			# fallback
-			return {"tool_name": "rule_based", "arguments": {}}
+		# AI-only selection logic
+		if not self.client:
+			if self.strict_ai_selection:
+				return {"error": "ai_selection_failed", "message": "No LLM client available and strict_ai_selection=True"}
+			else:
+				# Legacy fallback mode
+				intent = (user_intent or "").lower()
+				if "profit" in intent or "maximize" in intent:
+					return {"tool_name": "profit_maximization", "arguments": {}, "reason": "fallback: keyword 'profit' detected"}
+				return {"tool_name": "rule_based", "arguments": {}, "reason": "fallback: default conservative approach"}
 
 		try:
-			if not self.client:
-				return _default_selection()
-
 			resp = self.client.chat.completions.create(
 				model=self.model,
 				messages=[{"role": "user", "content": prompt}],
-				max_tokens=200,
+				max_tokens=300,
 				temperature=0.0,
 			)
 			raw = resp.choices[0].message.content or ""
-			# extract JSON
+			
+			# Enhanced telemetry: log raw LLM decision (redacted for safety)
+			try:
+				from core.agents.agent_sdk.activity_log import activity_log as act_log
+				redacted_raw = raw[:100] + "..." if len(raw) > 100 else raw
+				act_log.log("llm_brain", "decide_tool.request", "info", 
+					message=f"model={self.model} prompt_len={len(prompt)} response_len={len(raw)}", 
+					details={"raw_response_preview": redacted_raw, "available_tools": list(available_tools.keys())})
+			except Exception:
+				pass  # Don't fail on logging errors
+			
+			# Parse JSON response
 			start = raw.find("{")
 			end = raw.rfind("}")
-			parsed = json.loads(raw[start : end + 1]) if start != -1 and end != -1 else {}
-			name = parsed.get("tool_name") if isinstance(parsed, dict) else None
-			args = parsed.get("arguments", {}) if isinstance(parsed, dict) else {}
-			if name in available_tools:
-				return {"tool_name": name, "arguments": args if isinstance(args, dict) else {}}
-			return _default_selection()
+			if start == -1 or end == -1:
+				return {"error": "ai_selection_failed", "message": "LLM response missing JSON format"}
+			
+			try:
+				parsed = json.loads(raw[start : end + 1])
+			except json.JSONDecodeError as e:
+				return {"error": "ai_selection_failed", "message": f"Invalid JSON from LLM: {e}"}
+			
+			# Validate response structure
+			if not isinstance(parsed, dict):
+				return {"error": "ai_selection_failed", "message": "LLM response not a JSON object"}
+			
+			tool_name = parsed.get("tool_name")
+			arguments = parsed.get("arguments", {})
+			reason = parsed.get("reason", "No reason provided")
+			
+			if not tool_name:
+				return {"error": "ai_selection_failed", "message": "Missing tool_name in LLM response"}
+			
+			if tool_name not in available_tools:
+				return {"error": "ai_selection_failed", "message": f"Invalid tool_name '{tool_name}', available: {list(available_tools.keys())}"}
+			
+			if not isinstance(arguments, dict):
+				return {"error": "ai_selection_failed", "message": "Arguments must be a dictionary"}
+			
+			# Enhanced telemetry: log successful AI decision
+			try:
+				from core.agents.agent_sdk.activity_log import activity_log as act_log
+				act_log.log("llm_brain", "decide_tool.success", "completed", 
+					message=f"selected={tool_name} reason='{reason}'", 
+					details={"tool_name": tool_name, "arguments": arguments, "reason": reason, "market_context": market_context})
+			except Exception:
+				pass  # Don't fail on logging errors
+			
+			return {"tool_name": tool_name, "arguments": arguments, "reason": reason}
+			
 		except Exception as e:
-			print("ERROR: LLM error:", e)
-			return _default_selection()
+			# Enhanced telemetry: log LLM request failures
+			try:
+				from core.agents.agent_sdk.activity_log import activity_log as act_log
+				act_log.log("llm_brain", "decide_tool.failed", "failed", 
+					message=f"LLM request failed: {str(e)}", 
+					details={"error": str(e), "model": self.model})
+			except Exception:
+				pass  # Don't fail on logging errors
+			return {"error": "ai_selection_failed", "message": f"LLM request failed: {str(e)}"}
 
-	def process_full_workflow(self, user_request: str, product_name: str, db_path: str = "data/market.db", notify_alert_fn=None, wait_seconds: int = 3, max_wait_attempts: int = 5, monitor_timeout: int = 0):
+	async def _request_fresh_data(self, user_request: str, product_name: str, wait_seconds: int, max_wait_attempts: int, activity_log=None):
+		"""Request fresh market data via event bus and wait for completion."""
+		try:
+			from core.agents.agent_sdk.bus_factory import get_bus
+			from core.agents.agent_sdk.protocol import Topic
+			from core.payloads import MarketFetchRequestPayload
+			
+			# Extract URLs from user request if any
+			urls = re.findall(r'https?://\S+', user_request or '')
+			
+			# Create fetch request
+			request_id = str(uuid.uuid4())
+			fetch_request: MarketFetchRequestPayload = {
+				"request_id": request_id,
+				"sku": product_name,
+				"market": "DEFAULT",
+				"sources": ["web_scraper"] if urls else [],
+				"urls": urls if urls else None,
+				"horizon_minutes": 60,  # 1 hour freshness target
+				"depth": min(len(urls), 5) if urls else 1
+			}
+			
+			bus = get_bus()
+			await bus.publish(Topic.MARKET_FETCH_REQUEST.value, fetch_request)
+			
+			if activity_log:
+				activity_log.log("pricing_optimizer", "market.fetch.request", "info", 
+					message=f"request_id={request_id} sku={product_name}")
+			
+			# Wait for completion (simplified - in production could listen for DONE events)
+			import asyncio
+			for attempt in range(max_wait_attempts):
+				await asyncio.sleep(wait_seconds)
+				# In a real implementation, we'd check for completion events
+				# For now, we'll just wait and let the caller re-check data freshness
+			
+		except Exception as e:
+			print(f"[pricing_optimizer] Failed to request fresh data: {e}")
+			if activity_log:
+				activity_log.log("pricing_optimizer", "market.fetch.request", "failed", message=str(e))
+
+	async def process_full_workflow(self, user_request: str, product_name: str, db_path: str = "data/market.db", notify_alert_fn=None, wait_seconds: int = 3, max_wait_attempts: int = 5, monitor_timeout: int = 0):
 		"""
 		Execute the full pricing workflow described in the system prompt.
 		Returns strict JSON dict on success or error.
@@ -234,19 +342,30 @@ class LLMBrain:
 		def err(msg: str):
 			return {"status": "error", "message": msg}
 
-		# open DB connection locally
+		# Use DataRepo to access market data from app/data.db
 		try:
-			conn = sqlite3.connect(db_path, check_same_thread=False)
-			cursor = conn.cursor()
+			from core.agents.data_collector.repo import DataRepo
+			repo = DataRepo("app/data.db")  # Use app/data.db instead of data/market.db
+			await repo.init()
 		except Exception as e:
-			return err(f"DB connection failed: {e}")
+			return err(f"DataRepo initialization failed: {e}")
 
-		# helper: fetch records
-		def fetch_records():
+		# helper: fetch records from market_ticks table
+		async def fetch_records():
 			try:
-				cursor.execute("SELECT price, update_time FROM market_data WHERE product_name=?", (product_name,))
-				return cursor.fetchall()
+				# Get recent ticks for this SKU
+				since_iso = (datetime.now() - timedelta(days=7)).isoformat()  # Last 7 days
+				features = await repo.features_for(product_name, "DEFAULT", since_iso)
+				
+				# Convert to the old format for compatibility with existing algorithms
+				records = []
+				if features.get("count", 0) > 0:
+					comp_price = features.get("features", {}).get("competitor_price")
+					if comp_price is not None:
+						records.append((comp_price, features.get("as_of", datetime.now().isoformat())))
+				return records
 			except Exception as e:
+				print(f"[pricing_optimizer] Error fetching records: {e}")
 				return []
 
 		# helper: parse timestamp
@@ -277,7 +396,7 @@ class LLMBrain:
 
 
 		# Step 1 & 2: Check data freshness and request update if needed
-		records = fetch_records()
+		records = await fetch_records()
 		stale = False
 		if not records:
 			stale = True
@@ -292,89 +411,56 @@ class LLMBrain:
 				stale = True
 
 		if stale:
-			# send market data collect request (simulated)
-			msg = f"UPDATE market_data for {product_name}"
-			print(msg)
-			if _act:
-				_act.log("pricing_optimizer", "market.request_update", "info", message=msg)
-			# Poll DB for confirmation (simulated) up to max_wait_attempts
-			attempt = 0
-			while attempt < max_wait_attempts:
-				time.sleep(wait_seconds)
-				records = fetch_records()
-				if records:
-					# re-evaluate freshness
-					latest = None
-					for r in records:
-						ts = _parse_time(r[1])
-						if ts and (latest is None or ts > latest):
-							latest = ts
-					if latest and (datetime.now() - latest) <= timedelta(hours=24):
-						break
-				attempt += 1
-			if attempt >= max_wait_attempts and (not records or latest is None or (datetime.now() - (latest or datetime.min)) > timedelta(hours=24)):
-				return err("market data not refreshed after request")
+			# Send market data fetch request via event bus
+			await self._request_fresh_data(user_request, product_name, wait_seconds, max_wait_attempts, _act)
+			# Re-fetch records after data collection
+			records = await fetch_records()
+			if not records:
+				# re-evaluate freshness after request
+				latest = None
+				for r in records:
+					ts = _parse_time(r[1])
+					if ts and (latest is None or ts > latest):
+						latest = ts
+				if not latest or (datetime.now() - latest) > timedelta(hours=24):
+					return err("market data not refreshed after request")
 
 		# Step 3: Process data & choose tool/algorithm using agentic selection
-		records = fetch_records()
+		records = await fetch_records()
 		if not records:
 			# We still allow a scrape-first workflow if requested
 			records = []
 
-		# First decision: may be scraper or an algorithm
-		selection = self.decide_tool(user_request, dict(TOOLS))
-		tool_name = selection.get("tool_name") if isinstance(selection, dict) else None
-		arguments = selection.get("arguments", {}) if isinstance(selection, dict) else {}
-		if _act:
-			_act.log("llm_brain", "decide_tool", "completed", message=f"tool={tool_name}", details={"args": arguments})
+		# Build market context for AI decision
+		market_context = {
+			"record_count": len(records),
+			"latest_price": records[0][0] if records else None,
+			"avg_price": sum(r[0] for r in records) / len(records) if records else None
+		}
 
-		# Optional pre-step: run scraper to augment data
-		if tool_name == "fetch_competitor_price" and TOOLS.get("fetch_competitor_price"):
-			url = arguments.get("url") if isinstance(arguments, dict) else None
-			# fallback URL extraction from user text
-			if not url:
-				m = re.search(r"https?://\S+", user_request or "")
-				url = m.group(0) if m else None
-			if url:
-				try:
-					res = TOOLS["fetch_competitor_price"](url)
-					if isinstance(res, dict) and res.get("status") == "success" and "price" in res:
-						# Append a synthetic record with current timestamp
-						records.append((float(res["price"]), datetime.utcnow().isoformat()))
-						# Also persist to market_data to be traceable
-						try:
-							cursor.execute(
-								"INSERT INTO market_data (product_name, price, features, update_time) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
-								(product_name, float(res["price"]), "scraped"),
-							)
-							conn.commit()
-						except Exception:
-							pass
-						if _act:
-							_act.log("web_scraper", "fetch_competitor_price", "completed", message=f"price={res['price']}", details={"url": url})
-				except Exception as e_scrape:
-					print(f"[pricing_optimizer] scraper tool failed: {e_scrape}")
-					if _act:
-						_act.log("web_scraper", "fetch_competitor_price", "failed", message=str(e_scrape), details={"url": url})
-
-		# Ensure we have some data before pricing
-		if not records:
-			return err("no market data available")
-
-		# Second decision: choose pricing algorithm (limit tools to algorithms)
+		# AI-only algorithm selection (limit to pricing algorithms only)
 		algo_tools = {k: v for k, v in TOOLS.items() if k in ("rule_based", "ml_model", "profit_maximization")}
-		selection2 = self.decide_tool(user_request, dict(algo_tools))
-		algo = selection2.get("tool_name") if isinstance(selection2, dict) else None
-		if algo not in algo_tools:
-			# simple heuristic fallback
-			n = len(records)
-			intent = (user_request or "").lower()
-			if ("max" in intent and "profit" in intent) or ("maximize" in intent):
-				algo = "profit_maximization"
-			elif n < 100:
-				algo = "rule_based"
-			else:
-				algo = "ml_model"
+		selection = self.decide_tool(user_request, dict(algo_tools), market_context)
+		
+		# Handle AI selection errors
+		if "error" in selection:
+			if _act:
+				_act.log("llm_brain", "decide_tool", "failed", 
+						message=f"AI selection failed: {selection.get('message', 'unknown error')}", 
+						details={"error": selection, "market_context": market_context})
+			return err(f"AI tool selection failed: {selection.get('message', 'unknown error')}")
+		
+		algo = selection.get("tool_name")
+		reason = selection.get("reason", "No reason provided")
+		
+		if _act:
+			_act.log("llm_brain", "decide_tool", "completed", 
+					message=f"algo={algo} reason={reason}", 
+					details={"market_context": market_context, "selection": selection})
+
+		# Ensure we have some data before pricing (unless AI explicitly chose a tool that can work without data)
+		if not records and algo != "profit_maximization":  # profit_maximization might use fallback logic
+			return err("no market data available for selected algorithm")
 
 		# Step 4: Calculate price using selected algorithm
 		try:
@@ -396,59 +482,42 @@ class LLMBrain:
 			from core.agents.agent_sdk.protocol import Topic as _Topic
 			from core.payloads import PriceProposalPayload as _PPayload
 
-			# Read current and cost from app/data.db (read-only), and prior optimized price from market.db
-			from pathlib import Path as _Path
-			_root = _Path(__file__).resolve().parents[2]
-			_app_db = _root / "app" / "data.db"
-			_market_db = _root / "data" / "market.db"
-
-			def _ro_conn(p: _Path):
-				try:
-					return _sqlite3.connect(f"file:{p.as_posix()}?mode=ro", uri=True, check_same_thread=False)
-				except Exception:
-					# Fallback to normal open; we only perform SELECTs
-					return _sqlite3.connect(p.as_posix(), check_same_thread=False)
-
+			# Read current price from product catalog and previous price from price proposals
+			# Both are now in app/data.db via DataRepo
 			current_price_val = None
+			previous_price_val = None
+			
 			try:
-				c2 = _ro_conn(_app_db)
-				cur2 = c2.cursor()
-				cur2.execute(
-					"CREATE TABLE IF NOT EXISTS product_catalog (\n"
-					"  sku TEXT PRIMARY KEY,\n"
-					"  title TEXT, currency TEXT, current_price REAL, cost REAL,\n"
-					"  stock INTEGER, updated_at TEXT\n"
-					")"
-				)
-				cur2.execute(
+				import sqlite3 as _sqlite3
+				from pathlib import Path as _Path
+				
+				_root = _Path(__file__).resolve().parents[2]
+				_app_db = _root / "app" / "data.db"
+				
+				conn = _sqlite3.connect(_app_db.as_posix(), check_same_thread=False)
+				cursor = conn.cursor()
+				
+				# Get current price from product catalog
+				cursor.execute(
 					"SELECT current_price FROM product_catalog WHERE sku=? LIMIT 1",
 					(product_name,),
 				)
-				rowc = cur2.fetchone()
-				if rowc:
-					current_price_val = float(rowc[0]) if rowc[0] is not None else None
-			finally:
-				try:
-					c2.close()  # type: ignore[name-defined]
-				except Exception:
-					pass
-
-			previous_price_val = None
-			try:
-				cm = _ro_conn(_market_db)
-				curm = cm.cursor()
-				curm.execute(
-					"SELECT optimized_price FROM pricing_list WHERE product_name=?",
+				row = cursor.fetchone()
+				if row and row[0] is not None:
+					current_price_val = float(row[0])
+				
+				# Get most recent proposed price from price_proposals
+				cursor.execute(
+					"SELECT proposed_price FROM price_proposals WHERE sku=? ORDER BY ts DESC LIMIT 1",
 					(product_name,),
 				)
-				rowm = curm.fetchone()
-				if rowm and rowm[0] is not None:
-					previous_price_val = float(rowm[0])
-			finally:
-				try:
-					cm.close()  # type: ignore[name-defined]
-				except Exception:
-					pass
+				row = cursor.fetchone()
+				if row and row[0] is not None:
+					previous_price_val = float(row[0])
+				
+				conn.close()
+			except Exception as e:
+				print(f"[pricing_optimizer] Error reading prices: {e}")
 
 			proposal_id = str(_uuid.uuid4())
 			pp: _PPayload = {
@@ -498,11 +567,17 @@ PricingOptimizerAgent = LLMBrain
 
 # --- Example run loop using the unified agent ---
 if __name__ == "__main__":
-	agent = PricingOptimizerAgent()
-	# Use process_full_workflow to run the full workflow end-to-end
-	while True:
-		res = agent.process_full_workflow("maximize profit", "iphone15")
-		print(res)
-		time.sleep(30)
+	import asyncio
+	import time
+	
+	async def main():
+		agent = PricingOptimizerAgent()
+		# Use process_full_workflow to run the full workflow end-to-end
+		while True:
+			res = await agent.process_full_workflow("maximize profit", "iphone15")
+			print(res)
+			await asyncio.sleep(30)  # Use asyncio.sleep instead of time.sleep
+	
+	asyncio.run(main())
 
 

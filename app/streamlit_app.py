@@ -64,11 +64,19 @@ st.session_state.setdefault("session", None)
 # Require login to access the dashboard
 require_login = True
 
+# 4.5) Ensure activity bus bridge subscribes before services publish
+try:
+    from app.ui.services.activity import ensure_bus_bridge as _ensure_bridge_early
+    _ensure_bridge_early()
+except Exception:
+    pass
+
 # 5) Start the alert service once (schedule onto background loop)
 if "_alerts_started" not in st.session_state:
     loop = _ensure_bg_loop()
     asyncio.run_coroutine_threadsafe(alerts.start(), loop)
     st.session_state["_alerts_started"] = True
+
 
 # 6) URL-based routing for Landing vs Dashboard
 from app.ui.theme.inject import apply_theme

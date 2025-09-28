@@ -2,6 +2,7 @@ import os
 import sqlite3
 from pathlib import Path
 import requests
+from datetime import datetime
 try:
     from dotenv import load_dotenv
 except Exception:
@@ -70,6 +71,38 @@ class UserInteractionAgent:
         - If an LLM client is available, forward the message (with memory/system prompt) and return the model answer.
         - If LLM is not available, keep the original keyword guard but return an explicit non-LLM fallback message so callers know it's not the LLM speaking.
         """
+        # Generate trace ID for this request
+        trace_id = None
+        start_time = None
+        try:
+            from core.agents.agent_sdk.activity_log import generate_trace_id, should_trace, activity_log, safe_redact
+            from core.events.journal import write_event
+            if should_trace():
+                trace_id = generate_trace_id()
+                start_time = datetime.now()
+                activity_log.log(
+                    agent="Chat",
+                    action="prompt.start",
+                    status="in_progress",
+                    message=f"Processing: {message[:100]}{'...' if len(message) > 100 else ''}",
+                    details=safe_redact({
+                        "trace_id": trace_id,
+                        "user": self.user_name,
+                        "prompt_length": len(message),
+                        "memory_length": len(self.memory)
+                    })
+                )
+                write_event("chat.prompt", {
+                    "trace_id": trace_id,
+                    "user": self.user_name,
+                    "action": "start",
+                    "prompt_preview": message[:200] + ("..." if len(message) > 200 else ""),
+                    "timestamp": start_time.isoformat()
+                })
+        except Exception:
+            # Best-effort logging; never break the flow
+            pass
+
         # Add user message to memory (avoid duplicate if already present from persisted thread)
         if not self.memory or self.memory[-1].get("role") != "user" or self.memory[-1].get("content") != message:
             self.add_to_memory("user", message)
@@ -239,6 +272,7 @@ class UserInteractionAgent:
                             return {"error": str(e)}
 
                     def optimize_price(sku: str, min_price: Optional[float] = None, max_price: Optional[float] = None, min_margin: float = 0.12, competitor_source: str = "pricing_list") -> Dict[str, Any]:
+                        # Capture trace_id from closure
                         try:
                             from core.agents.price_optimizer.optimizer import Features, optimize
                         except Exception as e_imp:
@@ -293,7 +327,8 @@ class UserInteractionAgent:
                         try:
                             res = optimize(
                                 f=Features(sku=sku, our_price=our_price, competitor_price=competitor_price, cost=cost),
-                                min_price=mp, max_price=xp, min_margin=float(min_margin)
+                                min_price=mp, max_price=xp, min_margin=float(min_margin),
+                                trace_id=trace_id
                             )
                             res.update({
                                 "inputs": {
@@ -381,9 +416,38 @@ class UserInteractionAgent:
                             max_rounds=4,
                             max_tokens=max_tokens_cfg,
                             temperature=0.2,
+                            trace_id=trace_id,
                         )
                         # Add assistant reply to memory
                         self.add_to_memory("assistant", answer)
+                        
+                        # Log completion
+                        try:
+                            if should_trace() and trace_id and start_time:
+                                duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
+                                activity_log.log(
+                                    agent="Chat",
+                                    action="prompt.done",
+                                    status="completed",
+                                    message=f"Response generated ({len(answer)} chars)",
+                                    details=safe_redact({
+                                        "trace_id": trace_id,
+                                        "duration_ms": duration_ms,
+                                        "response_length": len(answer),
+                                        "success": True
+                                    })
+                                )
+                                write_event("chat.prompt", {
+                                    "trace_id": trace_id,
+                                    "user": self.user_name,
+                                    "action": "done",
+                                    "duration_ms": duration_ms,
+                                    "response_preview": answer[:200] + ("..." if len(answer) > 200 else ""),
+                                    "timestamp": datetime.now().isoformat()
+                                })
+                        except Exception:
+                            pass
+                        
                         self._play_completion_sound()
                         return answer
                     except Exception:
@@ -395,6 +459,31 @@ class UserInteractionAgent:
             pass
 
         # LLM not available or failed. Provide fallback response.
+        # Log fallback
+        try:
+            if should_trace() and trace_id and start_time:
+                duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
+                activity_log.log(
+                    agent="Chat",
+                    action="prompt.fallback",
+                    status="completed",
+                    message="LLM unavailable, using fallback response",
+                    details=safe_redact({
+                        "trace_id": trace_id,
+                        "duration_ms": duration_ms,
+                        "fallback": True
+                    })
+                )
+                write_event("chat.prompt", {
+                    "trace_id": trace_id,
+                    "user": self.user_name,
+                    "action": "fallback",
+                    "duration_ms": duration_ms,
+                    "timestamp": datetime.now().isoformat()
+                })
+        except Exception:
+            pass
+        
         self._play_completion_sound()
         return "[non-LLM assistant] LLM is not available. Please ensure the LLM client is configured properly."
 

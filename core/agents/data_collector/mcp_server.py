@@ -1,6 +1,8 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional
+import json
+from pydantic import BaseModel, ValidationError, Field
 
 try:
     from mcp.server.fastmcp import FastMCP  # type: ignore
@@ -21,6 +23,27 @@ except Exception:  # minimal fallback shim
 from .repo import DataRepo
 from .collector import DataCollector
 from .connectors.mock import mock_ticks
+from ..agent_sdk.health_tools import ping, version, health
+from ..agent_sdk.auth import verify_capability, AuthError, get_auth_metrics
+
+# Input validation schemas using Pydantic
+class StartCollectionRequest(BaseModel):
+    sku: str = Field(..., min_length=1)
+    market: str = Field("DEFAULT", min_length=1)
+    connector: str = Field("mock", pattern=r"^(mock|web_scraper|api)$")
+    depth: int = Field(1, ge=1, le=100)
+
+class FetchMarketFeaturesRequest(BaseModel):
+    sku: str = Field(..., min_length=1)
+    market: str = Field("DEFAULT", min_length=1) 
+    time_window: str = Field("P7D", pattern=r"^P\d+D$")
+    freshness_sla_minutes: int = Field(60, ge=1, le=1440)
+
+class ImportProductCatalogRequest(BaseModel):
+    rows: List[Dict[str, Any]] = Field(..., min_items=1)
+
+class JobStatusRequest(BaseModel):
+    job_id: str = Field(..., min_length=1)
 
 mcp = FastMCP("data-collector-service")
 _repo = DataRepo()
@@ -41,36 +64,87 @@ def _since_iso_from_window(window: str) -> str:
 
 @mcp.tool()
 async def fetch_market_features(
-    sku: str, market: str = "DEFAULT", time_window: str = "P7D", freshness_sla_minutes: int = 60
+    sku: str, market: str = "DEFAULT", time_window: str = "P7D", freshness_sla_minutes: int = 60, capability_token: str = ""
 ) -> dict:
-    await _repo.init()
-    since_iso = _since_iso_from_window(time_window)
-    return await _repo.features_for(sku, market, since_iso)
-
-
-@mcp.tool()
-async def ingest_tick(d: dict) -> dict:
-    await _repo.init()
-    await _collector.ingest_tick(d)
-    return {"ok": True}
-
-
-@mcp.tool()
-async def import_product_catalog(rows: list) -> dict:
-    """Import or update product rows into the product catalog.
-
-    Returns a dict with count of processed rows.
-    """
-    await _repo.init()
-    if not isinstance(rows, list):
-        return {"ok": False, "error": "invalid_rows_type"}
-    # Only accept dict items with a sku
-    filtered: List[Dict[str, Any]] = [r for r in rows if isinstance(r, dict) and r.get("sku")]
+    """Fetch market features for a SKU with validation."""
     try:
-        count = await _repo.upsert_products(filtered)
+        # Validate auth
+        verify_capability(capability_token, "read")
+        
+        # Validate input
+        request = FetchMarketFeaturesRequest(
+            sku=sku, 
+            market=market, 
+            time_window=time_window, 
+            freshness_sla_minutes=freshness_sla_minutes
+        )
+        
+        await _repo.init()
+        since_iso = _since_iso_from_window(request.time_window)
+        result = await _repo.features_for(request.sku, request.market, since_iso)
+        
+        # Ensure result has proper structure
+        if not isinstance(result, dict):
+            result = {"ok": True, "features": result}
+        result.setdefault("sku", request.sku)
+        result.setdefault("market", request.market)
+        result.setdefault("time_window", request.time_window)
+        
+        return result
+        
+    except AuthError as e:
+        return {"ok": False, "error": "auth_error", "message": str(e)}
+    except ValidationError as e:
+        return {"ok": False, "error": "validation_error", "details": e.errors()}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
-    return {"ok": True, "count": count}
+        return {"ok": False, "error": "internal_error", "message": str(e)}
+
+
+@mcp.tool()
+async def ingest_tick(d: dict, capability_token: str = "") -> dict:
+    try:
+        verify_capability(capability_token, "write")
+        await _repo.init()
+        await _collector.ingest_tick(d)
+        return {"ok": True}
+    except AuthError as e:
+        return {"ok": False, "error": "auth_error", "message": str(e)}
+    except Exception as e:
+        return {"ok": False, "error": "internal_error", "message": str(e)}
+
+
+@mcp.tool()
+async def import_product_catalog(rows: list, capability_token: str = "") -> dict:
+    """Import or update product rows into the product catalog with validation."""
+    try:
+        # Validate auth
+        verify_capability(capability_token, "import")
+        
+        # Validate input
+        request = ImportProductCatalogRequest(rows=rows)
+        
+        await _repo.init()
+        
+        # Only accept dict items with a sku
+        filtered: List[Dict[str, Any]] = [r for r in request.rows if isinstance(r, dict) and r.get("sku")]
+        
+        if not filtered:
+            return {"ok": False, "error": "no_valid_products", "message": "No products with valid SKUs found"}
+        
+        count = await _repo.upsert_products(filtered)
+        return {
+            "ok": True, 
+            "count": count,
+            "processed": len(filtered),
+            "total_input": len(request.rows)
+        }
+        
+    except AuthError as e:
+        return {"ok": False, "error": "auth_error", "message": str(e)}
+    except ValidationError as e:
+        return {"ok": False, "error": "validation_error", "details": e.errors()}
+    except Exception as e:
+        return {"ok": False, "error": "internal_error", "message": str(e)}
 
 
 async def _run_job(job_id: str, sku: str, market: str, connector: str, depth: int) -> None:
@@ -101,35 +175,154 @@ async def start_collection(
     market: str = "DEFAULT",
     connector: str = "mock",
     depth: int = 1,
+    capability_token: str = ""
 ) -> dict:
-    """Start a background collection job for a given sku/market."""
-    await _repo.init()
+    """Start a background collection job for a given sku/market with validation."""
     try:
-        depth_int = max(1, int(depth))
-    except Exception:
-        depth_int = 1
+        # Validate auth
+        verify_capability(capability_token, "collect")
+        
+        # Validate input
+        request = StartCollectionRequest(
+            sku=sku,
+            market=market,
+            connector=connector,
+            depth=depth
+        )
+        
+        await _repo.init()
 
-    # Validate connector
-    if connector != "mock":
-        return {"ok": False, "error": "unsupported_connector"}
+        # Validate connector support
+        if request.connector not in ["mock"]:  # Extend as more connectors are added
+            return {
+                "ok": False, 
+                "error": "unsupported_connector", 
+                "supported_connectors": ["mock"]
+            }
 
-    job_id = await _repo.create_job(sku, market, connector, depth_int)
-    # Fire-and-forget
-    asyncio.create_task(_run_job(job_id, sku, market, connector, depth_int))
-    return {"ok": True, "job_id": job_id}
+        job_id = await _repo.create_job(request.sku, request.market, request.connector, request.depth)
+        
+        # Fire-and-forget background job
+        asyncio.create_task(_run_job(job_id, request.sku, request.market, request.connector, request.depth))
+        
+        return {
+            "ok": True, 
+            "job_id": job_id,
+            "sku": request.sku,
+            "market": request.market,
+            "connector": request.connector,
+            "depth": request.depth
+        }
+        
+    except AuthError as e:
+        return {"ok": False, "error": "auth_error", "message": str(e)}
+    except ValidationError as e:
+        return {"ok": False, "error": "validation_error", "details": e.errors()}
+    except Exception as e:
+        return {"ok": False, "error": "internal_error", "message": str(e)}
 
 
 @mcp.tool()
-async def get_job_status(job_id: str) -> dict:
-    """Return current job status or job_not_found."""
-    await _repo.init()
+async def get_job_status(job_id: str, capability_token: str = "") -> dict:
+    """Return current job status with validation."""
     try:
-        row = await _repo.get_job(job_id)
+        # Validate auth
+        verify_capability(capability_token, "read")
+        
+        # Validate input
+        request = JobStatusRequest(job_id=job_id)
+        
+        await _repo.init()
+        row = await _repo.get_job(request.job_id)
+        
+        if row:
+            return {"ok": True, "job": row, "job_id": request.job_id}
+        else:
+            return {"ok": False, "error": "job_not_found", "job_id": request.job_id}
+            
+    except AuthError as e:
+        return {"ok": False, "error": "auth_error", "message": str(e)}
+    except ValidationError as e:
+        return {"ok": False, "error": "validation_error", "details": e.errors()}
     except Exception as e:
-        return {"ok": False, "error": str(e), "job_id": job_id}
-    if row:
-        return {"ok": True, "job": row}
-    return {"ok": False, "error": "job_not_found", "job_id": job_id}
+        return {"ok": False, "error": "internal_error", "message": str(e), "job_id": job_id}
+
+
+@mcp.tool()  
+async def list_sources(capability_token: str = "") -> dict:
+    """List available data sources with their current status."""
+    try:
+        # Validate auth
+        verify_capability(capability_token, "read")
+        # In production, this would check actual connector health
+        sources = [
+            {
+                "name": "mock",
+                "type": "mock", 
+                "status": "active",
+                "description": "Mock data generator for testing",
+                "last_check": datetime.now(timezone.utc).isoformat()
+            },
+            {
+                "name": "web_scraper", 
+                "type": "web_scraper",
+                "status": "inactive",
+                "description": "Web scraping data connector",
+                "last_check": datetime.now(timezone.utc).isoformat()
+            }
+        ]
+        
+        return {
+            "ok": True,
+            "sources": sources,
+            "count": len(sources)
+        }
+        
+    except AuthError as e:
+        return {"ok": False, "error": "auth_error", "message": str(e)}
+    except Exception as e:
+        return {"ok": False, "error": "internal_error", "message": str(e)}
+
+
+# Health tools
+@mcp.tool()
+async def ping_health() -> dict:
+    """Basic connectivity test."""
+    return await ping()
+
+
+@mcp.tool() 
+async def version_info() -> dict:
+    """Server version information."""
+    return await version()
+
+
+@mcp.tool()
+async def health_check() -> dict:
+    """Detailed health status."""
+    return await health("data-collector", check_dependencies=True)
+
+
+@mcp.tool()
+async def auth_metrics(capability_token: str = "") -> Dict[str, Any]:
+    """Get authentication metrics for this service."""
+    try:
+        # Validate auth - requires admin scope to view metrics
+        verify_capability(capability_token, "admin")
+        
+        metrics = get_auth_metrics()
+        return {
+            "ok": True,
+            "result": {
+                "service": "data-collector",
+                "metrics": metrics,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    except AuthError as e:
+        return {"ok": False, "error": "auth_error", "message": str(e)}
+    except Exception as e:
+        return {"ok": False, "error": "internal_error", "message": str(e)}
 
 
 async def main():
