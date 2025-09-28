@@ -3,9 +3,9 @@ from __future__ import annotations
 import asyncio
 import os
 import time
-import weakref
-from typing import Any, Dict, Optional, Tuple, Union
-from contextlib import asynccontextmanager
+
+from typing import Any, Dict, Optional, Tuple
+
 
 
 class _LocalDataCollectorTools:

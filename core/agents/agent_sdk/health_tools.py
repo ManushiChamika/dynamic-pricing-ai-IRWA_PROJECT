@@ -4,7 +4,7 @@ Shared health tools for MCP servers.
 import time
 from datetime import datetime, timezone
 from typing import Dict, Any
-import asyncio
+
 
 # Server start time for uptime calculation
 _server_start_time = time.time()

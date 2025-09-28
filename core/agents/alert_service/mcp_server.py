@@ -1,7 +1,7 @@
 # Full-featured MCP server for alert service with JSON schema validation
-import asyncio, os
+import asyncio
 import inspect
-import json
+
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from pydantic import BaseModel, ValidationError, Field

@@ -4,8 +4,8 @@
 import argparse
 import sys
 import os
-from pathlib import Path
-from typing import Optional
+
+from typing import Optional, List, Tuple
 
 # Handle both relative and absolute imports
 try:
@@ -114,6 +114,99 @@ def confirm_commit(message: str) -> bool:
         return False
 
 
+def _build_fallback_message(context: dict) -> str:
+    """Build a conventional commit message without AI as a fallback.
+
+    Keeps lines under 72 chars in the body and avoids long file listings.
+    """
+    staged_files: List[Tuple[str, str]] = context.get('staged_files', [])
+
+    has_new = any(s == 'A' for s, _ in staged_files)
+    has_mod = any(s == 'M' for s, _ in staged_files)
+    has_del = any(s == 'D' for s, _ in staged_files)
+
+    def any_match(substrs: List[str], name: str) -> bool:
+        name_l = name.lower()
+        return any(sub in name_l for sub in substrs)
+
+    has_tests = any(any_match(['test', '.test.', '_test', '__tests__', 'spec'], f) for _, f in staged_files)
+    has_docs = any(any_match(['.md', 'readme', 'docs/'], f) for _, f in staged_files)
+    has_config = any(any_match(['config', '.json', '.yaml', '.yml', '.toml', '.ini', 'requirements'], f) for _, f in staged_files)
+    has_scripts = any(any_match(['script', '.bat', '.ps1', '.sh'], f) for _, f in staged_files)
+    has_ui = any(any_match(['ui', 'frontend', 'component'], f) for _, f in staged_files)
+    has_core = any(any_match(['core', 'agent', 'backend'], f) for _, f in staged_files)
+
+    commit_type = 'chore'
+    scope: Optional[str] = None
+
+    if has_tests and not (has_docs or has_config):
+        commit_type = 'test'
+    elif has_docs and not has_config:
+        commit_type = 'docs'
+    elif has_new and not has_tests:
+        commit_type = 'feat'
+    elif has_config:
+        commit_type = 'chore'
+        scope = 'config'
+
+    if has_scripts:
+        commit_type = 'feat'
+        scope = (scope or 'tooling')
+
+    if has_ui:
+        scope = scope or 'ui'
+    if has_core:
+        scope = scope or 'core'
+
+    if commit_type == 'docs':
+        subject = 'update documentation'
+    elif commit_type == 'test':
+        subject = 'update test coverage'
+    elif commit_type == 'chore' and scope == 'config':
+        subject = 'update configuration'
+    elif commit_type == 'feat' and scope == 'tooling':
+        subject = 'enhance development tooling'
+    elif has_new and not (has_mod or has_del):
+        subject = 'add new components'
+    else:
+        subject = 'update project components'
+
+    # Summarize counts to keep body concise
+    count_a = sum(1 for s, _ in staged_files if s == 'A')
+    count_m = sum(1 for s, _ in staged_files if s == 'M')
+    count_d = sum(1 for s, _ in staged_files if s == 'D')
+
+    bullet_lines: List[str] = [
+        'Changes include:'
+    ]
+    if count_a:
+        bullet_lines.append(f"- added {count_a} file{'s' if count_a != 1 else ''}")
+    if count_m:
+        bullet_lines.append(f"- modified {count_m} file{'s' if count_m != 1 else ''}")
+    if count_d:
+        bullet_lines.append(f"- removed {count_d} file{'s' if count_d != 1 else ''}")
+    if has_tests:
+        bullet_lines.append("- updated tests")
+    if has_docs:
+        bullet_lines.append("- updated docs")
+    if has_config:
+        bullet_lines.append("- configuration adjustments")
+    if has_scripts:
+        bullet_lines.append("- tooling updates")
+
+    bullet_lines.append(
+        f"summary: {count_a} added, {count_m} modified, {count_d} deleted"
+    )
+
+    body = "\n".join(bullet_lines)
+
+    validator = CommitMessageValidator()
+    message = validator.format_message(commit_type, subject, scope=scope, body=body)
+    # Validate to ensure it conforms
+    validator.validate(message)
+    return message
+
+
 def main() -> int:
     """Main CLI entry point."""
     parser = create_parser()
@@ -167,7 +260,13 @@ def main() -> int:
             verbose=args.verbose
         )
         
-        message = provider.generate_commit_message(prompt)
+        try:
+            message = provider.generate_commit_message(prompt)
+        except OpenCodeError as e:
+            if args.verbose:
+                print(f"[WARN] OpenCode generation failed: {e}")
+                print("[INFO] Falling back to local conventional commit generator...")
+            message = _build_fallback_message(context)
         
         # Validate message
         if args.verbose:
@@ -213,8 +312,17 @@ def main() -> int:
         print(f"Git error: {e}")
         return 1
     except OpenCodeError as e:
-        print(f"OpenCode error: {e}")
-        return 1
+        # This would only be hit during provider init/validation
+        if args.verbose:
+            print(f"[WARN] OpenCode unavailable during initialization: {e}")
+            print("[INFO] Falling back to local conventional commit generator...")
+        try:
+            message = _build_fallback_message({'staged_files': []})
+            print(message)
+            return 0 if args.dry_run else 1
+        except Exception as inner:
+            print(f"OpenCode error: {e}")
+            return 1
     except ValidationError as e:
         print(f"Validation error: {e}")
         return 1

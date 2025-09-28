@@ -12,7 +12,7 @@ import logging
 import os
 import signal
 import time
-from typing import Dict, Any, Optional, List, Callable
+from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from contextlib import asynccontextmanager
 

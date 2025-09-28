@@ -1,5 +1,0 @@
-<svg width="200" height="50" viewBox="0 0 200 50" xmlns="http://www.w3.org/2000/svg">
-  <rect rx="8" ry="8" width="200" height="50" fill="#111827"></rect>
-  <path d="M20 35 L35 15 L45 28 L55 20 L70 35" stroke="#22d3ee" stroke-width="3" fill="none"></path>
-  <text x="80" y="33" font-family="Inter, Arial" font-size="18" fill="#e5e7eb">FluxPricer AI</text>
-</svg>

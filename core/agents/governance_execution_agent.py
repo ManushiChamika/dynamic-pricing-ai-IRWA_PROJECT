@@ -46,14 +46,14 @@ class GovernanceExecutionAgent:
                 try:
                     get_logger("ge_agent").warning("on_price_proposal_error", error=str(e))
                 except Exception:
-                    pass
+                    print(f"Failed to log price proposal error: {e}")
 
         self._callback = on_price_proposal
         get_bus().subscribe(Topic.PRICE_PROPOSAL.value, self._callback)
         try:
             get_logger("ge_agent").info("subscribed", topic=Topic.PRICE_PROPOSAL.value)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Failed to log subscription: {e}")
 
     async def stop(self) -> None:
         self._callback = None
@@ -118,11 +118,11 @@ class GovernanceExecutionAgent:
                 auto_apply = str(kv.get("auto_apply", "false")).strip().lower() == "true"
                 try:
                     min_margin = float(kv.get("min_margin", str(min_margin)))
-                except Exception:
+                except (ValueError, TypeError):
                     pass
                 try:
                     max_delta = float(kv.get("max_delta", str(max_delta)))
-                except Exception:
+                except (ValueError, TypeError):
                     pass
             finally:
                 conn.close()
@@ -139,11 +139,11 @@ class GovernanceExecutionAgent:
                 previous_price=float(payload["previous_price"]),
                 proposed_price=float(payload["proposed_price"]),
             )
-        except Exception as e:
+        except (KeyError, ValueError, TypeError) as e:
             try:
                 get_logger("ge_agent").warning("invalid_payload", error=str(e), payload=payload)
             except Exception:
-                pass
+                print(f"Failed to log invalid payload: {e}")
             return
 
         # Offload to background thread to avoid blocking bus
@@ -237,8 +237,8 @@ class GovernanceExecutionAgent:
                             proposal_id=pp["proposal_id"],
                             final_price=float(pp["proposed_price"]),
                         )
-                    except Exception:
-                        pass
+        except (sqlite3.Error, OSError):
+            pass
                 else:
                     # stale
                     cur.execute(
@@ -250,7 +250,7 @@ class GovernanceExecutionAgent:
             except sqlite3.OperationalError as e:
                 try:
                     cur.execute("ROLLBACK")
-                except Exception:
+                except sqlite3.Error:
                     pass
                 try:
                     cur.execute(
@@ -258,12 +258,12 @@ class GovernanceExecutionAgent:
                         (str(e), _utc_now_iso(), pp["proposal_id"]),
                     )
                     conn.commit()
-                except Exception:
+                except sqlite3.Error:
                     pass
             except Exception as e:
                 try:
                     cur.execute("ROLLBACK")
-                except Exception:
+                except sqlite3.Error:
                     pass
                 try:
                     cur.execute(
@@ -271,19 +271,19 @@ class GovernanceExecutionAgent:
                         (str(e), _utc_now_iso(), pp["proposal_id"]),
                     )
                     conn.commit()
-                except Exception:
+                except sqlite3.Error:
                     pass
                 try:
                     get_logger("ge_agent").warning("apply_failed", error=str(e), proposal_id=pp["proposal_id"], product_id=pp["product_id"])
                 except Exception:
-                    pass
+                    print(f"Failed to log apply failure: {e}")
             finally:
                 try:
                     conn.close()
-                except Exception:
+                except sqlite3.Error:
                     pass
 
-        except Exception:
+        except (sqlite3.Error, OSError):
             pass
 
     def _log_received_only(self, pp: PriceProposalPayload, actor: str, reason: Optional[str]) -> None:
@@ -302,7 +302,7 @@ class GovernanceExecutionAgent:
         finally:
             try:
                 conn.close()
-            except Exception:
+            except sqlite3.Error:
                 pass
 
     def _publish_update_async(self, upd: PriceUpdatePayload) -> None:
@@ -313,7 +313,7 @@ class GovernanceExecutionAgent:
                 try:
                     get_logger("ge_agent").warning("publish_update_failed", error=str(e))
                 except Exception:
-                    pass
+                    print(f"Failed to log publish failure: {e}")
         try:
             loop = asyncio.get_running_loop()
             loop.create_task(_pub())

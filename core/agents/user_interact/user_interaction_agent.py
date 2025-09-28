@@ -1,7 +1,7 @@
 import os
 import sqlite3
 from pathlib import Path
-import requests
+
 from datetime import datetime
 try:
     from dotenv import load_dotenv
@@ -17,7 +17,7 @@ if 'load_dotenv' in globals() and callable(load_dotenv):
 
 # Optional LLM helper
 try:
-    from app.llm_client import get_llm_client
+    from core.agents.llm_client import get_llm_client
 except Exception:
     get_llm_client = None
 

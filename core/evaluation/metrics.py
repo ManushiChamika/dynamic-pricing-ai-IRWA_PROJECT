@@ -10,7 +10,7 @@ This module provides comprehensive metrics calculation capabilities for IRWA com
 """
 
 import sqlite3
-import asyncio
+
 import aiosqlite
 import statistics
 from datetime import datetime, timedelta
@@ -352,28 +352,33 @@ class MetricsCalculator:
     
     async def _calculate_competitive_positioning(self, conn, period_hours: int) -> float:
         """Calculate competitive positioning score"""
-        # Implementation would compare our prices to market average
-        return 75.0  # Placeholder - would calculate actual positioning
+        # TODO: Implementation would compare our prices to market average
+        # Current implementation returns placeholder value pending market data integration
+        return 75.0
     
     async def _calculate_price_stability(self, conn, period_hours: int) -> float:
         """Calculate price stability index"""
-        # Implementation would measure price variance over time
-        return 85.0  # Placeholder - would calculate actual stability
+        # TODO: Implementation would measure price variance over time
+        # Current implementation returns placeholder value pending historical data analysis
+        return 85.0
     
     async def _calculate_market_responsiveness(self, conn, period_hours: int) -> float:
         """Calculate market responsiveness score"""
-        # Implementation would measure how quickly prices adapt to market changes
-        return 78.0  # Placeholder - would calculate actual responsiveness
+        # TODO: Implementation would measure how quickly prices adapt to market changes
+        # Current implementation returns placeholder value pending market volatility analysis
+        return 78.0
     
     async def _calculate_throughput(self, conn) -> float:
         """Calculate system throughput"""
-        # Implementation would count recent requests/operations
-        return 12.5  # Placeholder - requests per second
+        # TODO: Implementation would count recent requests/operations
+        # Current implementation returns placeholder value pending request logging integration
+        return 12.5
     
     async def _calculate_avg_response_time(self, conn) -> float:
         """Calculate average response time"""
-        # Implementation would measure recent response times
-        return 150.0  # Placeholder - milliseconds
+        # TODO: Implementation would measure recent response times
+        # Current implementation returns placeholder value pending performance monitoring integration
+        return 150.0
     
     async def _calculate_data_freshness(self, conn) -> float:
         """Calculate data freshness in minutes"""
@@ -391,18 +396,21 @@ class MetricsCalculator:
     
     async def _calculate_system_availability(self, conn) -> float:
         """Calculate system availability percentage"""
-        # Implementation would track uptime/downtime
-        return 99.5  # Placeholder - percentage
+        # TODO: Implementation would track uptime/downtime
+        # Current implementation returns placeholder value pending availability monitoring
+        return 99.5
     
     async def _calculate_active_connections(self, conn) -> int:
         """Calculate active connections"""
-        # Implementation would count recent database connections/activity
-        return 8  # Placeholder
+        # TODO: Implementation would count recent database connections/activity
+        # Current implementation returns placeholder value pending connection monitoring
+        return 8
     
     async def _calculate_error_rate(self, conn) -> float:
         """Calculate error rate percentage"""
-        # Implementation would count errors vs successful operations
-        return 0.5  # Placeholder - percentage
+        # TODO: Implementation would count errors vs successful operations
+        # Current implementation returns placeholder value pending error tracking
+        return 0.5
     
     async def _calculate_revenue_impact(self, conn, cutoff_date: datetime) -> float:
         """Calculate revenue impact percentage"""
@@ -446,8 +454,9 @@ class MetricsCalculator:
     
     async def _get_current_metric_value(self, metric_name: str) -> float:
         """Get current value for a specific metric"""
-        # Implementation would retrieve current metric value
-        return 100.0  # Placeholder
+        # TODO: Implementation would retrieve current metric value from database
+        # Current implementation returns placeholder value pending metric storage system
+        return 100.0
     
     async def store_metrics(self, metrics: Any, session_id: Optional[str] = None):
         """Store calculated metrics in database"""
