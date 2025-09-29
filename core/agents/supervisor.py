@@ -11,6 +11,8 @@ from core.agents.data_collector.collector import DataCollector
 from core.agents.agent_sdk.mcp_client import get_data_collector_client
 import uuid
 from core.agents.pricing_optimizer import PricingOptimizerAgent
+from core.agents.agent_sdk.bus_factory import get_bus
+from core.agents.agent_sdk.protocol import Topic
 
 
 
@@ -119,9 +121,11 @@ class Supervisor:
                         algorithm=str(algorithm or "supervisor"),
                     )
 
-                    # Persist row
+                    # Persist row with generated proposal_id reused for event
+                    proposal_id = str(uuid.uuid4())
                     await self.repo.insert_price_proposal(
                         {
+                            "id": proposal_id,
                             "sku": pp.sku,
                             "proposed_price": pp.proposed_price,
                             "current_price": pp.current_price,
@@ -131,9 +135,17 @@ class Supervisor:
                         }
                     )
 
-                    # Publish event (let AutoApplier decide on apply)
-                    await bus.publish(Topic.PRICE_PROPOSAL.value, pp)
+                    # Publish event (let governance/auto-applier decide on apply)
+                    payload = {
+                        "proposal_id": proposal_id,
+                        "product_id": sku,
+                        "previous_price": float(current_price or 0.0),
+                        "proposed_price": float(price),
+                    }
+                    await get_bus().publish(Topic.PRICE_PROPOSAL.value, payload)
                     summary["proposal_published"] = True
+
+
 
                 except Exception as e:
                     summary["error"] = str(e)

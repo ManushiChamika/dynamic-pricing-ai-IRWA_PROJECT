@@ -22,8 +22,9 @@ except Exception:
     get_llm_client = None
 
 class UserInteractionAgent:
-    def __init__(self, user_name):
+    def __init__(self, user_name, mode: str = "user"):
         self.user_name = user_name
+        self.mode = (mode or "user").lower()
         self.api_key = os.getenv("OPENROUTER_API_KEY")
         self.base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
         self.model_name = os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-r1-0528:free")
@@ -39,6 +40,9 @@ class UserInteractionAgent:
         root = Path(__file__).resolve().parents[3]
         self.app_db = root / "app" / "data.db"
         self.market_db = root / "data" / "market.db"
+        # Last-inference metadata (populated on LLM calls)
+        self.last_model = None
+        self.last_provider = None
 
     def _play_completion_sound(self):
         """Play a sound to indicate task completion (guarded by feature flag)."""
@@ -107,8 +111,8 @@ class UserInteractionAgent:
         if not self.memory or self.memory[-1].get("role") != "user" or self.memory[-1].get("content") != message:
             self.add_to_memory("user", message)
 
-        # Build system prompt focused on dynamic pricing
-        system_prompt = (
+        # Build system prompt with mode-aware guidance (user|developer)
+        base_guidance = (
             "You are a specialized assistant for the dynamic pricing system. "
             "You can call tools to retrieve data and recommend prices. "
             "Tool usage guidelines: "
@@ -121,8 +125,19 @@ class UserInteractionAgent:
             "When to use run_pricing_workflow vs optimize_price: "
             "- run_pricing_workflow: Complex requests requiring AI strategy, market analysis, algorithm selection (e.g., 'optimize pricing strategy for iPhone 15', 'maximize profit using AI', 'competitive pricing analysis') "
             "- optimize_price: Simple price calculations with known parameters (e.g., 'what price for SKU123 with 15% margin?') "
-            "Prefer tools over guessing; respond with concise, direct answers."
         )
+        user_style = (
+            "Reply in a concise, user-friendly way with clear next actions. "
+            "Prefer plain language over technical details. Do not expose internal tool call mechanics or raw JSON unless explicitly asked. "
+            "Start with the answer, then brief justification if needed."
+        )
+        dev_style = (
+            "Developer mode is active. Provide structured output with sections: "
+            "'Answer' (lead with the result), 'Rationale' (2-4 bullets summarizing reasoning and key signals; no internal chain-of-thought), "
+            "'Tools Invoked' (list tool names and purpose), and 'Key Tool Outputs' (succinct extracts or aggregates, avoid large dumps). "
+            "Include brief 'Next Steps' when appropriate. Keep it concise and safe; never reveal secrets or raw credentials."
+        )
+        system_prompt = base_guidance + (dev_style if self.mode == "developer" else user_style)
 
         # Attempt to use LLM client if available
         try:
@@ -295,7 +310,7 @@ class UserInteractionAgent:
                     # Python implementations
                     def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
                         try:
-                            cur = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,))
+                            cur = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name= ?", (table,))
                             return cur.fetchone() is not None
                         except Exception:
                             return False
@@ -736,16 +751,26 @@ class UserInteractionAgent:
                         except Exception:
                             ui_max_tokens = 0
                         max_tokens_cfg = ui_max_tokens if ui_max_tokens > 0 else 1024
+                        # Adjust generation parameters by mode
+                        temperature = 0.2 if self.mode == "user" else 0.3
+                        max_rounds = 4 if self.mode == "user" else 5
                         answer = llm.chat_with_tools(
                             messages=msgs,
                             tools=tools,
                             functions_map=functions_map,
                             tool_choice="auto",
-                            max_rounds=4,
+                            max_rounds=max_rounds,
                             max_tokens=max_tokens_cfg,
-                            temperature=0.2,
+                            temperature=temperature,
                             trace_id=trace_id,
                         )
+                        # Capture model/provider metadata for persistence
+                        try:
+                            self.last_model = getattr(llm, "model", None)
+                            self.last_provider = llm.provider() if hasattr(llm, "provider") else None
+                            self.last_usage = getattr(llm, "last_usage", {})
+                        except Exception:
+                            self.last_usage = {}
                         # Add assistant reply to memory
                         self.add_to_memory("assistant", answer)
                         
@@ -814,6 +839,92 @@ class UserInteractionAgent:
         
         self._play_completion_sound()
         return "[non-LLM assistant] LLM is not available. Please ensure the LLM client is configured properly."
+
+    def stream_response(self, message):
+        """Yield assistant tokens as they arrive from the LLM.
+
+        - Builds the same system guidance but does not expose tool calling; this is
+          intended for lightweight real-time streaming. For complex tool workflows,
+          use get_response().
+        - Captures last_model/provider/usage at the end and appends the final
+          assistant text to memory.
+        """
+        # Add user message to memory if not already present (when called from backend, memory
+        # usually already contains the assembled history plus this user turn).
+        if not self.memory or self.memory[-1].get("role") != "user" or self.memory[-1].get("content") != message:
+            self.add_to_memory("user", message)
+
+        # Build system prompt similar to get_response()
+        base_guidance = (
+            "You are a specialized assistant for the dynamic pricing system. "
+            "You can call tools to retrieve data and recommend prices. "
+            "When answering in streaming mode, keep responses concise and actionable. "
+        )
+        user_style = (
+            "Reply in a concise, user-friendly way with clear next actions. "
+            "Prefer plain language over technical details."
+        )
+        dev_style = (
+            "Developer mode is active. Provide structured output sections (Answer, Rationale, Next Steps) "
+            "without revealing chain-of-thought."
+        )
+        system_prompt = base_guidance + (dev_style if self.mode == "developer" else user_style)
+
+        # Stream via LLM client
+        try:
+            if get_llm_client is not None:
+                llm = get_llm_client()
+                if llm.is_available():
+                    msgs = [{"role": "system", "content": system_prompt}]
+                    msgs.extend(self.memory)
+
+                    # Params
+                    try:
+                        ui_max_tokens = int(os.getenv("UI_LLM_MAX_TOKENS", "0") or "0")
+                    except Exception:
+                        ui_max_tokens = 0
+                    max_tokens_cfg = ui_max_tokens if ui_max_tokens > 0 else 1024
+                    temperature = 0.2 if self.mode == "user" else 0.3
+
+                    full: List[str] = []
+                    try:
+                        for chunk in llm.chat_stream(messages=msgs, max_tokens=max_tokens_cfg, temperature=temperature):
+                            if chunk:
+                                full.append(chunk)
+                                yield chunk
+                    except Exception:
+                        # fallback to single-shot non-streaming
+                        try:
+                            content = llm.chat(messages=msgs, max_tokens=max_tokens_cfg, temperature=temperature)
+                            if content:
+                                full.append(content)
+                                yield content
+                        except Exception:
+                            pass
+
+                    # After stream complete, capture metadata and store memory
+                    try:
+                        self.last_model = getattr(llm, "model", None)
+                        self.last_provider = llm.provider() if hasattr(llm, "provider") else None
+                        self.last_usage = getattr(llm, "last_usage", {})
+                    except Exception:
+                        self.last_usage = {}
+                    answer = ("".join(full)).strip()
+                    if answer:
+                        self.add_to_memory("assistant", answer)
+                    self._play_completion_sound()
+                    return
+        except Exception:
+            pass
+
+        # Fallback if LLM unavailable
+        fallback = "[non-LLM assistant] LLM is not available. Please ensure the LLM client is configured properly."
+        try:
+            self.add_to_memory("assistant", fallback)
+        except Exception:
+            pass
+        self._play_completion_sound()
+        yield fallback
 
 
 

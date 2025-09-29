@@ -237,8 +237,8 @@ class GovernanceExecutionAgent:
                             proposal_id=pp["proposal_id"],
                             final_price=float(pp["proposed_price"]),
                         )
-        except (sqlite3.Error, OSError):
-            pass
+                    except Exception:
+                        pass
                 else:
                     # stale
                     cur.execute(

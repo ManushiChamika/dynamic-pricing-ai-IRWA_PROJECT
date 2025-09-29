@@ -34,8 +34,15 @@ class AlertNotifier:
         bus.subscribe(Topic.PRICE_PROPOSAL.value, on_prop)
 
     async def _emit(self, kind, message, severity, sku):
-        alert = AlertEvent(sku=sku, kind=kind, message=message, severity=severity, ts=datetime.utcnow())
+        payload = {
+            "sku": sku,
+            "kind": kind,
+            "message": message,
+            "severity": severity,
+            "ts": datetime.utcnow().isoformat(),
+        }
         bus = get_bus()
-        await bus.publish(Topic.ALERT.value, alert)
+        await bus.publish(Topic.ALERT.value, payload)
         for s in self.sinks:
-            await s(alert)
+            await s(AlertEvent(sku=sku, kind=kind, message=message, severity=severity, ts=datetime.utcnow()))
+

@@ -391,13 +391,11 @@ class AutoApplier:
             if not committed:
                 return
 
-            # Publish PRICE_UPDATE event after commit
+            # Publish schema-compliant price.update event after commit
             payload = {
-                "sku": pp.sku,
-                "new_price": proposed_price,
-                "actor": "governance",
-                "proposal_id": proposal_id,
-                "action": "AUTO_APPLY",
+                "proposal_id": proposal_id or str(uuid.uuid4()),
+                "product_id": pp.sku,
+                "final_price": proposed_price,
             }
 
             async def _pub():

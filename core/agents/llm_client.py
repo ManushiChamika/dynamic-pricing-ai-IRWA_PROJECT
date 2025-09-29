@@ -70,6 +70,7 @@ class LLMClient:
         self.model: Optional[str] = None
         self._provider: str = "none"
         self._unavailable_reason: Optional[str] = None
+        self.last_usage: Dict[str, Any] = {}
 
         try:
             openai_mod = importlib.import_module("openai")
@@ -177,6 +178,9 @@ class LLMClient:
         self._active_index = index
         self.model = provider["model"]
         self._provider = provider["name"]
+        # preserve existing usage fields; just update provider/model
+        prior = self.last_usage or {}
+        self.last_usage = {**prior, "provider": self._provider, "model": self.model}
 
     def _provider_indices(self) -> List[int]:
         if not self._providers:
@@ -220,6 +224,19 @@ class LLMClient:
                     temperature=temperature,
                 )
                 content = (resp.choices[0].message.content or "").strip()
+                # capture usage metadata if available
+                try:
+                    usage = getattr(resp, "usage", None)
+                    if usage:
+                        self.last_usage = {
+                            "provider": provider["name"],
+                            "model": provider["model"],
+                            "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                            "completion_tokens": getattr(usage, "completion_tokens", None),
+                            "total_tokens": getattr(usage, "total_tokens", None),
+                        }
+                except Exception:
+                    pass
                 self._set_active_provider(idx)
                 self._log.debug("LLM response chars=%d", len(content))
                 return content
@@ -229,6 +246,77 @@ class LLMClient:
                 continue
 
         raise RuntimeError(f"LLM error: {last_error or 'no provider succeeded'}")
+
+    def chat_stream(
+        self,
+        messages: List[Dict[str, Any]],
+        max_tokens: int = 256,
+        temperature: float = 0.2,
+    ):
+        """Yield content chunks from a streaming chat completion.
+        Falls back to non-streaming single-shot if streaming fails.
+        Updates self.last_usage at the end if usage is provided by the SDK.
+        """
+        if not self._providers:
+            raise RuntimeError("LLM client unavailable (missing key or package)")
+
+        last_error: Optional[Exception] = None
+        for idx in self._provider_indices():
+            provider = self._providers[idx]
+            try:
+                # Try streaming first
+                try:
+                    stream = provider["client"].chat.completions.create(
+                        model=provider["model"],
+                        messages=messages,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        stream=True,
+                        stream_options={"include_usage": True},
+                    )
+                    full: List[str] = []
+                    for event in stream:
+                        try:
+                            # usage (final chunk)
+                            usage = getattr(event, "usage", None)
+                            if usage:
+                                try:
+                                    self.last_usage = {
+                                        "provider": provider["name"],
+                                        "model": provider["model"],
+                                        "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                                        "completion_tokens": getattr(usage, "completion_tokens", None),
+                                        "total_tokens": getattr(usage, "total_tokens", None),
+                                    }
+                                except Exception:
+                                    pass
+                            # token delta
+                            choices = getattr(event, "choices", None) or []
+                            if choices:
+                                delta = getattr(choices[0], "delta", None)
+                                if delta is not None:
+                                    text = getattr(delta, "content", None)
+                                    if text:
+                                        full.append(text)
+                                        yield text
+                        except Exception:
+                            # Ignore malformed events
+                            continue
+                    # finalize provider
+                    self._set_active_provider(idx)
+                    return
+                except Exception as se:
+                    self._log.debug("Streaming not available for %s: %s", provider["name"], se)
+                    # Fallback to non-streaming
+                    content = self.chat(messages, max_tokens=max_tokens, temperature=temperature)
+                    yield content
+                    self._set_active_provider(idx)
+                    return
+            except Exception as exc:
+                last_error = exc
+                self._log.warning("Provider %s failed for stream: %s", provider["name"], exc)
+                continue
+        raise RuntimeError(f"LLM stream error: {last_error or 'no provider succeeded'}")
 
     def chat_with_tools(
         self,
@@ -257,6 +345,7 @@ class LLMClient:
             try:
                 local_msgs: List[Dict[str, Any]] = list(messages)
                 assistant_msg: Dict[str, Any] = {}
+                tools_used: List[str] = []
                 for round_i in range(max_rounds):
                     self._log.debug(
                         "Tool round %d | provider=%s model=%s msgs=%d tools=%d",
@@ -274,6 +363,19 @@ class LLMClient:
                         max_tokens=max_tokens,
                         temperature=temperature,
                     )
+                    # capture usage per round if available
+                    try:
+                        usage = getattr(resp, "usage", None)
+                        if usage:
+                            self.last_usage = {
+                                "provider": provider["name"],
+                                "model": provider["model"],
+                                "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                                "completion_tokens": getattr(usage, "completion_tokens", None),
+                                "total_tokens": getattr(usage, "total_tokens", None),
+                            }
+                    except Exception:
+                        pass
 
                     choice = resp.choices[0]
                     msg = choice.message
@@ -302,6 +404,21 @@ class LLMClient:
                     local_msgs.append(assistant_msg)
 
                     if not tool_calls:
+                        # record tools_used if present
+                        try:
+                            tools_used = []
+                            try:
+                                if assistant_msg.get("tool_calls"):
+                                    for tc in assistant_msg["tool_calls"]:
+                                        fn = (tc.get("function") or {}).get("name")
+                                        if fn and fn not in tools_used:
+                                            tools_used.append(fn)
+                            except Exception:
+                                pass
+                            if tools_used:
+                                self.last_usage = {**(self.last_usage or {}), "tools_used": tools_used}
+                        except Exception:
+                            pass
                         self._set_active_provider(idx)
                         return (content or "").strip()
 
@@ -309,6 +426,11 @@ class LLMClient:
                         fn_name = tc.get("function", {}).get("name")
                         raw_args = tc.get("function", {}).get("arguments") or "{}"
                         call_id = tc.get("id") or "tool_call"
+                        try:
+                            if fn_name and fn_name not in tools_used:
+                                tools_used.append(fn_name)
+                        except Exception:
+                            pass
                         try:
                             args = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
                         except Exception:
@@ -361,6 +483,11 @@ class LLMClient:
 
                 # max rounds exhausted
                 self._set_active_provider(idx)
+                # record tools_used
+                try:
+                    self.last_usage = {**(self.last_usage or {}), "tools_used": tools_used}
+                except Exception:
+                    pass
                 return (assistant_msg.get("content") or "").strip()
             except Exception as exc:
                 last_error = exc
