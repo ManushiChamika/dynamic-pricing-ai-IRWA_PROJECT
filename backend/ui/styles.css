@@ -65,3 +65,10 @@ body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,Segoe
 .modal-footer .danger{background:#e35d6a;border:0;color:#fff}
 .modal-body label{display:block;margin-bottom:6px}
 .modal-body input, .modal-body textarea{width:100%;border:1px solid var(--border);background:transparent;color:var(--fg);border-radius:6px;padding:8px}
+
+/* Spinner and badges */
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;opacity:.9}
+.badge{display:inline-block;font-size:11px;color:var(--muted);border:1px solid var(--border);padding:2px 6px;border-radius:999px;background:transparent}
+.badge.streaming{opacity:.85}
+.msg.assistant.live .meta .badge.streaming::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:6px;vertical-align:middle;opacity:.9}

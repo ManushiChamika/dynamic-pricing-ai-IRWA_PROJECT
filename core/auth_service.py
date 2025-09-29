@@ -1,5 +1,5 @@
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import secrets
 
 from argon2 import PasswordHasher
@@ -29,6 +29,16 @@ def _verify(pw: str, h: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def _utcnow_naive() -> datetime:
+    """
+    Return current time in UTC as a naive datetime.
+    We intentionally use naive UTC because our SQLAlchemy DateTime columns
+    are configured without timezone=True. This avoids mixing aware/naive
+    datetimes on comparisons and inserts while keeping a consistent UTC basis.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 # ---------- Register ----------
@@ -86,7 +96,7 @@ def get_profile(user_id: int) -> dict:
 # ---------- Persistent session tokens ----------
 def create_persistent_session(user_id: int) -> tuple[str, datetime]:
     token = secrets.token_urlsafe(32)
-    expires_at = datetime.utcnow() + timedelta(days=SESSION_DAYS)
+    expires_at = _utcnow_naive() + timedelta(days=SESSION_DAYS)
     with SessionLocal() as db:
         db.add(SessionToken(user_id=user_id, token=token, expires_at=expires_at))
         db.commit()
@@ -94,7 +104,7 @@ def create_persistent_session(user_id: int) -> tuple[str, datetime]:
 
 
 def validate_session_token(token: str) -> dict | None:
-    now = datetime.utcnow()
+    now = _utcnow_naive()
     with SessionLocal() as db:
         row: Optional[SessionToken] = db.query(SessionToken).filter_by(token=token, revoked=False).first()
         if not row or row.expires_at <= now:

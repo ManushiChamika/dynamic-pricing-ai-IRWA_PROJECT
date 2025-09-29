@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Response, Cookie
+from fastapi import FastAPI, HTTPException, Response, Cookie, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, HTMLResponse
 from pydantic import BaseModel
@@ -34,7 +34,15 @@ from core.auth_service import (
     revoke_session_token,
 )
 
-app = FastAPI(title="FluxPricer Auth + Chat API")
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    init_chat_db()
+    yield
+
+app = FastAPI(title="FluxPricer Auth + Chat API", lifespan=lifespan)
  
 # CORS for local React dev on any localhost/127.0.0.1 port
 app.add_middleware(
@@ -118,6 +126,7 @@ def _derive_agents_from_tools(tools_used: Optional[List[str]]) -> List[str]:
         return []
     mapping = {
         "run_pricing_workflow": "PricingOptimizerAgent",
+        "optimize_price": "PricingOptimizerAgent",
         "scan_for_alerts": "AlertNotificationAgent",
         "collect_market_data": "DataCollectionAgent",
         "request_market_fetch": "MarketCollector",
@@ -154,7 +163,8 @@ def _assemble_memory(thread_id: int) -> List[Dict[str, str]]:
     mem: List[Dict[str, str]] = []
 
     # Environment-tunable caps
-    max_msgs = _env_int("UI_HISTORY_MAX_MSGS", 24)
+    # Use a high default for pre-summary history to approximate full context
+    max_msgs = _env_int("UI_HISTORY_MAX_MSGS", 200)
     tail_after_summary = _env_int("UI_HISTORY_TAIL_AFTER_SUMMARY", 12)
 
     # Try to include latest summary first
@@ -342,6 +352,53 @@ class ThreadImportRequest(BaseModel):
     messages: List[ThreadImportMessage] = []
 
 
+# ---------- Optional auth gating ----------
+
+def _require_login_enabled() -> bool:
+    try:
+        import os
+        return (os.getenv("UI_REQUIRE_LOGIN", "0").lower() in {"1","true","yes","on"})
+    except Exception:
+        return False
+
+
+def _extract_token_from_request(request: Request) -> str | None:
+    try:
+        token = request.query_params.get("token")
+        if token:
+            return token
+        auth = request.headers.get("authorization") or request.headers.get("Authorization")
+        if auth and auth.lower().startswith("bearer "):
+            return auth.split(" ", 1)[1].strip()
+        cookie = request.cookies.get("fp_session")
+        if cookie:
+            return cookie
+    except Exception:
+        pass
+    return None
+
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
+
+class ChatAuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if not _require_login_enabled():
+            return await call_next(request)
+        path = request.url.path or ""
+        # Allow auth and settings endpoints without token
+        if path.startswith("/api/login") or path.startswith("/api/register") or path.startswith("/api/me") or path.startswith("/api/settings"):
+            return await call_next(request)
+        # Protect chat threads/messages endpoints
+        if path.startswith("/api/threads") or path.startswith("/api/messages"):
+            token = _extract_token_from_request(request)
+            sess = validate_session_token(token) if token else None
+            if not sess:
+                return JSONResponse({"error": "Authentication required"}, status_code=401)
+        return await call_next(request)
+
+# Register middleware
+app.add_middleware(ChatAuthMiddleware)
+
 # ---------- Settings (in-memory, token-based) ----------
 
 class Settings(BaseModel):
@@ -381,10 +438,7 @@ def _get_user_settings(token: Optional[str]) -> Dict[str, Any]:
     return _default_settings()
 
 
-@app.on_event("startup")
-def _startup():
-    init_db()
-    init_chat_db()
+
 
 
 @app.post("/api/register")

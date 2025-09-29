@@ -125,6 +125,18 @@
     } else if(opts.body != null){
       init.body = opts.body;
     }
+    // Attach token for protected chat endpoints when available
+    try{
+      const t = getToken();
+      if(t && typeof url === 'string' && url.startsWith('/api/')){
+        const protectedPrefixes = ['/api/threads', '/api/messages'];
+        if(protectedPrefixes.some(p=> url.startsWith(p))){
+          const u = new URL(url, window.location.origin);
+          if(!u.searchParams.get('token')) u.searchParams.set('token', t);
+          url = u.pathname + u.search + u.hash;
+        }
+      }
+    }catch(e){ /* ignore */ }
     try{
       const r = await fetch(url, init);
       let data = null;
@@ -493,16 +505,21 @@
     const created = m.created_at ? new Date(m.created_at).toLocaleString() : '';
     const modelComputed = m.model || (m.metadata && m.metadata.provider ? (m.metadata.provider + (m.model?(':'+m.model):'')) : '');
     const info = [];
-    if (created) info.push(`time ${created}`);
-    if (modelComputed) info.push(`model ${modelComputed}`);
-    if (m.token_in!=null || m.token_out!=null) info.push(`tokens ${m.token_in||0}/${m.token_out||0}`);
-    if (m.cost_usd!=null) info.push(`$${m.cost_usd}`);
-    if (m.api_calls!=null) info.push(`${m.api_calls} api`);
-    if (m.agents && typeof m.agents==='object' && m.agents.count!=null) info.push(`${m.agents.count} agents`);
-    if (m.tools && typeof m.tools==='object' && m.tools.count!=null) info.push(`${m.tools.count} tools`);
+    if (created) info.push(`time: ${created}`);
+    if (modelComputed) info.push(`model: ${modelComputed}`);
+    if (m.token_in!=null || m.token_out!=null) info.push(`tokens: ${m.token_in||0}/${m.token_out||0}`);
+    if (m.cost_usd!=null) info.push(`cost: $${m.cost_usd}`);
+    if (m.api_calls!=null) info.push(`api calls: ${m.api_calls}`);
+    // Include agents/tools counts and names when available
+    const agentNames = (m && m.agents && Array.isArray(m.agents.activated)) ? m.agents.activated : [];
+    const agentCount = (m && m.agents && typeof m.agents.count === 'number') ? m.agents.count : agentNames.length;
+    if (agentCount>0) info.push(`agents: ${agentCount}` + (agentNames.length>0?` (${agentNames.join(', ')})`:''));
+    const toolNames = (m && m.tools && Array.isArray(m.tools.used)) ? m.tools.used : [];
+    const toolCount = (m && m.tools && typeof m.tools.count === 'number') ? m.tools.count : toolNames.length;
+    if (toolCount>0) info.push(`tools: ${toolCount}` + (toolNames.length>0?` (${toolNames.join(', ')})`:''));
 
     const agentsActivated = (m && m.agents && Array.isArray(m.agents.activated)) ? m.agents.activated : [];
-    const agentsHtml = (agentsActivated.length>0)
+    const agentsHtml = (m.role==='user' && agentsActivated.length>0)
       ? `<div class="agents" title="Agents activated">${agentsActivated.join(', ')}</div>`
       : '';
 
@@ -512,6 +529,7 @@
         ${m.role==='user'?'<button data-act="edit" title="Edit your message">Edit</button>':''}
         <button data-act="delete" title="Delete message">Del</button>
         <button data-act="branch" title="Start a new branch here">Branch</button>
+        <button data-act="branch-thread" title="Fork into a new thread from here">Fork</button>
       </div>`;
 
     const metaHtml = `
@@ -540,6 +558,7 @@
     if(btnCopy) btnCopy.addEventListener('click', ()=>onCopy(m));
     div.querySelector('[data-act="delete"]').addEventListener('click', ()=>onDelete(m));
     div.querySelector('[data-act="branch"]').addEventListener('click', ()=>onBranch(m));
+    div.querySelector('[data-act="branch-thread"]').addEventListener('click', ()=>onBranchToNewThread(m));
     return div;
   }
 
@@ -600,8 +619,13 @@
       });
       if(!resp.ok){ toast('Stream failed', true); return; }
 
-      // Render placeholder
+      // Render current state and add a live assistant bubble to receive deltas
       await refreshMessages();
+      let assistantLiveEl = document.createElement('div');
+      assistantLiveEl.className = 'msg assistant live';
+      assistantLiveEl.innerHTML = '<div class="bubble"></div><div class="meta"><span class="badge streaming"><span class="spinner"></span> streaming…</span></div>';
+      $msgs.appendChild(assistantLiveEl);
+      $msgs.scrollTop = $msgs.scrollHeight;
 
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
@@ -621,7 +645,7 @@
           if(!thinkingEl){
             thinkingEl = document.createElement('div');
             thinkingEl.className='msg assistant thinking';
-            thinkingEl.textContent='Thinking...';
+            thinkingEl.innerHTML='<span class="spinner"></span> Thinking…';
             $msgs.appendChild(thinkingEl); $msgs.scrollTop=$msgs.scrollHeight;
           }
           return;
@@ -629,17 +653,25 @@
         if(ev==='message' && data){
           try{
             const obj = JSON.parse(data);
-            if(obj.delta){
-              if(thinkingEl){ thinkingEl.remove(); thinkingEl = null; }
-              if(assistantId==null && obj.id){ assistantId = obj.id; }
-              const last = $msgs.querySelector('.msg.assistant:last-of-type .bubble');
-              if(last){ last.textContent += obj.delta; $msgs.scrollTop=$msgs.scrollHeight; }
+             if(obj.delta){
+               if(thinkingEl){ thinkingEl.remove(); thinkingEl = null; }
+               // remove streaming badge on first delta
+               const liveMeta = assistantLiveEl && assistantLiveEl.querySelector('.meta .badge.streaming');
+               if(liveMeta){ liveMeta.remove(); }
+               if(assistantId==null && obj.id){ assistantId = obj.id; }
+               const last = $msgs.querySelector('.msg.assistant:last-of-type .bubble') || (assistantLiveEl && assistantLiveEl.querySelector('.bubble'));
+               if(last){ last.textContent += obj.delta; $msgs.scrollTop=$msgs.scrollHeight; }
             } else if(obj.id){
               assistantId = obj.id;
               if(thinkingEl){ thinkingEl.remove(); thinkingEl = null; }
+              if(assistantLiveEl){ assistantLiveEl.remove(); assistantLiveEl = null; }
               refreshMessages();
             }
           }catch(e){}
+        }
+        if(ev==='done'){
+          if(thinkingEl){ thinkingEl.remove(); thinkingEl = null; }
+          if(assistantLiveEl){ assistantLiveEl.remove(); assistantLiveEl = null; }
         }
       }
 
@@ -704,6 +736,41 @@
     const {ok} = await apiFetch(`/api/threads/${state.threadId}/messages`, {method:'POST', json:{user_name, content, parent_id: m.id}});
     if(!ok){ /* error toast shown */ return; }
     await refreshMessages();
+  }
+
+  async function onBranchToNewThread(m){
+    if(!state.threadId) return;
+    // Ask for new thread title
+    const title = await inputDialog({title:'Fork thread', label:'New thread title', defaultValue:`Fork of #${state.threadId} at message ${m.id}`});
+    if(title==null) return;
+
+    // Load current messages and slice up to selected message id
+    const {ok, data} = await apiFetch(`/api/threads/${state.threadId}/messages`);
+    if(!ok || !Array.isArray(data)) return;
+    const subset = data.filter(x=> x.id <= m.id);
+    // Build import payload preserving roles/content/metadata and parent links
+    const payload = {
+      title: title.trim() || `Fork of #${state.threadId}`,
+      messages: subset.map(x=>({
+        id: x.id, // to allow preserving parent references relative to subset order
+        role: x.role,
+        content: x.content,
+        model: x.model || null,
+        token_in: x.token_in ?? null,
+        token_out: x.token_out ?? null,
+        cost_usd: x.cost_usd ?? null,
+        agents: x.agents ?? null,
+        tools: x.tools ?? null,
+        api_calls: x.api_calls ?? null,
+        parent_id: x.parent_id ?? null,
+        metadata: x.metadata ?? null,
+      }))
+    };
+
+    const res = await apiFetch('/api/threads/import', {method:'POST', json: payload});
+    if(!res.ok || !res.data) return;
+    await listThreads();
+    await selectThread(res.data.id);
   }
 
   $send.addEventListener('click', send);
