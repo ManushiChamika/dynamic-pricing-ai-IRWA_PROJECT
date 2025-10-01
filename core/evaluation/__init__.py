@@ -23,17 +23,15 @@ from .evaluation_engine import (
     ABTestFramework
 )
 
-from .performance_monitor import (
-    PerformanceMonitor,
-    AlertThresholds,
-    PerformanceAlert
-)
-
-from .evaluator import (
-    DynamicPricingEvaluator,
-    EvaluationReport,
-    EvaluationConfig
-)
+try:
+    from .performance_monitor import (
+        PerformanceMonitor,
+        AlertThresholds,
+        PerformanceAlert
+    )
+    _has_performance_monitor = True
+except ImportError:
+    _has_performance_monitor = False
 
 __all__ = [
     'MetricsCalculator',
@@ -42,11 +40,12 @@ __all__ = [
     'BusinessImpactMetrics',
     'EvaluationEngine',
     'EvaluationSession',
-    'ABTestFramework',
-    'PerformanceMonitor',
-    'AlertThresholds',
-    'PerformanceAlert',
-    'DynamicPricingEvaluator',
-    'EvaluationReport',
-    'EvaluationConfig'
+    'ABTestFramework'
 ]
+
+if _has_performance_monitor:
+    __all__.extend([
+        'PerformanceMonitor',
+        'AlertThresholds',
+        'PerformanceAlert'
+    ])

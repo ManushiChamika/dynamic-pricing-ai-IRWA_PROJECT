@@ -242,7 +242,9 @@ def _generate_summary(thread_id: int, upto_message_id: int) -> Optional[str]:
     if get_llm_client is None:
         return None
     try:
-        llm = get_llm_client()
+        import os as _os
+        summary_model = _os.getenv("SUMMARIZER_MODEL")
+        llm = get_llm_client(model=summary_model) if summary_model else get_llm_client()
         if not llm.is_available():
             return None
         system = (
@@ -844,9 +846,33 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
             full_parts: List[str] = []
             try:
                 for delta in uia.stream_response(req.content):
-                    if isinstance(delta, str) and delta:
-                        full_parts.append(delta)
-                        yield "event: message\n" + "data: " + _json.dumps({"id": am.id, "delta": delta}, ensure_ascii=False) + "\n\n"
+                    try:
+                        # Back-compat: plain text chunks
+                        if isinstance(delta, str) and delta:
+                            full_parts.append(delta)
+                            yield "event: message\n" + "data: " + _json.dumps({"id": am.id, "delta": delta}, ensure_ascii=False) + "\n\n"
+                            continue
+
+                        # Structured events from UIA/LLM tool streaming
+                        if isinstance(delta, dict):
+                            et = delta.get("type")
+                            if et == "delta":
+                                text = delta.get("text") or ""
+                                if text:
+                                    full_parts.append(text)
+                                    yield "event: message\n" + "data: " + _json.dumps({"id": am.id, "delta": text}, ensure_ascii=False) + "\n\n"
+                            elif et == "agent":
+                                # Forward agent activation for UI badges
+                                payload = {"name": delta.get("name")}
+                                yield "event: agent\n" + "data: " + _json.dumps(payload, ensure_ascii=False) + "\n\n"
+                            elif et == "tool_call":
+                                # Forward tool call lifecycle events
+                                payload = {"name": delta.get("name"), "status": delta.get("status")}
+                                yield "event: tool_call\n" + "data: " + _json.dumps(payload, ensure_ascii=False) + "\n\n"
+                            # Unknown structured events are ignored for now
+                    except Exception:
+                        # Ignore malformed streaming payloads while keeping the stream alive
+                        continue
             except Exception:
                 # streaming failed mid-way; proceed to finalize with what we have
                 pass
@@ -927,3 +953,42 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
             yield "event: error\n" + "data: " + _json.dumps(err, ensure_ascii=False) + "\n\n"
 
     return StreamingResponse(_iter(), media_type="text/event-stream")
+
+
+# ---------- Price Feed (SSE) ----------
+
+@app.get("/api/prices/stream")
+async def api_prices_stream(sku: Optional[str] = None):
+    import asyncio
+    import json
+    import random
+    import time
+
+    symbols = [sku] if sku else ["SKU-1", "SKU-2", "SKU-3"]
+    bases = {s: 100.0 + random.random() * 10.0 for s in symbols}
+
+    async def _aiter():
+        # Initial ping to open stream quickly
+        yield "event: ping\n" + "data: {}\n\n"
+        while True:
+            try:
+                sym = random.choice(symbols)
+                # simple bounded random walk
+                drift = random.uniform(-1.2, 1.2)
+                price = max(1.0, bases[sym] + drift)
+                bases[sym] = price
+                payload = {
+                    "sku": sym,
+                    "price": round(price, 2),
+                    "ts": int(time.time() * 1000),
+                }
+                yield "event: price\n" + "data: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
+                await asyncio.sleep(1.0)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                err = {"error": str(e)}
+                yield "event: error\n" + "data: " + json.dumps(err, ensure_ascii=False) + "\n\n"
+                await asyncio.sleep(1.0)
+
+    return StreamingResponse(_aiter(), media_type="text/event-stream")

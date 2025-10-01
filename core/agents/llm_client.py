@@ -21,8 +21,10 @@ from datetime import datetime
 
 def _load_dotenv_if_present() -> None:
     """Minimal .env loader from project root if env vars not already present."""
-    # If either key already present, skip loading
-    if any(os.getenv(k) for k in ("OPENROUTER_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY")):
+    # If any of the keys are explicitly present in the environment (even empty),
+    # respect the caller's intent and DO NOT load from .env. This is important
+    # for tests that set keys to empty strings to simulate "no key".
+    if any(k in os.environ for k in ("OPENROUTER_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY")):
         return
     root = Path(__file__).resolve().parents[2]
     env_path = root / ".env"
@@ -496,6 +498,245 @@ class LLMClient:
 
         raise RuntimeError(f"LLM tools error: {last_error or 'no provider succeeded'}")
 
+    def chat_with_tools_stream(
+        self,
+        messages: List[Dict[str, Any]],
+        tools: List[Dict[str, Any]],
+        functions_map: Dict[str, Callable[..., Any]],
+        tool_choice: Optional[str] = "auto",
+        max_rounds: int = 3,
+        max_tokens: int = 256,
+        temperature: float = 0.2,
+        trace_id: Optional[str] = None,
+    ):
+        """Streaming tool-calling loop.
 
-def get_llm_client() -> LLMClient:
+        Yields dict events and text deltas interleaved:
+        - {"type":"delta", "text": str}
+        - {"type":"tool_call", "name": str, "status": "start"|"end"}
+
+        Strategy per round:
+        1) Stream assistant message with potential tool_calls; emit content deltas + capture tool call specs.
+        2) If tool_calls present, execute mapped Python functions, emit tool_call end, append tool outputs, then continue to next round.
+        3) If no tool_calls, finish.
+        """
+        if not self._providers:
+            raise RuntimeError("LLM client unavailable (missing key or package)")
+
+        last_error: Optional[Exception] = None
+        tools_used: List[str] = []
+
+        for idx in self._provider_indices():
+            provider = self._providers[idx]
+            try:
+                local_msgs: List[Dict[str, Any]] = list(messages)
+                for round_i in range(max_rounds):
+                    self._log.debug(
+                        "Tool-stream round %d | provider=%s model=%s msgs=%d tools=%d",
+                        round_i + 1,
+                        provider["name"],
+                        provider["model"],
+                        len(local_msgs),
+                        len(tools),
+                    )
+                    try:
+                        stream = provider["client"].chat.completions.create(
+                            model=provider["model"],
+                            messages=local_msgs,
+                            tools=tools,
+                            **({"tool_choice": tool_choice} if tool_choice else {}),
+                            max_tokens=max_tokens,
+                            temperature=temperature,
+                            stream=True,
+                            stream_options={"include_usage": True},
+                        )
+                    except Exception as se:
+                        # Fallback to non-streaming tool loop
+                        content = self.chat_with_tools(
+                            messages=local_msgs,
+                            tools=tools,
+                            functions_map=functions_map,
+                            tool_choice=tool_choice,
+                            max_rounds=max_rounds - round_i,
+                            max_tokens=max_tokens,
+                            temperature=temperature,
+                            trace_id=trace_id,
+                        )
+                        if content:
+                            yield {"type": "delta", "text": content}
+                        self._set_active_provider(idx)
+                        return
+
+                    # Accumulate per-round deltas and tool call specs
+                    round_text_parts: List[str] = []
+                    call_order: List[str] = []
+                    call_specs: Dict[str, Dict[str, Any]] = {}
+
+                    for event in stream:
+                        try:
+                            # usage (final chunk)
+                            usage = getattr(event, "usage", None)
+                            if usage:
+                                try:
+                                    self.last_usage = {
+                                        "provider": provider["name"],
+                                        "model": provider["model"],
+                                        "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                                        "completion_tokens": getattr(usage, "completion_tokens", None),
+                                        "total_tokens": getattr(usage, "total_tokens", None),
+                                    }
+                                except Exception:
+                                    pass
+                            choices = getattr(event, "choices", None) or []
+                            if not choices:
+                                continue
+                            delta = getattr(choices[0], "delta", None)
+                            if not delta:
+                                continue
+                            # content delta
+                            text = getattr(delta, "content", None)
+                            if text:
+                                round_text_parts.append(text)
+                                yield {"type": "delta", "text": text}
+                            # tool call deltas
+                            tcd_list = getattr(delta, "tool_calls", None) or []
+                            for tcd in tcd_list:
+                                try:
+                                    cid = getattr(tcd, "id", None) or getattr(tcd, "index", None) or f"call_{len(call_order)}"
+                                    fn = getattr(getattr(tcd, "function", None), "name", None)
+                                    arg_delta = getattr(getattr(tcd, "function", None), "arguments", None) or ""
+                                    spec = call_specs.get(cid) or {"id": cid, "function": {"name": None, "arguments": ""}}
+                                    if fn and not spec["function"]["name"]:
+                                        spec["function"]["name"] = fn
+                                        # first time we see this tool name => emit start
+                                        yield {"type": "tool_call", "name": fn, "status": "start"}
+                                        call_order.append(cid)
+                                    if arg_delta:
+                                        spec["function"]["arguments"] = spec["function"].get("arguments", "") + arg_delta
+                                    call_specs[cid] = spec
+                                except Exception:
+                                    continue
+                        except Exception:
+                            continue
+
+                    # Build assistant message for this round
+                    assistant_msg: Dict[str, Any] = {"role": "assistant"}
+                    if round_text_parts:
+                        assistant_msg["content"] = "".join(round_text_parts)
+
+                    # If tool calls present, execute and continue
+                    if call_order:
+                        normalized_calls: List[Dict[str, Any]] = []
+                        for cid in call_order:
+                            spec = call_specs.get(cid) or {"id": cid, "function": {"name": None, "arguments": ""}}
+                            fn_name = (spec.get("function") or {}).get("name")
+                            raw_args = (spec.get("function") or {}).get("arguments") or "{}"
+                            normalized_calls.append({"id": cid, "type": "function", "function": {"name": fn_name, "arguments": raw_args}})
+                        assistant_msg["tool_calls"] = normalized_calls
+                        local_msgs.append(assistant_msg)
+
+                        # Execute each call
+                        for tc in normalized_calls:
+                            fn_name = (tc.get("function") or {}).get("name")
+                            raw_args = (tc.get("function") or {}).get("arguments") or "{}"
+                            call_id = tc.get("id") or "tool_call"
+                            try:
+                                if fn_name and fn_name not in tools_used:
+                                    tools_used.append(fn_name)
+                            except Exception:
+                                pass
+                            try:
+                                args = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
+                            except Exception:
+                                args = {}
+
+                            tool_start_time = datetime.now()
+                            result: Any
+                            error_occurred = False
+                            if fn_name in functions_map:
+                                try:
+                                    result = functions_map[fn_name](**args)
+                                except TypeError:
+                                    result = functions_map[fn_name](args)
+                                except Exception as tool_exc:
+                                    result = {"error": str(tool_exc)}
+                                    error_occurred = True
+                            else:
+                                result = {"error": f"unknown tool: {fn_name}"}
+                                error_occurred = True
+
+                            try:
+                                duration_ms = int((datetime.now() - tool_start_time).total_seconds() * 1000)
+                                self._log.debug("tool %s finished in %dms (error=%s)", fn_name, duration_ms, error_occurred)
+                            except Exception:
+                                pass
+
+                            # Emit end event for tool
+                            try:
+                                if fn_name:
+                                    yield {"type": "tool_call", "name": fn_name, "status": "end"}
+                            except Exception:
+                                pass
+
+                            try:
+                                content_str = result if isinstance(result, str) else json.dumps(result, ensure_ascii=False)
+                            except Exception:
+                                content_str = str(result)
+
+                            local_msgs.append({
+                                "role": "tool",
+                                "tool_call_id": call_id,
+                                "name": fn_name,
+                                "content": content_str,
+                            })
+                        # continue to next round
+                        continue
+
+                    # No tool calls => finalize
+                    try:
+                        if tools_used:
+                            self.last_usage = {**(self.last_usage or {}), "tools_used": tools_used}
+                    except Exception:
+                        pass
+                    self._set_active_provider(idx)
+                    return
+
+                # max rounds exhausted
+                try:
+                    if tools_used:
+                        self.last_usage = {**(self.last_usage or {}), "tools_used": tools_used}
+                except Exception:
+                    pass
+                self._set_active_provider(idx)
+                return
+            except Exception as exc:
+                last_error = exc
+                self._log.warning("Provider %s failed for tool stream: %s", provider["name"], exc)
+                continue
+
+        raise RuntimeError(f"LLM tools stream error: {last_error or 'no provider succeeded'}")
+
+
+def get_llm_client(model: Optional[str] = None) -> LLMClient:
+    """Return an LLM client. If `model` is provided, prefer it as the default
+    model for the first available provider by inserting a higher-priority
+    provider entry with the same credentials when possible.
+
+    Notes:
+    - This lightweight override leverages OPENAI_API_KEY if set; otherwise falls back
+      to existing provider resolution. It avoids duplicating full provider routing
+      logic elsewhere.
+    """
+    # If a specific model is requested, try constructing a client with the same
+    # keys but preferring that model by passing it through the constructor.
+    # The constructor already respects explicit args as highest priority.
+    if model:
+        # Try OpenAI explicit if key present; else default flow
+        key = os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("GEMINI_API_KEY")
+        base = None
+        if key and os.getenv("OPENROUTER_API_KEY") == key:
+            base = os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1"
+        elif key and os.getenv("GEMINI_API_KEY") == key:
+            base = os.getenv("GEMINI_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta/openai/"
+        return LLMClient(api_key=key, base_url=base, model=model)
     return LLMClient()

@@ -841,13 +841,12 @@ class UserInteractionAgent:
         return "[non-LLM assistant] LLM is not available. Please ensure the LLM client is configured properly."
 
     def stream_response(self, message):
-        """Yield assistant tokens as they arrive from the LLM.
+        """Yield assistant tokens and structured events as they arrive from the LLM.
 
-        - Builds the same system guidance but does not expose tool calling; this is
-          intended for lightweight real-time streaming. For complex tool workflows,
-          use get_response().
-        - Captures last_model/provider/usage at the end and appends the final
-          assistant text to memory.
+        - Streams text deltas for the assistant reply
+        - Emits structured events for tool orchestration so the UI can show
+          live agent/tool indicators while preserving backward compatibility
+          (plain string chunks still stream as before)
         """
         # Add user message to memory if not already present (when called from backend, memory
         # usually already contains the assembled history plus this user turn).
@@ -886,19 +885,70 @@ class UserInteractionAgent:
                     max_tokens_cfg = ui_max_tokens if ui_max_tokens > 0 else 1024
                     temperature = 0.2 if self.mode == "user" else 0.3
 
-                    full: List[str] = []
+                    # Minimal tool schema to enable agent/tool streaming awareness
+                    tools = [
+                        {"type": "function", "function": {"name": "optimize_price", "parameters": {"type": "object", "properties": {"sku": {"type": "string"}}, "required": ["sku"]}}},
+                        {"type": "function", "function": {"name": "list_inventory", "parameters": {"type": "object", "properties": {"search": {"type": "string"}, "limit": {"type": "integer"}}}}},
+                        {"type": "function", "function": {"name": "list_market_prices", "parameters": {"type": "object", "properties": {"search": {"type": "string"}, "limit": {"type": "integer"}}}}},
+                        {"type": "function", "function": {"name": "list_proposals", "parameters": {"type": "object", "properties": {"sku": {"type": "string"}, "limit": {"type": "integer"}}}}},
+                        {"type": "function", "function": {"name": "execute_sql", "parameters": {"type": "object", "properties": {"database": {"type": "string"}, "query": {"type": "string"}}, "required": ["database", "query"]}}},
+                        {"type": "function", "function": {"name": "run_pricing_workflow", "parameters": {"type": "object", "properties": {"sku": {"type": "string"}}}}},
+                        {"type": "function", "function": {"name": "collect_market_data", "parameters": {"type": "object"}}},
+                        {"type": "function", "function": {"name": "scan_for_alerts", "parameters": {"type": "object"}}},
+                        {"type": "function", "function": {"name": "request_market_fetch", "parameters": {"type": "object"}}},
+                    ]
+
+                    # Map tool name to agent label for UI badges
+                    def _agent_for_tool(name: Optional[str]):
+                        mapping = {
+                            "run_pricing_workflow": "PricingOptimizerAgent",
+                            "optimize_price": "PricingOptimizerAgent",
+                            "scan_for_alerts": "AlertNotificationAgent",
+                            "collect_market_data": "DataCollectionAgent",
+                            "request_market_fetch": "MarketCollector",
+                        }
+                        return mapping.get(name or "")
+
+                    # Accumulate full content for memory on completion
+                    full_parts: List[str] = []
+
                     try:
-                        for chunk in llm.chat_stream(messages=msgs, max_tokens=max_tokens_cfg, temperature=temperature):
-                            if chunk:
-                                full.append(chunk)
-                                yield chunk
+                        for event in llm.chat_with_tools_stream(
+                            messages=msgs,
+                            tools=tools,
+                            functions_map={},  # do not execute tools in streaming path
+                            tool_choice="auto",
+                            max_rounds=(4 if self.mode == "user" else 5),
+                            max_tokens=max_tokens_cfg,
+                            temperature=temperature,
+                        ):
+                            if isinstance(event, dict):
+                                et = event.get("type")
+                                if et == "delta":
+                                    text = event.get("text")
+                                    if text:
+                                        full_parts.append(text)
+                                        # Back-compat: yield as raw string
+                                        yield text
+                                elif et == "tool_call":
+                                    name = event.get("name")
+                                    status = event.get("status")
+                                    if status == "start":
+                                        agent = _agent_for_tool(name)
+                                        if agent:
+                                            yield {"type": "agent", "name": agent}
+                                    yield {"type": "tool_call", "name": name, "status": status}
+                            else:
+                                if isinstance(event, str) and event:
+                                    full_parts.append(event)
+                                    yield event
                     except Exception:
-                        # fallback to single-shot non-streaming
+                        # fallback to plain token stream
                         try:
-                            content = llm.chat(messages=msgs, max_tokens=max_tokens_cfg, temperature=temperature)
-                            if content:
-                                full.append(content)
-                                yield content
+                            for chunk in llm.chat_stream(messages=msgs, max_tokens=max_tokens_cfg, temperature=temperature):
+                                if chunk:
+                                    full_parts.append(chunk)
+                                    yield chunk
                         except Exception:
                             pass
 
@@ -909,7 +959,7 @@ class UserInteractionAgent:
                         self.last_usage = getattr(llm, "last_usage", {})
                     except Exception:
                         self.last_usage = {}
-                    answer = ("".join(full)).strip()
+                    answer = ("".join(full_parts)).strip()
                     if answer:
                         self.add_to_memory("assistant", answer)
                     self._play_completion_sound()

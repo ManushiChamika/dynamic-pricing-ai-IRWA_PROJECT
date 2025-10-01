@@ -623,7 +623,7 @@
       await refreshMessages();
       let assistantLiveEl = document.createElement('div');
       assistantLiveEl.className = 'msg assistant live';
-      assistantLiveEl.innerHTML = '<div class="bubble"></div><div class="meta"><span class="badge streaming"><span class="spinner"></span> streaming…</span></div>';
+      assistantLiveEl.innerHTML = '<div class="bubble"></div><div class="meta"><span class="badge streaming"><span class="spinner"></span> streaming…</span><span class="badge agent hidden"></span><span class="badge tool hidden"></span></div>';
       $msgs.appendChild(assistantLiveEl);
       $msgs.scrollTop = $msgs.scrollHeight;
 
@@ -648,6 +648,41 @@
             thinkingEl.innerHTML='<span class="spinner"></span> Thinking…';
             $msgs.appendChild(thinkingEl); $msgs.scrollTop=$msgs.scrollHeight;
           }
+          return;
+        }
+        // Handle agent activation badges
+        if(ev==='agent' && data && assistantLiveEl){
+          try{
+            const obj = JSON.parse(data);
+            const name = obj && obj.name ? String(obj.name) : '';
+            const badge = assistantLiveEl.querySelector('.meta .badge.agent');
+            if(badge){
+              badge.textContent = name ? `Agent: ${name}` : 'Agent active';
+              badge.classList.remove('hidden');
+            }
+          }catch(e){}
+          return;
+        }
+        // Handle tool call lifecycle badges
+        if(ev==='tool_call' && data && assistantLiveEl){
+          try{
+            const obj = JSON.parse(data);
+            const name = obj && obj.name ? String(obj.name) : 'tool';
+            const status = obj && obj.status ? String(obj.status) : '';
+            const badge = assistantLiveEl.querySelector('.meta .badge.tool');
+            if(badge){
+              if(status === 'start'){
+                badge.innerHTML = `<span class="spinner"></span> Tool: ${name} (running…)`;
+                badge.classList.remove('hidden');
+              } else if(status === 'end'){
+                // remove spinner if present and show done state
+                const sp = badge.querySelector('.spinner'); if(sp) sp.remove();
+                badge.textContent = `Tool: ${name} (done)`;
+                // hide shortly after completion
+                setTimeout(()=>{ badge.classList.add('hidden'); }, 1000);
+              }
+            }
+          }catch(e){}
           return;
         }
         if(ev==='message' && data){

@@ -1,0 +1,50 @@
+{
+  "name": "dynamic-pricing-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@formkit/auto-animate": "^0.9.0",
+    "@radix-ui/react-alert-dialog": "^1.1.15",
+    "@radix-ui/react-collapsible": "^1.1.12",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-select": "^2.2.6",
+    "@radix-ui/react-separator": "^1.1.7",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-switch": "^1.2.6",
+    "@radix-ui/react-tooltip": "^1.2.8",
+    "@react-spring/web": "^10.0.3",
+    "@tanstack/react-query": "^5.56.2",
+    "chart.js": "^4.5.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "lucide-react": "^0.544.0",
+    "react": "^18.3.1",
+    "react-chartjs-2": "^5.3.0",
+    "react-dom": "^18.3.1",
+    "react-hook-form": "^7.53.0",
+    "react-router-dom": "^7.9.3",
+    "recharts": "^3.2.1",
+    "socket.io-client": "^4.8.1",
+    "tailwind-merge": "^3.3.1",
+    "zustand": "^4.5.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/typography": "^0.5.19",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.18",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.6"
+  }
+}

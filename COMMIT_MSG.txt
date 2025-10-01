@@ -1,0 +1,115 @@
+feat(auth+ui+docs+dx): Optional chat auth gating, richer streaming UI, configurable memory/price flags, Quickstart/docs overhaul, and Windows launcher; add tests for auth gating and dev-mode defaults
+
+## Summary
+- Introduce optional login gating for chat threads/messages when `UI_REQUIRE_LOGIN=1`.
+- Improve UI streaming experience, metadata display, and branching capabilities.
+- Expose and document environment flags for memory assembly and LLM price mapping.
+- Overhaul README with Quickstart, architecture, endpoints, and troubleshooting.
+- Add Windows `run_app.bat` for one-click local start.
+- Add tests covering auth gating and developer-mode settings defaults.
+
+## Motivation
+Deployments may need to restrict chat operations to authenticated users while leaving other routes open. The UI benefits from clearer feedback during streaming (thinking indicator, live deltas) and greater transparency of model/usage/agents/tools metadata. The project also needed an approachable Quickstart for Windows and consolidated docs to reduce setup friction and clarify behavior. Tests ensure opt-in gating and dev-mode behaviors remain stable.
+
+## Changes by Area
+
+### Backend API (FastAPI)
+- Add application `lifespan` to initialize DBs (`init_db`, `init_chat_db`) without deprecated startup events.
+- Introduce `ChatAuthMiddleware` guarding `/api/threads*` and `/api/messages*` when `UI_REQUIRE_LOGIN` is truthy; allows auth/settings routes without a token.
+- Add token extraction from query, Bearer header, or `fp_session` cookie.
+- Expand tool→agent mapping: recognize `optimize_price` as `PricingOptimizerAgent`.
+- Raise pre-summary memory cap to a higher default via `UI_HISTORY_MAX_MSGS` (now default 200) to improve early-context fidelity before summaries exist.
+
+Files: `backend/main.py`
+
+### Auth Service
+- Use a helper `_utcnow_naive()` to produce naive UTC datetimes to match SQLAlchemy column configuration (no tz), avoiding aware/naive comparison issues.
+
+Files: `core/auth_service.py`
+
+### UI / Frontend
+- Request token attachment: when calling protected chat endpoints, include `token` query param if available.
+- Streaming UX: show spinner and a live assistant bubble that receives deltas; remove the “streaming” badge on first delta; clean up on `done`.
+- Thinking indicator: visual spinner with ellipsis instead of plain text.
+- Metadata panel: labeled fields (time, model, tokens, cost, api calls) and include agent/tool counts and names when present; show agent badges for user messages only.
+- Branching: add a “Fork” action to create a new thread from any message by importing preceding messages into a new thread.
+- Styles: add spinner animation and badge styles.
+
+Files: `backend/ui/main.js`, `backend/ui/styles.css`
+
+### Configuration & Env Flags
+- `.env.example`: add developer toggles and summarization controls:
+  - `DEV_MODE`, `UI_LLM_MAX_TOKENS`, `LLM_PRICE_MAP`
+  - Context assembly: `UI_HISTORY_MAX_MSGS`, `UI_HISTORY_TAIL_AFTER_SUMMARY`
+  - Rolling summarization: `UI_SUMMARIZE_AFTER_MSGS`, `UI_LONG_THREAD_MSGS`, `UI_SUMMARIZE_TOKEN_TRIGGER`, `UI_SUMMARIZE_PROB`
+- Clarify MCP flags and add explanatory comments.
+
+Files: `.env.example`
+
+### Documentation
+- Rewrite `README.md`:
+  - Project overview and capabilities.
+  - Quickstart with Windows one-click (`run_app.bat`) and manual setup.
+  - Architecture overview (backend, core agents, data).
+  - LLM provider configuration and fallback rules.
+  - API surface (auth, settings, threads/messages, streaming, export/import).
+  - UI features and environment flags.
+  - Cost/usage metadata and troubleshooting.
+
+Files: `README.md`
+
+### Tests
+- New tests for:
+  - Auth gating: 401 on chat routes without token when enabled; allowed paths remain open.
+  - Tokened flows: non-streaming and streaming SSE succeed with token.
+  - Developer mode defaults toggled via `DEV_MODE`.
+
+Files: `backend/test_auth_settings_api.py`
+
+### Developer Experience
+- Add `run_app.bat` for Windows: checks Python, installs deps if missing, selects port, and runs the app.
+
+Files: `run_app.bat`
+
+### Data & Repo Maintenance
+- Update `data/events.jsonl` with new demo event(s).
+- Persist staged diff snapshot to `git_diff_since_last_commit.patch` for traceability of this change set.
+
+Files: `data/events.jsonl`, `git_diff_since_last_commit.patch`
+
+## Behavior Changes
+- Chat operations can be gated by setting `UI_REQUIRE_LOGIN=1`; default remains open (no change for typical local dev).
+- Larger pre-summary context window (200 msgs) improves early turn quality; still bounded by env flags.
+- UI presents clearer streaming state and richer metadata, aiding debugging and observability.
+
+## Compatibility & Migration
+- Backward compatible by default. Set `UI_REQUIRE_LOGIN=1` to enable gating.
+- `.env.example` additions are optional; unset values retain sane defaults.
+- No schema migrations required.
+
+## Security & Privacy
+- Optional auth gating reduces exposure of chat APIs in shared environments.
+- No secrets committed. Example env keys only.
+
+## Testing Notes
+- Added tests for gating and `DEV_MODE` driven settings defaults.
+- Smoke your environment:
+  - `pytest -q`
+  - Ensure `.env` reflects desired gating and dev flags.
+
+## Follow-ups / TODO
+- Add API rate limiting when gating is enabled.
+- Expose per-thread access control once multi-user UI state is persisted across sessions.
+- Add unit tests for `_assemble_memory` when summary is present vs missing.
+
+Files changed (staged):
+- M .env.example
+- M README.md
+- M backend/main.py
+- A backend/test_auth_settings_api.py
+- M backend/ui/main.js
+- M backend/ui/styles.css
+- M core/auth_service.py
+- M data/events.jsonl
+- A git_diff_since_last_commit.patch
+- A run_app.bat

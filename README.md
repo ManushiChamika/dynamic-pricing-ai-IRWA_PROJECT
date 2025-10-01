@@ -124,6 +124,7 @@ Context assembly and summarization controls:
 Advanced / integration flags:
 - UI_REQUIRE_LOGIN: Reserved; not currently enforcing UI gating in `/` or `/ui`
 - USE_MCP, MCP_*: For MCP/stdio integration paths used by agents; not required for basic chat
+- SUMMARIZER_MODEL: Override model used for rolling summaries; falls back to default when unset
 
 
 ## Cost & Usage Metadata
