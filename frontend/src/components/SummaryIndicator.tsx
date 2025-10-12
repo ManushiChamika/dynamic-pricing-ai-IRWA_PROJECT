@@ -25,8 +25,8 @@ export function SummaryIndicator({ threadId, token }: SummaryIndicatorProps) {
     try {
       const t = token || localStorage.getItem('fp_token') || '';
       const url = t 
-        ? `http://localhost:8000/api/threads/${threadId}/summaries?token=${encodeURIComponent(t)}`
-        : `http://localhost:8000/api/threads/${threadId}/summaries`;
+  ? `/api/threads/${threadId}/summaries?token=${encodeURIComponent(t)}`
+  : `/api/threads/${threadId}/summaries`;
       
       const resp = await fetch(url);
       if (resp.ok) {
