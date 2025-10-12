@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useSummaries } from '../lib/api';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 
@@ -14,37 +15,9 @@ interface SummaryIndicatorProps {
   token?: string;
 }
 
-export function SummaryIndicator({ threadId, token }: SummaryIndicatorProps) {
-  const [summaries, setSummaries] = useState<Summary[]>([]);
-  const [loading, setLoading] = useState(false);
+export function SummaryIndicator({ threadId }: SummaryIndicatorProps) {
   const [open, setOpen] = useState(false);
-
-  const fetchSummaries = async () => {
-    if (loading) return;
-    setLoading(true);
-    try {
-      const t = token || localStorage.getItem('fp_token') || '';
-      const url = t 
-        ? `http://localhost:8000/api/threads/${threadId}/summaries?token=${encodeURIComponent(t)}`
-        : `http://localhost:8000/api/threads/${threadId}/summaries`;
-      
-      const resp = await fetch(url);
-      if (resp.ok) {
-        const data = await resp.json();
-        if (data.summaries && Array.isArray(data.summaries)) {
-          setSummaries(data.summaries);
-        }
-      }
-    } catch (e) {
-      console.error('Failed to fetch summaries:', e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchSummaries();
-  }, [threadId]);
+  const { data: summaries = [] } = useSummaries(threadId);
 
   if (summaries.length === 0) return null;
 

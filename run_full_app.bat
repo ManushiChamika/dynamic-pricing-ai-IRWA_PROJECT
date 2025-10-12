@@ -1,89 +1,77 @@
 @echo off
-echo Starting Full Dynamic Pricing AI Application...
+echo.
+echo ================================================
+echo   Dynamic Pricing AI - Full Stack Launcher
+echo ================================================
 echo.
 
-REM Change to the project directory
 cd /d "%~dp0"
 
-REM Check if Python is available
+REM Check Python
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo ERROR: Python is not installed or not in PATH
+    echo ERROR: Python not found
     pause
     exit /b 1
 )
+echo [OK] Python found
 
-REM Check if Node.js is available
+REM Check Node.js
 node --version >nul 2>&1
 if errorlevel 1 (
-    echo ERROR: Node.js is not installed or not in PATH
+    echo ERROR: Node.js not found
     pause
     exit /b 1
 )
+echo [OK] Node.js found
+echo.
 
-REM Check if required Python packages are installed
+REM Kill existing processes
+echo Cleaning up old processes...
+taskkill /F /IM node.exe >nul 2>&1
+taskkill /F /IM python.exe >nul 2>&1
+timeout /t 1 /nobreak >nul
+echo [OK] Cleanup complete
+echo.
+
+REM Check dependencies
+echo Checking dependencies...
 python -c "import fastapi" >nul 2>&1
 if errorlevel 1 (
     echo Installing Python packages...
     pip install -r requirements.txt
-    if errorlevel 1 (
-        echo ERROR: Failed to install Python packages
-        pause
-        exit /b 1
-    )
 )
 
-REM Check if frontend dependencies are installed
 if not exist "frontend\node_modules" (
     echo Installing frontend dependencies...
     cd frontend
     call npm install
-    if errorlevel 1 (
-        echo ERROR: Failed to install frontend dependencies
-        pause
-        exit /b 1
-    )
     cd ..
 )
-
-REM Find available ports
-set BACKEND_PORT=8000
-set FRONTEND_PORT=5174
-
-echo Checking backend port %BACKEND_PORT%...
-netstat -an | find ":%BACKEND_PORT%" >nul
-if not errorlevel 1 (
-    set BACKEND_PORT=8001
-    echo Port 8000 is busy, trying %BACKEND_PORT%...
-)
-
-echo.
-echo ========================================
-echo  Dynamic Pricing AI - Full Stack
-echo ========================================
-echo.
-echo Starting Backend on port %BACKEND_PORT%...
-echo Starting Frontend on port %FRONTEND_PORT%...
-echo.
-echo Once started, open your browser to:
-echo   Frontend (React): http://localhost:%FRONTEND_PORT%
-echo   Backend API:      http://127.0.0.1:%BACKEND_PORT%
-echo.
-echo Press Ctrl+C in either window to stop
-echo ========================================
+echo [OK] Dependencies ready
 echo.
 
-REM Start backend in a new window
-start "Backend API" cmd /k "python -m uvicorn backend.main:app --reload --port %BACKEND_PORT% --host 127.0.0.1"
+REM Start servers
+echo Starting Backend API (port 8000)...
+start "Backend API" cmd /k "python -m uvicorn backend.main:app --reload --port 8000 --host 127.0.0.1"
 
-REM Wait a moment for backend to start
 timeout /t 3 /nobreak >nul
 
-REM Start frontend in a new window
-start "Frontend Dev Server" cmd /k "cd frontend && npm run dev"
+echo Starting Frontend Dev Server (port 5173)...
+start "Frontend Dev" cmd /k "cd frontend && npm run dev"
+
+timeout /t 3 /nobreak >nul
 
 echo.
-echo Both servers are starting...
-echo Check the new windows for server output
+echo ================================================
+echo   SERVERS STARTED!
+echo ================================================
 echo.
+echo   Frontend: http://localhost:5173
+echo   Backend:  http://127.0.0.1:8000
+echo   API Docs: http://127.0.0.1:8000/docs
+echo.
+echo ================================================
+echo.
+
 pause

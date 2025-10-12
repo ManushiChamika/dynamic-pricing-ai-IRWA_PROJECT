@@ -1,46 +1,22 @@
-import * as React from "react";
-import { cn } from "../../lib/utils";
+import * as React from "react"
 
-export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
+import { cn } from "@/lib/utils"
 
-const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type = "text", ...props }, ref) => {
+const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
+  ({ className, type, ...props }, ref) => {
     return (
       <input
         type={type}
         className={cn(
-          "flex w-full rounded-lg border border-border bg-[rgba(26,32,44,0.6)] px-3.5 py-2.5 text-sm text-foreground backdrop-blur-2xl transition-all duration-200",
-          "placeholder:text-muted placeholder:opacity-60",
-          "focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_var(--accent-light)]",
-          "disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
           className
         )}
         ref={ref}
         {...props}
       />
-    );
+    )
   }
-);
-Input.displayName = "Input";
+)
+Input.displayName = "Input"
 
-const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
-  ({ className, ...props }, ref) => {
-    return (
-      <textarea
-        className={cn(
-          "flex w-full rounded-lg border border-border bg-[rgba(26,32,44,0.6)] px-3.5 py-2.5 text-sm text-foreground backdrop-blur-2xl transition-all duration-200",
-          "placeholder:text-muted placeholder:opacity-60",
-          "focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_var(--accent-light)]",
-          "disabled:cursor-not-allowed disabled:opacity-50",
-          "resize-none",
-          className
-        )}
-        ref={ref}
-        {...props}
-      />
-    );
-  }
-);
-Textarea.displayName = "Textarea";
-
-export { Input, Textarea };
+export { Input }

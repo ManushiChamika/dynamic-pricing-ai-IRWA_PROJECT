@@ -10,7 +10,10 @@ import { AgentBadgeGroup } from './components/AgentBadge'
 import { BranchNavigator } from './components/BranchNavigator'
 import { SummaryIndicator } from './components/SummaryIndicator'
 import { Button } from './components/ui/button'
-import { Input, Textarea } from './components/ui/input'
+import { Input } from './components/ui/input'
+import { Textarea } from './components/ui/textarea'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from './components/ui/dialog'
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from './components/ui/alert-dialog'
 
 // --- Types
 export type Message = {
@@ -100,50 +103,22 @@ const usePrompt = create<{
   close: () => set({ open: false, submitting: false })
 }))
 
-function trapFocus(e: React.KeyboardEvent, container: HTMLElement | null) {
-  if (!container) return
-  if (e.key !== 'Tab') return
-  const focusable = container.querySelectorAll<HTMLElement>(
-    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-  )
-  const items = Array.from(focusable).filter(el => !el.hasAttribute('disabled'))
-  if (!items.length) return
-  const first = items[0]
-  const last = items[items.length - 1]
-  const active = document.activeElement as HTMLElement | null
-  if (!e.shiftKey && active === last) { e.preventDefault(); first.focus() }
-  else if (e.shiftKey && active === first) { e.preventDefault(); last.focus() }
-}
-
 function PromptModal() {
   const { open, title, value, textarea, confirmText, submitting, onSubmit } = usePrompt()
   const setState = usePrompt.setState
   const inputRef = useRef<HTMLTextAreaElement | HTMLInputElement | null>(null)
-  const dialogRef = useRef<HTMLDivElement | null>(null)
-  const overlayRef = useRef<HTMLDivElement | null>(null)
-  const prevFocus = useRef<HTMLElement | null>(null)
+
   useEffect(() => {
-    if (open) {
-      prevFocus.current = document.activeElement as HTMLElement | null
-      if (inputRef.current) {
-        inputRef.current.focus()
-        if ('select' in inputRef.current) { try { (inputRef.current as any).select() } catch {} }
-      }
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-      prevFocus.current?.focus?.()
+    if (open && inputRef.current) {
+      setTimeout(() => {
+        const input = inputRef.current
+        if (input) {
+          input.focus()
+          if ('select' in input) { try { (input as any).select() } catch { /* ignore */ } }
+        }
+      }, 0)
     }
   }, [open])
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!open) return
-      if (e.key === 'Escape' && !submitting) usePrompt.getState().close()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, submitting, textarea])
 
   const handleConfirm = async () => {
     if (!onSubmit) return usePrompt.getState().close()
@@ -157,37 +132,38 @@ function PromptModal() {
     }
   }
 
-  if (!open) return null
   return (
-    <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-40 backdrop-blur-md animate-fadeIn"
-      ref={overlayRef}
-      onMouseDown={(e) => { if (e.target === overlayRef.current && !submitting) usePrompt.getState().close() }}
-    >
-      <div
-        className="w-full max-w-[640px] mx-4 bg-panel-solid border border-border rounded-3xl overflow-hidden shadow-lg animate-scaleIn"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="prompt-title"
-        onKeyDown={(e) => trapFocus(e, dialogRef.current)}
-        ref={dialogRef}
-      >
-        <div className="px-6 py-5 border-b border-border bg-panel backdrop-blur-2xl"><strong id="prompt-title">{title}</strong></div>
-        <div className="p-6">
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && !submitting && usePrompt.getState().close()}>
+      <DialogContent className="sm:max-w-[640px]">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
+        <div className="py-4">
           {textarea ? (
-            <Textarea ref={inputRef as any} rows={6} value={value} onChange={e => setState({ value: e.target.value })} disabled={submitting}
-              onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey && !submitting) { e.preventDefault(); handleConfirm() } }} />
+            <Textarea 
+              ref={inputRef as any} 
+              rows={6} 
+              value={value} 
+              onChange={e => setState({ value: e.target.value })} 
+              disabled={submitting}
+              onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey && !submitting) { e.preventDefault(); handleConfirm() } }} 
+            />
           ) : (
-            <Input ref={inputRef as any} value={value} onChange={e => setState({ value: e.target.value })} disabled={submitting}
-              onKeyDown={e => { if (e.key === 'Enter' && !submitting) { e.preventDefault(); handleConfirm() } }} />
+            <Input 
+              ref={inputRef as any} 
+              value={value} 
+              onChange={e => setState({ value: e.target.value })} 
+              disabled={submitting}
+              onKeyDown={e => { if (e.key === 'Enter' && !submitting) { e.preventDefault(); handleConfirm() } }} 
+            />
           )}
         </div>
-        <div className="px-6 py-4 border-t border-border flex gap-2.5 justify-end bg-panel backdrop-blur-2xl">
-          <Button variant="outline" onClick={() => usePrompt.getState().close()} disabled={submitting} aria-label="Cancel">Cancel</Button>
-          <Button onClick={handleConfirm} disabled={submitting || !value.trim()} aria-label={confirmText}>{confirmText}</Button>
-        </div>
-      </div>
-    </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => usePrompt.getState().close()} disabled={submitting}>Cancel</Button>
+          <Button onClick={handleConfirm} disabled={submitting || !value.trim()}>{confirmText}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -232,52 +208,32 @@ const useConfirm = create<{
 function ConfirmModal() {
   const { open, title, description, confirmText, cancelText, busy, onConfirm } = useConfirm()
   const setState = useConfirm.setState
-  const dialogRef = useRef<HTMLDivElement | null>(null)
-  const overlayRef = useRef<HTMLDivElement | null>(null)
-  const prevFocus = useRef<HTMLElement | null>(null)
-  useEffect(() => {
-    if (open) {
-      prevFocus.current = document.activeElement as HTMLElement | null
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-      prevFocus.current?.focus?.()
+
+  const handleConfirm = async () => {
+    if (!onConfirm) return useConfirm.getState().close()
+    setState({ busy: true })
+    try {
+      await onConfirm()
+      useConfirm.getState().close()
+    } catch (e: any) {
+      useToasts.getState().push({ type: 'error', text: e?.message || 'Action failed' })
+      setState({ busy: false })
     }
-  }, [open])
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!open) return
-      if (e.key === 'Escape' && !busy) useConfirm.getState().close()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, busy])
-  if (!open) return null
+  }
+
   return (
-    <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-40 backdrop-blur-md animate-fadeIn"
-      ref={overlayRef}
-      onMouseDown={(e) => { if (e.target === overlayRef.current && !busy) useConfirm.getState().close() }}
-    >
-      <div
-        className="w-full max-w-[640px] mx-4 bg-panel-solid border border-border rounded-3xl overflow-hidden shadow-lg animate-scaleIn"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="confirm-title"
-        aria-describedby="confirm-desc"
-        onKeyDown={(e) => trapFocus(e, dialogRef.current)}
-        ref={dialogRef}
-      >
-        <div className="px-6 py-5 border-b border-border bg-panel backdrop-blur-2xl"><strong id="confirm-title">{title}</strong></div>
-        <div className="p-6">
-          <div id="confirm-desc" style={{ opacity: .9 }}>{description}</div>
-        </div>
-        <div className="px-6 py-4 border-t border-border flex gap-2.5 justify-end bg-panel backdrop-blur-2xl">
-          <Button variant="outline" onClick={() => useConfirm.getState().close()} disabled={busy} aria-label={cancelText}>{cancelText}</Button>
-          <Button onClick={async () => { if (!onConfirm) return useConfirm.getState().close(); setState({ busy: true }); try { await onConfirm(); useConfirm.getState().close() } catch (e: any) { useToasts.getState().push({ type: 'error', text: e?.message || 'Action failed' }); setState({ busy: false }) } }} aria-label={confirmText}>{confirmText}</Button>
-        </div>
-      </div>
-    </div>
+    <AlertDialog open={open} onOpenChange={(isOpen) => !isOpen && !busy && useConfirm.getState().close()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={busy}>{cancelText}</AlertDialogCancel>
+          <AlertDialogAction onClick={handleConfirm} disabled={busy}>{confirmText}</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
 
@@ -290,50 +246,46 @@ const useHelp = create<{ open: boolean; openHelp: () => void; close: () => void 
 
 function HelpModal() {
   const { open } = useHelp()
-  const dialogRef = useRef<HTMLDivElement | null>(null)
-  const overlayRef = useRef<HTMLDivElement | null>(null)
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (open && e.key === 'Escape') useHelp.getState().close() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open])
-  if (!open) return null
+  
   const Row = ({ k, d }: { k: string; d: string }) => (
-    <div style={{ display:'flex', justifyContent:'space-between', gap:12 }}>
-      <code style={{ opacity:.9 }}>{k}</code>
-      <span style={{ opacity:.85 }}>{d}</span>
+    <div className="flex justify-between gap-3">
+      <code className="opacity-90">{k}</code>
+      <span className="opacity-85">{d}</span>
     </div>
   )
+  
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-40 backdrop-blur-md animate-fadeIn" ref={overlayRef} onMouseDown={(e) => { if (e.target === overlayRef.current) useHelp.getState().close() }}>
-      <div className="w-full max-w-[640px] mx-4 bg-panel-solid border border-border rounded-3xl overflow-hidden shadow-lg animate-scaleIn" role="dialog" aria-modal="true" aria-labelledby="help-title" onKeyDown={(e) => trapFocus(e, dialogRef.current)} ref={dialogRef}>
-        <div className="px-6 py-5 border-b border-border bg-panel backdrop-blur-2xl"><strong id="help-title">Keyboard Shortcuts</strong></div>
-        <div className="p-6 grid gap-2 max-h-[400px] overflow-y-auto">
-          <div style={{ fontWeight: 600, marginTop: 8, opacity: 0.9 }}>General</div>
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && useHelp.getState().close()}>
+      <DialogContent className="sm:max-w-[640px]">
+        <DialogHeader>
+          <DialogTitle>Keyboard Shortcuts</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-2 max-h-[400px] overflow-y-auto py-4">
+          <div className="font-semibold mt-2 opacity-90">General</div>
           <Row k="Ctrl+/" d="Open this help" />
           <Row k="Ctrl+," d="Open settings" />
           <Row k="Ctrl+L" d="Toggle theme" />
           <Row k="Ctrl+B" d="Toggle sidebar" />
-          <div style={{ fontWeight: 600, marginTop: 8, opacity: 0.9 }}>Threads</div>
+          <div className="font-semibold mt-2 opacity-90">Threads</div>
           <Row k="Ctrl+N" d="New thread" />
           <Row k="Ctrl+Shift+E" d="Export thread" />
           <Row k="Ctrl+Shift+I" d="Import thread" />
-          <div style={{ fontWeight: 600, marginTop: 8, opacity: 0.9 }}>Messaging</div>
+          <div className="font-semibold mt-2 opacity-90">Messaging</div>
           <Row k="Ctrl+K" d="Focus composer" />
           <Row k="Ctrl+Shift+K" d="Clear composer" />
           <Row k="Ctrl+Enter" d="Send message" />
           <Row k="Escape" d="Stop streaming" />
           <Row k="Up Arrow (empty input)" d="Edit last message" />
-          <div style={{ fontWeight: 600, marginTop: 8, opacity: 0.9 }}>Message Actions</div>
+          <div className="font-semibold mt-2 opacity-90">Message Actions</div>
           <Row k="Hover + C / Ctrl+C" d="Copy message" />
           <Row k="Hover + E" d="Edit (user msgs)" />
           <Row k="Hover + Delete" d="Delete message" />
         </div>
-        <div className="px-6 py-4 border-t border-border flex gap-2.5 justify-end bg-panel backdrop-blur-2xl">
-          <Button onClick={() => useHelp.getState().close()} aria-label="Close help">Close</Button>
-        </div>
-      </div>
-    </div>
+        <DialogFooter>
+          <Button onClick={() => useHelp.getState().close()}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -357,8 +309,8 @@ const api = async (url: string, init?: RequestInit & { json?: any }) => {
   const ct = r.headers.get('content-type') || ''
   const data = ct.includes('application/json') ? await r.json().catch(() => null) : null
   if (r.status === 401) {
-    try { (useAuth as any)?.getState?.().setToken(null) } catch {}
-    try { useToasts.getState().push({ type: 'error', text: 'Session expired. Please sign in again.' }) } catch {}
+    try { (useAuth as any)?.getState?.().setToken(null) } catch { /* ignore */ }
+    try { useToasts.getState().push({ type: 'error', text: 'Session expired. Please sign in again.' }) } catch { /* ignore */ }
   }
   return { ok: r.ok, status: r.status, data }
 }
@@ -506,7 +458,7 @@ type MessagesState = {
    stop: () => {
      const c = get().controller
      if (c) {
-       try { c.abort() } catch {}
+       try { c.abort() } catch { /* ignore */ }
        set({ controller: null, streamingActive: false, liveActiveAgent: null, liveTool: null })
      }
    },
@@ -569,7 +521,7 @@ type MessagesState = {
                 const obj = JSON.parse(data)
                 const name = obj.name || obj.agent || ''
                 if (name) set(st => ({ liveActiveAgent: name, liveAgents: Array.from(new Set([...st.liveAgents, name])) }))
-              } catch {}
+              } catch { /* ignore invalid JSON */ }
               continue
             }
             if (ev === 'tool_call' && data) {
@@ -582,14 +534,14 @@ type MessagesState = {
                   else if (status === 'end') set({ liveTool: { name: tool, status: 'done' } })
                   else set({ liveTool: { name: tool, status: 'running' } })
                 }
-              } catch {}
+              } catch { /* ignore invalid JSON */ }
               continue
             }
             if (ev === 'done') {
               finished = true
               try {
                 setTimeout(() => { useMessages.setState({ liveTool: null, liveActiveAgent: null }) }, 1000)
-              } catch {}
+              } catch { /* ignore */ }
               break
             }
             if (ev === 'error') {
@@ -599,7 +551,7 @@ type MessagesState = {
                   const msg = obj.detail || obj.error || (typeof obj === 'string' ? obj : '')
                   if (msg) useToasts.getState().push({ type: 'error', text: String(msg) })
                 }
-              } catch {}
+              } catch { /* ignore invalid JSON */ }
               finished = true
               break
             }
@@ -625,7 +577,7 @@ type MessagesState = {
                   set({ turnStats: { token_in: obj.token_in ?? null, token_out: obj.token_out ?? null, cost_usd: obj.cost_usd ?? null, api_calls: obj.api_calls ?? null, model: obj.model ?? null, provider, agents, tools } })
                   await get().refresh(threadId)
                 }
-              } catch {}
+              } catch { /* ignore invalid JSON */ }
             }
           }
           if (finished) break
@@ -642,7 +594,7 @@ type MessagesState = {
     set(s => ({ messages: s.messages.map(x => x.id === id ? { ...x, content } : x) }))
     const res = await api(`/api/messages/${id}`, { method: 'PATCH', json: { content, branch: true } })
     if (!res.ok) {
-      try { useToasts.getState().push({ type: 'error', text: 'Edit failed' }) } catch {}
+      try { useToasts.getState().push({ type: 'error', text: 'Edit failed' }) } catch { /* ignore */ }
     }
     const tid = (useThreads as any)?.getState?.().currentId
     if (tid) await get().refresh(tid)
@@ -704,7 +656,7 @@ function Sidebar() {
       description: 'You will need to sign in again to access the chat.',
       confirmText: 'Sign Out',
       onConfirm: async () => {
-        try { await auth.logout() } catch {}
+        try { await auth.logout() } catch { /* ignore */ }
         window.location.href = '/auth'
       }
     })
@@ -1397,6 +1349,13 @@ function Sparkline({ values, width = 120, height = 28 }: { values: number[]; wid
   const pad = 2
   const w = width
   const h = height
+  
+  const pathLength = useSpring({
+    from: { strokeDashoffset: 200 },
+    to: { strokeDashoffset: 0 },
+    config: { duration: 800 }
+  })
+  
   if (!values.length) return <svg width={w} height={h} />
   const min = Math.min(...values)
   const max = Math.max(...values)
@@ -1410,12 +1369,6 @@ function Sparkline({ values, width = 120, height = 28 }: { values: number[]; wid
   const last = values[values.length - 1]
   const first = values[0]
   const up = last >= first
-  
-  const pathLength = useSpring({
-    from: { strokeDashoffset: 200 },
-    to: { strokeDashoffset: 0 },
-    config: { duration: 800 }
-  })
   
   return (
     <svg width={w} height={h}>
@@ -1445,7 +1398,7 @@ function PricesPanel() {
 
   useEffect(() => {
     if (!running) {
-      if (esRef.current) { try { esRef.current.close() } catch {} esRef.current = null }
+      if (esRef.current) { try { esRef.current.close() } catch { /* ignore */ } esRef.current = null }
       return
     }
     try {
@@ -1464,12 +1417,12 @@ function PricesPanel() {
             const list = (prev[key] || []).concat({ ts, price: p }).slice(-50)
             return { ...prev, [key]: list }
           })
-        } catch {}
+        } catch { /* ignore invalid JSON */ }
       }
       const onError = () => { /* keep open; server may retry */ }
       es.addEventListener('price', onPrice as any)
       es.addEventListener('error', onError as any)
-      return () => { try { es.close() } catch {} if (esRef.current === es) esRef.current = null }
+      return () => { try { es.close() } catch { /* ignore */ } if (esRef.current === es) esRef.current = null }
     } catch {
       // ignore
     }
