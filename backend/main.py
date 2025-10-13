@@ -992,3 +992,50 @@ async def api_prices_stream(sku: Optional[str] = None):
                 await asyncio.sleep(1.0)
 
     return StreamingResponse(_aiter(), media_type="text/event-stream")
+
+
+@app.get("/api/products")
+def api_list_products(limit: int = 200):
+    """Return sample product rows from the local market DB (pricing_list and market_data).
+    This is a read-only debug endpoint intended for UI listing during development.
+    """
+    import json
+    try:
+        db_path = (BASE_DIR.parent / 'data' / 'market.db')
+        if not db_path.exists():
+            return {"ok": False, "error": "market.db not found", "products": {}}
+        import sqlite3
+        conn = sqlite3.connect(str(db_path))
+        cur = conn.cursor()
+        out = {}
+        # pricing_list
+        try:
+            cur.execute("SELECT id, product_name, optimized_price, last_update, reason FROM pricing_list LIMIT ?", (limit,))
+            cols = [d[0] for d in cur.description] if cur.description else []
+            rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+            out["pricing_list"] = rows
+        except Exception:
+            out["pricing_list"] = []
+
+        # market_data
+        try:
+            cur.execute("SELECT id, product_name, price, features, update_time FROM market_data LIMIT ?", (limit,))
+            cols = [d[0] for d in cur.description] if cur.description else []
+            rows = []
+            for r in cur.fetchall():
+                row = dict(zip(cols, r))
+                # try to parse JSON features field
+                try:
+                    if row.get("features"):
+                        row["features"] = json.loads(row["features"])
+                except Exception:
+                    pass
+                rows.append(row)
+            out["market_data"] = rows
+        except Exception:
+            out["market_data"] = []
+
+        conn.close()
+        return {"ok": True, "products": out}
+    except Exception as e:
+        return {"ok": False, "error": str(e), "products": {}}

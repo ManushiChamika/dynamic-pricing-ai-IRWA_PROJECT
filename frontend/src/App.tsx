@@ -546,8 +546,10 @@ type MessagesState = {
           if (done) break
           buf += decoder.decode(value, { stream: true })
           let idx
-          while ((idx = buf.indexOf('\n\n')) !== -1) {
+            while ((idx = buf.indexOf('\n\n')) !== -1) {
             const frame = buf.slice(0, idx)
+            // Debug: log raw SSE frame so we can inspect exact events/data arriving
+            try { console.debug('[SSE frame]', frame) } catch (e) {}
             buf = buf.slice(idx + 2)
             const lines = frame.split('\n').filter(Boolean)
             let ev: string | null = null
@@ -780,6 +782,7 @@ function Sidebar() {
             <span>⚙️</span>
             <span>Settings</span>
           </Button>
+          
           
           {auth.user && (
             <div style={{
