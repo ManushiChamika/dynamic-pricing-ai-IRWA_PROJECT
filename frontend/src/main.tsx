@@ -10,8 +10,8 @@ import { useAuth } from './stores/authStore'
 
 // Register a global 401 handler
 setUnauthorizedHandler(() => {
-  try { useAuth.getState().setToken(null) } catch {}
-  try { useToasts.getState().push({ type: 'error', text: 'Session expired. Please sign in again.' }) } catch {}
+  try { useAuth.getState().setToken(null) } catch { /* ignore */ }
+  try { useToasts.getState().push({ type: 'error', text: 'Session expired. Please sign in again.' }) } catch { /* ignore */ }
 })
 
 const qc = new QueryClient()

@@ -76,7 +76,7 @@ export function ContactPage() {
               </h1>
               
               <p className={`mb-12 text-xl md:text-2xl leading-relaxed max-w-3xl mx-auto ${mutedText}`}>
-                Have questions? We're here to help. Reach out to our team and we'll get back to you as soon as possible.
+                Have questions? We&apos;re here to help. Reach out to our team and we&apos;ll get back to you as soon as possible.
               </p>
             </div>
           </div>
@@ -95,7 +95,7 @@ export function ContactPage() {
                       ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200'
                       : 'bg-emerald-50 border-emerald-200 text-emerald-700'
                   }`}>
-                    ✓ Thank you! We've received your message and will be in touch soon.
+                    ✓ Thank you! We&apos;ve received your message and will be in touch soon.
                   </div>
                 )}
 
