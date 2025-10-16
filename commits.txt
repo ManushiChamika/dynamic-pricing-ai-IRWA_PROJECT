@@ -1,0 +1,100 @@
+f486e1e|SithminiThennakoon|7 days ago|Merge remote branch integration/governance-ui-into-sithmini - resolved conflict in chat_threads/index.json
+84c04e6|SithminiThennakoon|8 days ago|Add chat threads and hero image, update streamlit app with navigation
+7bdf685|SithminiThennakoon|8 days ago|feat: enhance pricing page with aesthetic UI and animations
+f0ae9de|SITHMINI THENNAKOON|8 days ago|feat: enhance MCP authorization with comprehensive observability and metrics
+8e363cc|SITHMINI THENNAKOON|8 days ago|feat: implement AI-only tool selection for Price Optimizer Agent
+04eb054|SITHMINI THENNAKOON|8 days ago|feat: implement comprehensive activity logging, MCP integration, and enhanced chat functionality
+b0573fd|SITHMINI THENNAKOON|8 days ago|fix: resolve cross-port authentication between React frontend and Streamlit dashboard
+727aa15|SITHMINI THENNAKOON|8 days ago|Complete integration: merge latest governance-ui updates including enhanced start_app.bat
+dda8afa|SITHMINI THENNAKOON|8 days ago|Integrate latest governance-ui updates: professional landing page and hero image
+d4cfc59|SithminiThennakoon|8 days ago|feat: one-click full app launcher and professional landing page
+8f5f24e|SITHMINI THENNAKOON|8 days ago|Merge governance-ui feature into sithmini integration branch
+158388c|SITHMINI THENNAKOON|8 days ago|Fix persistent chat memory across app restarts
+b7d1665|SITHMINI THENNAKOON|8 days ago|Update project files including README, chat threads, LLM client, settings, and documentation
+cfd1236|SithminiThennakoon|8 days ago|feat: enhance login/register pages with modern animations and UX
+5e80472|SithminiThennakoon|8 days ago|feat: implement persistent session management with logout functionality
+5604c1d|SithminiThennakoon|8 days ago|feat: add react auth frontend and secure dashboard session
+2db18de|SITHMINI THENNAKOON|8 days ago|ux(chat): show toast after AI-triggered title rename; ensure sidebar thread actions keep page=dashboard&section=chat in query params
+eb9f6f8|SITHMINI THENNAKOON|8 days ago|feat(chat): persistent JSON-backed chat threads with clean UX for naming and sidebar management
+5d5f8f1|SITHMINI THENNAKOON|8 days ago|refactor(user-interaction): replace regex patterns with LLM-first SQL query architecture
+35defe0|SITHMINI THENNAKOON|8 days ago|feat: populate database with 20 realistic laptop products for testing
+9cfc7e1|SITHMINI THENNAKOON|8 days ago|fix(user-agent): add consistent [non-LLM assistant] prefixes to all deterministic intent responses
+e5580d6|SITHMINI THENNAKOON|8 days ago|chore(ui): remove dead auth/landing views and legacy pages in dashboard-only mode
+afd84c4|SITHMINI THENNAKOON|8 days ago|test: add dashboard-only navigation smoke and relax assertions for Streamlit shell
+7af2b30|SITHMINI THENNAKOON|8 days ago|feat(ui): Dashboard-only routing; remove auth/landing from shell
+e4b062d|SITHMINI THENNAKOON|8 days ago|Rename system_architecture.md to system_architecture.mmd
+52e151a|SITHMINI THENNAKOON|8 days ago|Enhance Authentication Flow with Improved Query Parameter Handling and Force Login Mechanism
+acacbbd|SITHMINI THENNAKOON|8 days ago|Fix auth redirect loop by refining routing logic
+1a88777|SITHMINI THENNAKOON|8 days ago|Fix email validation to allow test domains by disabling deliverability check
+9c693c4|SITHMINI THENNAKOON|8 days ago|fix(auth): resolve navigation issues between login/register pages
+3ad8355|SITHMINI THENNAKOON|8 days ago|fix(auth): resolve DuplicateWidgetID error in Streamlit authentication pages
+de2e5a3|SITHMINI THENNAKOON|8 days ago|feat(events+observability+ge-agent): add event schemas/journaling, structured logging, and auto-apply governance agent
+867fbeb|SITHMINI THENNAKOON|8 days ago|feat(ge governance): add GovernanceExecutionAgent, switch runner, publish typed price.proposal, and document architecture diagram
+4d897ce|SITHMINI THENNAKOON|8 days ago|feat(governance+ui): decision log, PRICE_UPDATE events, agent-SDK AutoApplier, Decisions view, and user intents
+31918d9|SITHMINI THENNAKOON|8 days ago|feat(ui): add dark-mode toggle and polish chat theming
+6948bde|SITHMINI THENNAKOON|9 days ago|temp commit
+5f8b84b|SITHMINI THENNAKOON|9 days ago|feat(ui): fix routing stability and enhance chat interface with immediate user feedback
+fcccced|SITHMINI THENNAKOON|9 days ago|feat(auth): implement comprehensive logout functionality in dashboard sidebar
+f7b358c|SITHMINI THENNAKOON|9 days ago|feat(auth): integrate Login/Register buttons and modern authentication views
+b6c5171|SITHMINI THENNAKOON|9 days ago|fix(ui): implement comprehensive navigation debugging and resolve cookie manager conflicts
+dc6d4cc|SITHMINI THENNAKOON|9 days ago|fix(ui): resolve dashboard navigation redirect loop and improve startup experience
+bf9250a|SITHMINI THENNAKOON|9 days ago|refactor: relocate market database to data/ subdirectory and remove stale documentation
+feab2bd|SITHMINI THENNAKOON|10 days ago|feat(ui): complete UI overhaul with modern light theme, landing page separation, and aesthetic navigation
+c4a60ba|SITHMINI THENNAKOON|10 days ago|feat(ui+alerts): show live alert events in Activity via bus bridge and add PRICE_PROPOSAL smoke test\n\n- Bridge Topic.ALERT -> Activity feed (UI)\n- Initialize bridge before engine to capture ready event\n- Add scripts/smoke_price_proposal_alerts.py (PASS locally)\n\nWhy: improve visibility of alert lifecycle and provide a quick E2E check for proposal alerts
+ecac223|SITHMINI THENNAKOON|10 days ago|feat(alerts+ui): throttle-ready alert engine + New UI preview (rules/incidents/settings) with smoke scripts\n\nBREAKING CHANGE: Repo timestamps normalized to aware UTC and alert correlation now updates last_seen on throttling.\n\nSummary:\n- Alert engine: timezone-aware timestamps; payload flattening in rules; throttle dedupe touch.\n- UI (Preview): Streamlit New UI shell with views for Dashboard, Incidents, Rules, Settings.\n- Scripts: add tmp_smoke_alerts, tmp_ack_resolve, tmp_settings_roundtrip, tmp_throttle_smoke.\n- Docs: UI rewrite plan scaffolding.\n\nAlert Service:\n- repo.py: add touch_incident(), use datetime.now(timezone.utc) for writes; is_throttled normalizes naive timestamps; list ordering by last_seen desc unchanged.\n- rules.py: expose payload fields at top-level env (e.g., competitor_price) while retaining aliases tick/pp; safe AST evaluation preserved.\n- sinks/ui.py: ensure usage of central bus via core.agents.agent_sdk.\n- engine/correlate: correlate by fingerprint, throttle via repo.is_throttled; update last_seen when throttled.\n\nUI (Preview):\n- app/pages/9_New_UI.py: side-nav with sections; autostarts alerts engine once using a background loop.\n- app/ui/services: alerts wrapper (list/ack/resolve rules+settings), runtime bg loop helper, activity shim.\n- app/ui/views: incidents (inline Ack/Resolve + publish test events), rules (create + reload), settings (redacted JSON edit), dashboard (placeholder KPIs + chart), activity feed.\n- app/ui/theme: minimal tokens + CSS injector; state/session helpers.\n\nScripts:\n- tmp_smoke_alerts: create rule, publish tick, list incidents.\n- tmp_ack_resolve: ack then resolve first open incident.\n- tmp_settings_roundtrip: persist and reload channel settings.\n- tmp_throttle_smoke: verify incident dedupe and last_seen touch under throttle.\n\nMigration/Operational Notes:\n- Existing DB app/alert.db remains compatible; timestamps become aware UTC going forward.\n- Static analyzer import warnings may appear due to dynamic runtime imports; runtime verified via scripts.\n- Streamlit warnings (ScriptRunContext) are expected when running scripts headless.\n\nFollow-ups:\n- Add PRICE_PROPOSAL smoke + basic unit tests.\n- Wire activity bus to UI feed; improve theming and table UX.\n- Optional: persist UI state, add dark mode toggle, and validations for rule expressions.
+f6c0682|DinithaSasinduDissanayake|11 days ago|feat(user-agent): gate completion sounds behind SOUND_NOTIFICATIONS env; make dotenv optional; drop unused playsound; document flag in .env.example
+d231e6a|DinithaSasinduDissanayake|11 days ago|Add automatic sound notifications after agent responses
+fa6c023|DinithaSasinduDissanayake|11 days ago|Integrate dashboard.py UI improvements from ui-rework
+3cc8a33|DinithaSasinduDissanayake|11 days ago|Integrate user_interaction_agent.py updates from ui-rework
+2fd8654|DinithaSasinduDissanayake|11 days ago|Integrate requirements.txt updates from ui-rework
+d6fe65a|DinithaSasinduDissanayake|11 days ago|Integrate .gitignore updates from ui-rework
+73d041a|DinithaSasinduDissanayake|11 days ago|chore: ignore unnecessary files in .gitignore
+f9a14fb|DinithaSasinduDissanayake|11 days ago|feat(chat+agent): OpenAI-style tool-calling, SQLite-backed tools, and multi-thread chat UI; dev-mode prompt openness
+869d97f|DinithaSasinduDissanayake|11 days ago|feat(agents): stabilize agent SDK integrations and add deterministic intents\n\nIntroduce lightweight event dataclasses in core.agents.agent_sdk.events_models to standardize MarketTick, PriceProposal, and AlertEvent payloads across agents.\n\nMigrate several agents to use agent_sdk bus and protocol helpers (data_collector, alert_notifier, pricing_optimizer) to centralize messaging.\n\nAdd fallback shim for mcp.server.fastmcp so tools can register in environments without the optional dependency.\n\nBuffer LLM output and improve error messages (avoid non-ASCII emoji prints) and safer margin defaults when cost unavailable.\n\nAdd deterministic, fast-path intent handlers in UserInteractionAgent to answer common queries (cheapest, most_expensive, trending, pressure, stats) without invoking an LLM.\n\nUpdate .gitignore to include AGENTS.md and branch-diff helpers.\n\nThis commit focuses on runtime robustness and developer experience: safer prints for Windows consoles, deterministic assistants when LLM isn't available, and consistent agent event types for cleaner bus messaging.
+dceaf93|DinithaSasinduDissanayake|11 days ago|chore: stop tracking user_data.json (contains PII and should remain local)
+9389e85|DinithaSasinduDissanayake|3 weeks ago|feat: OpenAI-style tool-calling, multi-thread chat, and DB-backed agent tools
+ee69cc0|DinithaSasinduDissanayake|3 weeks ago|feat(ui): add activity feed and high-level agent logging
+678bbf4|DinithaSasinduDissanayake|3 weeks ago|feat(pricing): add web_scraper tool and agentic tool-calling in PricingOptimizer
+a1d62be|DinithaSasinduDissanayake|3 weeks ago|Add PowerShell script for collecting selected files and update other scripts
+7e654ef|DinithaSasinduDissanayake|4 weeks ago|wip: save local edits to user_interaction_agent.py for comparison
+71197a7|ManushiChamika|5 weeks ago|refactor: clean up user_data.json
+51e5b43|ManushiChamika|5 weeks ago|Merge branch 'DEV' of https://github.com/ManushiChamika/dynamic-pricing-ai-IRWA_PROJECT into alert-and-notifications-manushi
+b8efbf4|Imasha Sandanayaka|5 weeks ago|Merge pull request #16 from ManushiChamika:user_interaction_branch
+b2181ab|Imasha Sandanayaka|5 weeks ago|refactor: remove env_bootstrap.py and update user_data.json with dynamic pricing interactions
+981e6e0|Imasha Sandanayaka|5 weeks ago|Merge branch 'DEV' of https://github.com/ManushiChamika/dynamic-pricing-ai-IRWA_PROJECT into user_interaction_branch
+a152758|Imasha Sandanayaka|5 weeks ago| feat: enhance user interaction agent with dynamic pricing context and memory management✍️
+d88765a|SASINDU|5 weeks ago|Merge pull request #15 from ManushiChamika/merge-assess/DEV
+19ae79e|DinithaSasinduDissanayake|5 weeks ago|chore: assess merge of origin/Sasindu/feature/data-collector/supervisor-orchestrator into merge-assess/DEV
+1ea5454|DinithaSasinduDissanayake|5 weeks ago|chore: assess merge of origin/Sasindu/feature/data-collector/auto-apply-hardening into merge-assess/DEV
+25a4422|DinithaSasinduDissanayake|5 weeks ago|chore: assess merge of origin/Sasindu/feature/data-collector/auto-apply into merge-assess/DEV
+8b54680|DinithaSasinduDissanayake|5 weeks ago|chore: assess merge of origin/Sasindu/feature/data-collector/proposals-jobs-ui into merge-assess/DEV
+69d3fa0|DinithaSasinduDissanayake|5 weeks ago|chore: assess merge of origin/Sasindu/feature/data-collector/proposals-revert into merge-assess/DEV
+b6bd06c|DinithaSasinduDissanayake|5 weeks ago|chore: assess merge of origin/Sasindu/feature/data-collector/proposals-ui into merge-assess/DEV
+74ba6e1|DinithaSasinduDissanayake|5 weeks ago|chore: assess merge of origin/Sasindu/feature/data-collector/price-proposal-publish into merge-assess/DEV
+8c915a3|DinithaSasinduDissanayake|5 weeks ago|chore: assess merge of origin/Sasindu/feature/data-collector/smoke into merge-assess/DEV
+50525fe|DinithaSasinduDissanayake|5 weeks ago|chore: assess merge of origin/Sasindu/feature/data-collector/mcp into merge-assess/DEV
+a591689|DinithaSasinduDissanayake|5 weeks ago|chore: assess merge of origin/Sasindu/feature/data-collector/repo-jobs into merge-assess/DEV
+d27c5fa|DinithaSasinduDissanayake|5 weeks ago|chore: assess merge of origin/Sasindu/feature/data-collector/wiring into merge-assess/DEV
+9569bcd|DinithaSasinduDissanayake|5 weeks ago|chore: assess merge of origin/Sasindu/feature/data-collector/mvp into merge-assess/DEV
+d0ecf8b|DinithaSasinduDissanayake|5 weeks ago|chore(gitignore): ignore root-level local notes (summary.md, imasha_compare_restore_vs_backup.txt)
+c9e8e7d|ManushiChamika|5 weeks ago|Merge branch 'revert/restore-alerts' of https://github.com/ManushiChamika/dynamic-pricing-ai-IRWA_PROJECT into alert-and-notifications-manushi
+68d0dbc|SITHMINI THENNAKOON|5 weeks ago|Merge pull request #14 from ManushiChamika/fix/revert-restore-alerts-imports
+ac48bf3|SithminiThennakoon|5 weeks ago|merge: integrate revert/restore-alerts into DEV for import fixes and validation
+992a26e|SithminiThennakoon|5 weeks ago|feat: add minimal agent SDK, user interaction agent, LLM client; harden session bootstrap; ignore real .env and add .env.example
+dc09604|Imasha Sandanayaka|5 weeks ago|feat: update user interaction agent to use OpenRouter API and enhance response handling
+2973324|Imasha Sandanayaka|5 weeks ago|feat: add new user interaction entries to chat history
+e9ba087|ManushiChamika|5 weeks ago|feat: enhance UI styling and update user chat history in user_data.json
+c946071|DinithaSasinduDissanayake|5 weeks ago|chore: ignore artifacts and untrack generated files (alerts restore cleanup)
+43ff5b1|DinithaSasinduDissanayake|5 weeks ago|Revert "refactor: agentic architecture overhaul"
+b8ba373|DinithaSasinduDissanayake|5 weeks ago|Revert "chore: untrack pycache, db files, and logs per .gitignore"
+e44fe5c|DinithaSasinduDissanayake|5 weeks ago|chore(repo): document recent data-collector, MCP, UI, auto-apply, and supervisor work (long description below)
+6ea4e32|DinithaSasinduDissanayake|5 weeks ago|feat(supervisor): add lightweight orchestrator + poc runner
+4c5179c|DinithaSasinduDissanayake|5 weeks ago|fix(auto-apply): atomic apply + retry/backoff to ensure idempotency
+fcb3f58|DinithaSasinduDissanayake|5 weeks ago|feat(auto-apply): subscribe to PriceProposal and auto‑apply offers per merchant guardrails
+134e7f7|DinithaSasinduDissanayake|5 weeks ago|feat(ui): add Jobs page and jobs CLI test
+b9298ba|DinithaSasinduDissanayake|5 weeks ago|feat(ui): add Revert action for accepted proposals + CLI revert test
+05e2fbe|DinithaSasinduDissanayake|5 weeks ago|feat(ui): add Proposals & Approvals page + CLI apply test
+d84ab32|DinithaSasinduDissanayake|5 weeks ago|test(price-proposals): seed market.db and run collection in smoke to ensure optimizer proceeds
+d39ec24|DinithaSasinduDissanayake|5 weeks ago|feat(price-proposals): publish & persist PriceProposal after optimization
+be635a3|DinithaSasinduDissanayake|5 weeks ago|test(smoke): add end-to-end smoke test verifying ingestion → alerts → features
+decd259|DinithaSasinduDissanayake|5 weeks ago|fix(data-collector-mcp): drop __future__ annotations to avoid FastMCP type inspection issues

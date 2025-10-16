@@ -1,11 +1,29 @@
 import { useState, FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/button'
+import { Navigation } from '../components/Navigation'
 import { useAuth } from '../App'
+import { useTheme } from '../contexts/ThemeContext'
  
 export function AuthPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
+  const pageBackground = isDark
+    ? 'bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900'
+    : 'bg-gradient-to-b from-slate-50 via-slate-100 to-slate-50'
+  const headingColor = isDark ? 'text-white' : 'text-slate-900'
+  const helperText = isDark ? 'text-gray-400' : 'text-slate-700'
+  const cardSurface = isDark
+    ? 'bg-gray-800/50 border-gray-700'
+    : 'bg-white/95 border-slate-200 shadow-[0_20px_45px_rgba(15,23,42,0.12)]'
+  const labelColor = isDark ? 'text-gray-300' : 'text-slate-700'
+  const inputClass = isDark
+    ? 'bg-gray-900 border-gray-600 text-white'
+    : 'bg-white border-slate-300 text-slate-900 shadow-sm'
+  const switchLink = isDark ? 'text-indigo-300 hover:text-indigo-200' : 'text-indigo-600 hover:text-indigo-700'
+  const backLink = isDark ? 'text-gray-400 hover:text-gray-300' : 'text-slate-600 hover:text-slate-700'
   const [mode, setMode] = useState<'signin' | 'signup'>(
     searchParams.get('mode') === 'signup' ? 'signup' : 'signin'
   )
@@ -42,30 +60,32 @@ export function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
+    <div className={`min-h-screen ${pageBackground}`}>
+      <Navigation />
+      <div className="flex items-center justify-center px-4 pt-24 pb-12 min-h-screen">
+        <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <div className="flex items-center justify-center gap-2 mb-4">
             <svg className="h-10 w-10 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
-            <span className="text-2xl font-bold text-white">FluxPricer</span>
+            <span className={`text-2xl font-bold ${headingColor}`}>FluxPricer</span>
           </div>
-          <h1 className="text-3xl font-bold text-white">
+          <h1 className={`text-3xl font-bold ${headingColor}`}>
             {mode === 'signin' ? 'Welcome Back' : 'Create Account'}
           </h1>
-          <p className="mt-2 text-gray-400">
+          <p className={`mt-2 ${helperText}`}>
             {mode === 'signin' 
               ? 'Sign in to access your pricing dashboard' 
               : 'Start optimizing your pricing with AI'}
           </p>
         </div>
 
-        <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-lg p-8">
+        <div className={`${cardSurface} backdrop-blur-sm border rounded-lg p-8`}>
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'signup' && (
               <div>
-                <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="username" className={`block text-sm font-medium ${labelColor} mb-2`}>
                   Full Name
                 </label>
                 <input
@@ -74,14 +94,14 @@ export function AuthPage() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
-                  className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className={`w-full px-4 py-2 ${inputClass} border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500`}
                   placeholder="John Doe"
                 />
               </div>
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="email" className={`block text-sm font-medium ${labelColor} mb-2`}>
                 Email
               </label>
               <input
@@ -90,13 +110,13 @@ export function AuthPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className={`w-full px-4 py-2 ${inputClass} border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500`}
                 placeholder="you@example.com"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="password" className={`block text-sm font-medium ${labelColor} mb-2`}>
                 Password
               </label>
               <input
@@ -106,13 +126,13 @@ export function AuthPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className={`w-full px-4 py-2 ${inputClass} border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500`}
                 placeholder="••••••••"
               />
             </div>
 
             {error && (
-              <div className="bg-red-500/10 border border-red-500 text-red-500 px-4 py-2 rounded-md text-sm">
+              <div className={`${theme === 'dark' ? 'bg-red-500/10 border-red-500 text-red-500' : 'bg-red-50 border-red-300 text-red-700'} border px-4 py-2 rounded-md text-sm`}>
                 {error}
               </div>
             )}
@@ -133,7 +153,7 @@ export function AuthPage() {
                 setMode(mode === 'signin' ? 'signup' : 'signin')
                 setError('')
               }}
-              className="text-sm text-indigo-400 hover:text-indigo-300"
+              className={`text-sm ${switchLink}`}
             >
               {mode === 'signin' 
                 ? "Don't have an account? Sign up" 
@@ -145,12 +165,13 @@ export function AuthPage() {
             <button
               type="button"
               onClick={() => navigate('/')}
-              className="text-sm text-gray-400 hover:text-gray-300"
+              className={`text-sm ${backLink}`}
             >
               ← Back to home
             </button>
           </div>
         </div>
+      </div>
       </div>
     </div>
   )
