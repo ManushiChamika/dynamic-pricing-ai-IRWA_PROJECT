@@ -663,7 +663,7 @@ function Sidebar() {
   }
   
   return (
-    <aside className={`${collapsed ? 'w-14' : 'w-[280px]'} border-r border-border p-4 overflow-auto bg-[rgba(17,24,39,0.85)] backdrop-blur-3xl transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`} aria-label="Threads sidebar">
+  <aside className={`${collapsed ? 'w-14' : 'w-[280px]'} border-r border-border p-4 overflow-auto bg-white/90 text-slate-900 shadow-[0_12px_32px_rgba(15,23,42,0.12)] dark:bg-[rgba(17,24,39,0.85)] dark:text-white dark:shadow-none backdrop-blur-3xl transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`} aria-label="Threads sidebar">
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           <Button variant="ghost" size="icon" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -833,6 +833,10 @@ function MessageView({ m, showModel, showTimestamps, showMeta, lastUserId, allMe
   const agentNames = m.agents?.activated || []
   const { liveActiveAgent, liveTool } = useMessages()
 
+  const bubbleBase = 'border rounded-2xl px-5 py-4 whitespace-pre-wrap transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] leading-[1.7] relative'
+  const userBubble = 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white border-0 shadow-[0_16px_32px_rgba(76,81,191,0.35)]'
+  const assistantBubble = 'bg-white/90 text-slate-900 border-slate-200 shadow-[0_16px_40px_rgba(15,23,42,0.14)] dark:bg-gradient-to-br dark:from-slate-800/70 dark:to-slate-900/80 dark:text-white dark:border-indigo-500/20 dark:shadow-[0_4px_12px_rgba(0,0,0,0.4)] dark:backdrop-blur-3xl'
+
   return (
     <animated.div 
       ref={rowRef} 
@@ -860,7 +864,7 @@ function MessageView({ m, showModel, showTimestamps, showMeta, lastUserId, allMe
           ) : null}
         </div>
       ) : null}
-      <div className={`${m.role === 'user' ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white border-0 shadow-[0_4px_12px_rgba(99,102,241,0.3),0_2px_4px_rgba(99,102,241,0.2)]' : 'bg-gradient-to-br from-slate-800/70 to-slate-900/80 backdrop-blur-3xl border-indigo-500/20'} border rounded-2xl px-5 py-4 whitespace-pre-wrap transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-[0_4px_12px_rgba(0,0,0,0.4),0_2px_4px_rgba(0,0,0,0.3)] leading-[1.7] relative`}>{m.content}</div>
+  <div className={`${bubbleBase} ${m.role === 'user' ? userBubble : assistantBubble}`}>{m.content}</div>
       {showThinking && m.thinking && m.role === 'assistant' ? (
         <ThinkingTokens thinking={m.thinking} />
       ) : null}
@@ -1152,8 +1156,8 @@ function ChatPane() {
   }, [streamingActive, stop, settings, currentId, send])
 
   return (
-    <main className="flex-1 flex flex-col bg-[rgba(10,14,26,0.3)]" aria-busy={streamingActive}>
-        <div className="flex items-center gap-2.5 px-5 py-4 border-b border-border bg-[rgba(17,24,39,0.9)] backdrop-blur-3xl shadow-[0_4px_16px_rgba(0,0,0,0.5)] justify-between">
+  <main className="flex-1 flex flex-col bg-slate-50/85 dark:bg-[rgba(10,14,26,0.3)]" aria-busy={streamingActive}>
+  <div className="flex items-center gap-2.5 px-5 py-4 border-b border-border bg-white/90 text-slate-900 shadow-[0_20px_40px_rgba(15,23,42,0.12)] dark:bg-[rgba(17,24,39,0.9)] dark:text-white dark:shadow-[0_4px_16px_rgba(0,0,0,0.5)] backdrop-blur-3xl justify-between">
          <div className="flex gap-2 items-center flex-wrap">
            <strong>Thread</strong>
            <span>#{currentId ?? '-'}</span>
@@ -1270,7 +1274,7 @@ function ChatPane() {
           <MessageView key={m.id + ':' + m.created_at} m={m} showModel={settings.showModel} showTimestamps={settings.showTimestamps} showMeta={settings.showMeta} allMessages={messages} />
         )) : <div className="text-center py-12 px-6 text-muted text-base">No messages yet. Say hello!</div>) : <div className="text-center py-12 px-6 text-muted text-base">Select or create a thread to begin.</div>}
       </div>
-      <div className="flex gap-3 px-5 py-4 border-t border-border bg-[rgba(17,24,39,0.9)] backdrop-blur-3xl shadow-[0_-4px_16px_rgba(0,0,0,0.5)]">
+  <div className="flex gap-3 px-5 py-4 border-t border-border bg-white/95 text-slate-900 shadow-[0_-18px_40px_rgba(15,23,42,0.12)] dark:bg-[rgba(17,24,39,0.9)] dark:text-white dark:shadow-[0_-4px_16px_rgba(0,0,0,0.5)] backdrop-blur-3xl">
         <textarea rows={2} style={{ flex: 1 }} value={input} onChange={e => setInput(e.target.value)} disabled={streamingActive}
           onKeyDown={e => {
             if (!streamingActive && e.key === 'Enter' && !e.shiftKey) {
@@ -1431,7 +1435,7 @@ function PricesPanel() {
   const keys = useMemo(() => Object.keys(prices).sort(), [prices])
 
   return (
-    <aside className={`${collapsed ? 'w-12' : 'w-[280px]'} border-l border-border p-4 overflow-auto bg-[rgba(17,24,39,0.85)] backdrop-blur-3xl transition-all duration-300`} aria-label="Prices panel">
+  <aside className={`${collapsed ? 'w-12' : 'w-[280px]'} border-l border-border p-4 overflow-auto bg-white/90 text-slate-900 shadow-[0_-12px_32px_rgba(15,23,42,0.08)] dark:bg-[rgba(17,24,39,0.85)] dark:text-white dark:shadow-none backdrop-blur-3xl transition-all duration-300`} aria-label="Prices panel">
       <div className="flex gap-2 items-center mb-2">
         <Button variant="ghost" size="icon" aria-label={collapsed ? 'Expand prices panel' : 'Collapse prices panel'}
           onClick={() => setCollapsed(c => { const n = !c; localStorage.setItem('pricesCollapsed', n ? '1' : '0'); return n })}
