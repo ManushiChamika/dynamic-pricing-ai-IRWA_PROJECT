@@ -4,6 +4,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider } from './contexts/ThemeContext'
 import './styles.css'
+import { setUnauthorizedHandler } from './lib/apiClient'
+import { useToasts } from './stores/toastStore'
+import { useAuth } from './stores/authStore'
+
+// Register a global 401 handler
+setUnauthorizedHandler(() => {
+  try { useAuth.getState().setToken(null) } catch {}
+  try { useToasts.getState().push({ type: 'error', text: 'Session expired. Please sign in again.' }) } catch {}
+})
 
 const qc = new QueryClient()
 

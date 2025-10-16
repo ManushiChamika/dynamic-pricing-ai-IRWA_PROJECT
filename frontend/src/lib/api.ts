@@ -1,39 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { api } from './apiClient'
 
-const API_BASE = 'http://localhost:8000'
-
-export interface ApiResponse<T = unknown> {
-  ok: boolean
-  status: number
-  data: T
-}
-
-async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const token = localStorage.getItem('fp_token') || localStorage.getItem('token')
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  }
-  
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
-  }
-
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-  })
-
-  if (!response.ok) {
-    throw new Error(`API Error: ${response.status}`)
-  }
-
-  return response.json()
+async function fetcher<T>(url: string, init?: RequestInit & { json?: any }): Promise<T> {
+  const res = await api<T>(url, init)
+  if (!res.ok) throw new Error(`API Error: ${res.status}`)
+  return res.data as T
 }
 
 export function useThreads() {
   return useQuery({
     queryKey: ['threads'],
-    queryFn: () => fetchApi<any[]>('/api/threads'),
+    queryFn: () => fetcher<any[]>('/api/threads'),
     staleTime: 10000,
   })
 }
@@ -41,7 +18,7 @@ export function useThreads() {
 export function useThreadMessages(threadId: number | null) {
   return useQuery({
     queryKey: ['messages', threadId],
-    queryFn: () => fetchApi<any[]>(`/api/threads/${threadId}/messages`),
+    queryFn: () => fetcher<any[]>(`/api/threads/${threadId}/messages`),
     enabled: threadId !== null,
     staleTime: 5000,
   })
@@ -49,37 +26,24 @@ export function useThreadMessages(threadId: number | null) {
 
 export function useCreateThread() {
   const queryClient = useQueryClient()
-  
   return useMutation({
-    mutationFn: (title: string) =>
-      fetchApi('/api/threads', {
-        method: 'POST',
-        body: JSON.stringify({ title }),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['threads'] })
-    },
+    mutationFn: (title: string) => fetcher('/api/threads', { method: 'POST', json: { title } }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['threads'] }) },
   })
 }
 
 export function useDeleteThread() {
   const queryClient = useQueryClient()
-  
   return useMutation({
-    mutationFn: (id: number) =>
-      fetchApi(`/api/threads/${id}`, {
-        method: 'DELETE',
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['threads'] })
-    },
+    mutationFn: (id: number) => fetcher(`/api/threads/${id}`, { method: 'DELETE' }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['threads'] }) },
   })
 }
 
 export function useSummaries(threadId: number) {
   return useQuery({
     queryKey: ['summaries', threadId],
-    queryFn: () => fetchApi<{ summaries: any[] }>(`/api/threads/${threadId}/summaries`),
+    queryFn: () => fetcher<{ summaries: any[] }>(`/api/threads/${threadId}/summaries`),
     select: (data) => data.summaries || [],
     staleTime: 30000,
   })

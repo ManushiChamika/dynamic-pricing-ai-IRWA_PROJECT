@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useSummaries } from '../lib/api';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../lib/apiClient';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 
@@ -12,12 +13,19 @@ export interface Summary {
 
 interface SummaryIndicatorProps {
   threadId: number;
-  token?: string;
 }
 
 export function SummaryIndicator({ threadId }: SummaryIndicatorProps) {
   const [open, setOpen] = useState(false);
-  const { data: summaries = [] } = useSummaries(threadId);
+  const { data: summaries = [] } = useQuery({
+    queryKey: ['summaries', threadId],
+    queryFn: async () => {
+      const res = await api<{ summaries: Summary[] }>(`/api/threads/${threadId}/summaries`)
+      if (!res.ok) throw new Error(`API Error: ${res.status}`)
+      return (res.data?.summaries || []) as Summary[]
+    },
+    staleTime: 30000,
+  });
 
   if (summaries.length === 0) return null;
 
