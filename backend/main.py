@@ -748,7 +748,7 @@ def api_post_message(thread_id: int, req: PostMessageRequest, token: Optional[st
         metadata = None
 
     # Derived metadata for UI/exports
-    agents_list = _derive_agents_from_tools(tools_used if isinstance(tools_used, list) else [])
+    agents_list = list(activated_agents) if activated_agents else []
     tools_obj = {"used": (tools_used or []), "count": len(tools_used or [])}
     agents_obj = {"activated": agents_list, "count": len(agents_list)}
     api_calls = (1 if model else 0) + len(tools_obj["used"])  # model call + tool calls
@@ -856,6 +856,7 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
 
             # Stream tokens from the LLM and forward as SSE deltas
             full_parts: List[str] = []
+            activated_agents: set = set()
             try:
                 for delta in uia.stream_response(req.content):
                     try:
@@ -874,8 +875,11 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
                                     full_parts.append(text)
                                     yield "event: message\n" + "data: " + _json.dumps({"id": am.id, "delta": text}, ensure_ascii=False) + "\n\n"
                             elif et == "agent":
-                                # Forward agent activation for UI badges
-                                payload = {"name": delta.get("name")}
+                                # Forward agent activation for UI badges and collect for database
+                                agent_name = delta.get("name")
+                                if agent_name:
+                                    activated_agents.add(agent_name)
+                                payload = {"name": agent_name}
                                 yield "event: agent\n" + "data: " + _json.dumps(payload, ensure_ascii=False) + "\n\n"
                             elif et == "tool_call":
                                 # Forward tool call lifecycle events
@@ -903,7 +907,7 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
             except Exception:
                 metadata = None
 
-            agents_list = _derive_agents_from_tools(tools_used if isinstance(tools_used, list) else [])
+            agents_list = list(activated_agents) if activated_agents else []
             tools_obj = {"used": (tools_used or []), "count": len(tools_used or [])}
             agents_obj = {"activated": agents_list, "count": len(agents_list)}
             api_calls = (1 if model else 0) + len(tools_obj["used"])
