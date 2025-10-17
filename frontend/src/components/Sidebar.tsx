@@ -44,11 +44,11 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`${collapsed ? 'w-14' : 'w-[280px]'} border-r border-border p-4 overflow-auto bg-[rgba(17,24,39,0.85)] backdrop-blur-3xl transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}
+      className={`sidebar ${collapsed ? 'w-14' : 'w-[280px]'} border-r border-border p-[var(--space-4)] overflow-auto bg-[rgba(17,24,39,0.85)] backdrop-blur-3xl transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}
       aria-label="Threads sidebar"
     >
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div className="flex flex-col h-full">
+        <div className="flex gap-[var(--space-2)] mb-[var(--space-4)]">
           <Button
             variant="ghost"
             size="icon"
@@ -65,26 +65,21 @@ export function Sidebar() {
           >
             {collapsed ? '⮞' : '⮜'}
           </Button>
-          <Button onClick={() => createThread()} aria-label="Create new thread" style={{ flex: 1 }}>
+          <Button onClick={() => createThread()} aria-label="Create new thread" className="flex-1">
             + New Chat
           </Button>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16 }}>
-          <ul id="thread-list" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+        <div className="flex-1 overflow-y-auto mb-[var(--space-4)]">
+          <ul id="thread-list" className="list-none m-0 p-0">
             {threads.map((t) => (
               <li
                 key={t.id}
+                className="px-3 py-2.5 rounded-lg cursor-pointer mb-1.5 transition-all duration-200 border"
                 style={{
-                  padding: '10px 12px',
-                  borderRadius: '12px',
                   background: currentId === t.id ? 'var(--accent-color)' : 'transparent',
-                  cursor: 'pointer',
-                  marginBottom: '6px',
-                  transition: 'all 0.2s ease',
                   color: currentId === t.id ? 'white' : 'var(--fg)',
                   fontWeight: currentId === t.id ? 500 : 400,
-                  border: '1px solid',
                   borderColor: currentId === t.id ? 'transparent' : 'transparent',
                 }}
                 onClick={() => setCurrent(t.id)}
@@ -102,22 +97,8 @@ export function Sidebar() {
                   }
                 }}
               >
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 8,
-                  }}
-                >
-                  <span
-                    style={{
-                      flex: 1,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--font-sm)]">
                     {t.title || `Thread #${t.id}`}
                   </span>
                   <span onClick={(e) => e.stopPropagation()}>
@@ -129,15 +110,7 @@ export function Sidebar() {
           </ul>
         </div>
 
-        <div
-          style={{
-            borderTop: '1px solid var(--border-color)',
-            paddingTop: 12,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 8,
-          }}
-        >
+        <div className="border-t border-[var(--border-color)] pt-[var(--space-3)] flex flex-col gap-[var(--space-2)]">
           <Button
             variant="outline"
             onClick={() => useSettings.getState().setSettingsOpen(true)}
@@ -149,24 +122,9 @@ export function Sidebar() {
           </Button>
 
           {user && (
-            <div
-              style={{
-                padding: '10px 12px',
-                background: 'var(--panel)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '12px',
-                fontSize: '13px',
-              }}
-            >
-              <div style={{ opacity: 0.7, marginBottom: 4 }}>Signed in as</div>
-              <div
-                style={{
-                  fontWeight: 500,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
+            <div className="px-3 py-2.5 bg-[var(--panel)] border border-[var(--border-color)] rounded-lg text-[var(--font-sm)]">
+              <div className="opacity-70 mb-1">Signed in as</div>
+              <div className="font-medium overflow-hidden text-ellipsis whitespace-nowrap">
                 {user.full_name || user.email}
               </div>
             </div>
