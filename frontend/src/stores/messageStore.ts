@@ -99,6 +99,8 @@ export const useMessages = create<MessagesState>((set, get) => ({
     }
 
     if (!stream) {
+      const userMsg: Message = { id: -1, role: 'user', content }
+      set((s) => ({ messages: [...s.messages, userMsg] }))
       await api(`/api/threads/${actualThreadId}/messages`, {
         method: 'POST',
         json: { content, user_name },
@@ -107,9 +109,10 @@ export const useMessages = create<MessagesState>((set, get) => ({
       return
     }
     await get().refresh(actualThreadId)
-    const live: Message = { id: -1, role: 'assistant', content: '' }
+    const userMsg: Message = { id: -1, role: 'user', content }
+    const live: Message = { id: -2, role: 'assistant', content: '' }
     set((s) => ({
-      messages: [...s.messages, live],
+      messages: [...s.messages, userMsg, live],
       streamingActive: true,
       liveActiveAgent: null,
       liveAgents: [],
@@ -165,7 +168,7 @@ export const useMessages = create<MessagesState>((set, get) => ({
               if (s?.showThinking && !thinkingShown) {
                 thinkingShown = true
                 set((st) => ({
-                  messages: [...st.messages, { id: -2, role: 'assistant', content: 'Thinking…' }],
+                  messages: [...st.messages, { id: -3, role: 'assistant', content: 'Thinking…' }],
                 }))
               }
               continue
@@ -230,14 +233,14 @@ export const useMessages = create<MessagesState>((set, get) => ({
                   set((s) => {
                     const arr = s.messages.slice()
                     if (thinkingShown) {
-                      const last = arr[arr.length - 1]
-                      if (last && last.id === -2) {
+                      const lastThinking = arr[arr.length - 1]
+                      if (lastThinking && lastThinking.id === -3) {
                         arr.pop()
                         thinkingShown = false
                       }
                     }
                     const last = arr[arr.length - 1]
-                    if (last && last.id === -1) last.content += obj.delta
+                    if (last && last.id === -2) last.content += obj.delta
                     return { messages: arr }
                   })
                 } else if (obj.id) {
