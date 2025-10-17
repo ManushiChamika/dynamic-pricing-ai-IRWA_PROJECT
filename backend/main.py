@@ -81,7 +81,11 @@ except Exception:
 # ---------- Utility: LLM cost + metadata helpers ----------
 
 def _default_price_map() -> Dict[str, Dict[str, float]]:
-    # Per-1K token prices in USD for a few common models (override via LLM_PRICE_MAP)
+    """Get default LLM pricing map with per-1K token rates in USD.
+    
+    Returns dict mapping model identifiers to input/output pricing.
+    Can be overridden via LLM_PRICE_MAP environment variable.
+    """
     return {
         "openai:gpt-4o-mini": {"in": 0.005, "out": 0.015},
         "openai:gpt-4o": {"in": 0.01, "out": 0.03},
@@ -92,6 +96,11 @@ def _default_price_map() -> Dict[str, Dict[str, float]]:
 
 
 def _load_price_map() -> Dict[str, Dict[str, float]]:
+    """Load LLM pricing configuration from environment or use defaults.
+    
+    Parses LLM_PRICE_MAP JSON env var with model-to-pricing mappings.
+    Falls back to _default_price_map() if env var is missing or invalid.
+    """
     import os, json
     raw = os.getenv("LLM_PRICE_MAP")
     if not raw:
@@ -108,6 +117,16 @@ def _load_price_map() -> Dict[str, Dict[str, float]]:
 
 
 def _compute_cost_usd(provider: Optional[str], model: Optional[str], token_in: Optional[int], token_out: Optional[int]) -> Optional[str]:
+    """Compute LLM API call cost in USD based on token usage and pricing.
+    
+    Args:
+        provider: LLM provider name (e.g., 'openai', 'gemini')
+        model: Model identifier
+        token_in: Input prompt tokens consumed
+        token_out: Output completion tokens generated
+    
+    Returns formatted cost string (e.g., "0.0123") or None if uncalculable.
+    """
     try:
         if not provider or not model or token_in is None or token_out is None:
             return None
@@ -124,6 +143,13 @@ def _compute_cost_usd(provider: Optional[str], model: Optional[str], token_in: O
 
 
 def _derive_agents_from_tools(tools_used: Optional[List[str]]) -> List[str]:
+    """Map tool names to activated agent names for UI display.
+    
+    Args:
+        tools_used: List of tool names invoked during LLM execution
+    
+    Returns list of unique agent names responsible for those tools.
+    """
     if not tools_used:
         return []
     mapping = {
@@ -144,6 +170,14 @@ def _derive_agents_from_tools(tools_used: Optional[List[str]]) -> List[str]:
 # ---------- Context assembly + summarization helpers ----------
 
 def _env_int(name: str, default: int) -> int:
+    """Read integer environment variable with fallback default.
+    
+    Args:
+        name: Environment variable name
+        default: Default value if variable not set or parse fails
+    
+    Returns parsed integer or default.
+    """
     try:
         import os
         return int(os.getenv(name, str(default)) or default)
@@ -152,6 +186,14 @@ def _env_int(name: str, default: int) -> int:
 
 
 def _env_float(name: str, default: float) -> float:
+    """Read float environment variable with fallback default.
+    
+    Args:
+        name: Environment variable name
+        default: Default value if variable not set or parse fails
+    
+    Returns parsed float or default.
+    """
     try:
         import os
         return float(os.getenv(name, str(default)) or default)
@@ -196,6 +238,19 @@ def _assemble_memory(thread_id: int) -> List[Dict[str, str]]:
 
 
 def _should_summarize(thread_id: int, upto_message_id: int, token_in: Optional[int], token_out: Optional[int]) -> bool:
+    """Determine if conversation thread should be summarized.
+    
+    Uses heuristics: message count threshold, token usage, thread length,
+    and probabilistic triggers via environment variables.
+    
+    Args:
+        thread_id: Thread to evaluate
+        upto_message_id: Last message ID to consider
+        token_in: Input tokens from latest API call
+        token_out: Output tokens from latest API call
+    
+    Returns True if summarization should occur.
+    """
     import random
     msgs = db_get_thread_messages(thread_id)
     latest = db_get_latest_summary(thread_id)
@@ -359,6 +414,10 @@ class ThreadImportRequest(BaseModel):
 # ---------- Optional auth gating ----------
 
 def _require_login_enabled() -> bool:
+    """Check if authentication is required for chat endpoints.
+    
+    Returns True if UI_REQUIRE_LOGIN env var is set to truthy value.
+    """
     try:
         import os
         return (os.getenv("UI_REQUIRE_LOGIN", "0").lower() in {"1","true","yes","on"})
@@ -367,6 +426,15 @@ def _require_login_enabled() -> bool:
 
 
 def _extract_token_from_request(request: Request) -> str | None:
+    """Extract session token from request query, header, or cookie.
+    
+    Checks: query param 'token', 'Authorization' header, 'fp_session' cookie.
+    
+    Args:
+        request: FastAPI request object
+    
+    Returns token string or None if not found.
+    """
     try:
         token = request.query_params.get("token")
         if token:
@@ -419,6 +487,11 @@ SETTINGS_STORE: Dict[int, Dict[str, Any]] = {}
 
 
 def _default_settings() -> Dict[str, Any]:
+    """Get default chat UI settings.
+    
+    Returns dict with theme, model tag display, timestamps, mode, and streaming options.
+    Developer mode toggles metadata panel and thinking display.
+    """
     import os
     dev = (os.getenv("DEV_MODE", "0").lower() in {"1", "true", "yes", "on"})
     return {
@@ -433,6 +506,16 @@ def _default_settings() -> Dict[str, Any]:
 
 
 def _get_user_settings(token: Optional[str]) -> Dict[str, Any]:
+    """Get merged user-specific or default chat settings.
+    
+    If token is valid and user has saved settings, returns those.
+    Otherwise returns default settings for all users.
+    
+    Args:
+        token: Optional session token to look up user
+    
+    Returns settings dict.
+    """
     user_id: Optional[int] = None
     if token:
         sess = validate_session_token(token)
