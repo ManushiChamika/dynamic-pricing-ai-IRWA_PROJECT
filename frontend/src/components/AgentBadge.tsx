@@ -2,6 +2,10 @@ import { useMemo } from 'react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip'
 
 const AGENT_COLORS: Record<string, { bg: string; text: string; icon: string }> = {
+  UI: { bg: 'bg-blue-500/20', text: 'text-blue-400', icon: '👤' },
+  Pricing: { bg: 'bg-purple-500/20', text: 'text-purple-400', icon: '🎯' },
+  Data: { bg: 'bg-green-500/20', text: 'text-green-400', icon: '📊' },
+  Alerts: { bg: 'bg-orange-500/20', text: 'text-orange-400', icon: '🔔' },
   UIA: { bg: 'bg-blue-500/20', text: 'text-blue-400', icon: '👤' },
   POA: { bg: 'bg-purple-500/20', text: 'text-purple-400', icon: '🎯' },
   DCA: { bg: 'bg-green-500/20', text: 'text-green-400', icon: '📊' },
@@ -13,6 +17,10 @@ const AGENT_COLORS: Record<string, { bg: string; text: string; icon: string }> =
 }
 
 const AGENT_DESCRIPTIONS: Record<string, string> = {
+  UI: 'User Interaction - Routes user requests and ensures safety',
+  Pricing: 'Price Optimization - Main orchestrator for pricing decisions',
+  Data: 'Data Collector - Gathers market and competitor data',
+  Alerts: 'Alert & Notification - Monitors system and sends notifications',
   UIA: 'User Interaction Agent - Routes user requests and ensures safety',
   POA: 'Price Optimization Agent - Main orchestrator for pricing decisions',
   DCA: 'Data Collector Agent - Gathers market and competitor data',
@@ -92,7 +100,7 @@ export function AgentBadge({ name, isActive = false, variant = 'pill' }: AgentBa
               inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium
               ${config.bg} ${config.text}
               border-2 transition-all duration-300
-              ${isActive ? 'border-current shadow-lg shadow-current/50' : 'border-current/30'}
+              ${isActive ? 'border-current shadow-lg shadow-current/50 agent-badge-active' : 'border-current/30 opacity-60'}
             `}
             aria-label={`${name} agent${isActive ? ' (active)' : ''}`}
           >

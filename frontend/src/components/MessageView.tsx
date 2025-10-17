@@ -185,6 +185,7 @@ export function MessageView({
   }, [m.id, m.content, m.role, streamingActive, currentId, refresh, del])
 
   const agentNames = m.agents?.activated || []
+  const showAgentBadges = m.role === 'assistant' && agentNames.length > 0
 
   return (
     <animated.div
@@ -197,9 +198,13 @@ export function MessageView({
       onMouseLeave={() => setHovered(false)}
       data-message-id={m.id}
     >
-      {agentNames.length ? (
-        <div style={{ marginBottom: 8 }}>
-          <AgentBadgeGroup agents={agentNames} activeAgent={liveActiveAgent} variant="pill" />
+      {showAgentBadges ? (
+        <div className="agent-badges-container">
+          <AgentBadgeGroup
+            agents={agentNames}
+            activeAgent={streamingActive ? liveActiveAgent : null}
+            variant="pill"
+          />
         </div>
       ) : null}
       {m.id === -1 ? (
