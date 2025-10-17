@@ -16,6 +16,7 @@ from core.chat_db import (
     delete_message as db_delete_message,
     update_thread as db_update_thread,
     delete_thread as db_delete_thread,
+    cleanup_empty_threads,
     SessionLocal,
     get_latest_summary as db_get_latest_summary,
     add_summary as db_add_summary,
@@ -40,6 +41,7 @@ from contextlib import asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     init_chat_db()
+    cleanup_empty_threads()
     yield
 
 app = FastAPI(title="FluxPricer Auth + Chat API", lifespan=lifespan)
@@ -973,8 +975,19 @@ async def api_prices_stream(sku: Optional[str] = None):
     import json
     import random
     import time
+    import sqlite3
 
-    symbols = [sku] if sku else ["SKU-1", "SKU-2", "SKU-3"]
+    if sku:
+        symbols = [sku]
+    else:
+        conn = sqlite3.connect('data/market.db')
+        cursor = conn.cursor()
+        cursor.execute('SELECT product_name FROM market_data LIMIT 50')
+        symbols = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        if not symbols:
+            symbols = ["SKU-1", "SKU-2", "SKU-3"]
+    
     bases = {s: 100.0 + random.random() * 10.0 for s in symbols}
 
     async def _aiter():

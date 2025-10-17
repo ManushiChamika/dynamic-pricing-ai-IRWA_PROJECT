@@ -63,7 +63,14 @@ export function ChatPane() {
   }, [])
 
   useEffect(() => {
-    if (currentId) refresh(currentId)
+    if (currentId) {
+      const isDraft = String(currentId).startsWith('draft_')
+      if (!isDraft) {
+        refresh(currentId)
+      } else {
+        useMessages.setState({ messages: [] })
+      }
+    }
   }, [currentId, refresh])
   useEffect(() => {
     useMessages.setState({ turnStats: null })
@@ -109,7 +116,7 @@ export function ChatPane() {
       handler: (e) => {
         if (e.ctrlKey && e.key.toLowerCase() === 'n') {
           e.preventDefault()
-          useThreads.getState().createThread()
+          useThreads.getState().createDraftThread()
         }
       },
     },
@@ -306,7 +313,7 @@ export function ChatPane() {
           ) : null}
         </div>
         <div className="flex gap-2 items-center">
-          {currentId && <SummaryIndicator threadId={currentId} />}
+          {currentId && typeof currentId === 'number' && <SummaryIndicator threadId={currentId} />}
           <Button
             variant="ghost"
             size="sm"
@@ -329,6 +336,13 @@ export function ChatPane() {
                   label: 'Rename',
                   onClick: () => {
                     if (!currentId) return
+                    const isDraft = String(currentId).startsWith('draft_')
+                    if (isDraft) {
+                      useToasts
+                        .getState()
+                        .push({ type: 'error', text: 'Cannot rename draft threads' })
+                      return
+                    }
                     const t =
                       useThreads.getState().threads.find((x) => x.id === currentId)?.title ||
                       `Thread #${currentId}`
@@ -337,18 +351,25 @@ export function ChatPane() {
                       defaultValue: t,
                       confirmText: 'Rename',
                       onSubmit: async (name) => {
-                        if (!name.trim()) return
+                        if (!name.trim() || typeof currentId !== 'number') return
                         await useThreads.getState().renameThread(currentId, name)
                         useToasts.getState().push({ type: 'success', text: 'Thread renamed' })
                       },
                     })
                   },
-                  disabled: !currentId || streamingActive,
+                  disabled: !currentId || streamingActive || String(currentId).startsWith('draft_'),
                 },
                 {
                   label: 'Delete',
                   onClick: () => {
                     if (!currentId) return
+                    const isDraft = String(currentId).startsWith('draft_')
+                    if (isDraft) {
+                      useToasts
+                        .getState()
+                        .push({ type: 'error', text: 'Cannot delete draft threads' })
+                      return
+                    }
                     const t =
                       useThreads.getState().threads.find((x) => x.id === currentId)?.title ||
                       `Thread #${currentId}`
@@ -357,12 +378,13 @@ export function ChatPane() {
                       description: `"${t}" will be permanently removed.`,
                       confirmText: 'Delete',
                       onConfirm: async () => {
+                        if (typeof currentId !== 'number') return
                         await useThreads.getState().deleteThread(currentId)
                         useToasts.getState().push({ type: 'success', text: 'Thread deleted' })
                       },
                     })
                   },
-                  disabled: !currentId || streamingActive,
+                  disabled: !currentId || streamingActive || String(currentId).startsWith('draft_'),
                 },
                 {
                   label: 'Toggle Theme',
@@ -373,6 +395,13 @@ export function ChatPane() {
                   label: 'Export',
                   onClick: async () => {
                     if (!currentId) return
+                    const isDraft = String(currentId).startsWith('draft_')
+                    if (isDraft) {
+                      useToasts
+                        .getState()
+                        .push({ type: 'error', text: 'Cannot export draft threads' })
+                      return
+                    }
                     const { ok, data } = await api(`/api/threads/${currentId}/export`)
                     if (ok && data) {
                       const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -387,7 +416,7 @@ export function ChatPane() {
                       useToasts.getState().push({ type: 'error', text: 'Export failed' })
                     }
                   },
-                  disabled: !currentId || streamingActive,
+                  disabled: !currentId || streamingActive || String(currentId).startsWith('draft_'),
                 },
                 {
                   label: 'Import',
@@ -414,22 +443,35 @@ export function ChatPane() {
         aria-label="Chat messages"
       >
         {currentId ? (
-          messages.length ? (
-            messages.map((m) => (
-              <MessageView
-                key={m.id + ':' + m.created_at}
-                m={m}
-                showModel={displaySettings.showModel}
-                showTimestamps={displaySettings.showTimestamps}
-                showMeta={displaySettings.showMeta}
-                allMessages={messages}
-              />
-            ))
-          ) : (
-            <div className="text-center py-12 px-6 text-muted text-base">
-              No messages yet. Say hello!
-            </div>
-          )
+          (() => {
+            const isDraft = String(currentId).startsWith('draft_')
+            return messages.length || isDraft ? (
+              <>
+                {isDraft && (
+                  <div className="text-center py-12 px-6 text-muted text-base">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-accent/20 text-accent border border-accent/30 mb-4">
+                      Draft conversation
+                    </div>
+                    <p>Start typing to begin a new conversation</p>
+                  </div>
+                )}
+                {messages.map((m) => (
+                  <MessageView
+                    key={m.id + ':' + m.created_at}
+                    m={m}
+                    showModel={displaySettings.showModel}
+                    showTimestamps={displaySettings.showTimestamps}
+                    showMeta={displaySettings.showMeta}
+                    allMessages={messages}
+                  />
+                ))}
+              </>
+            ) : (
+              <div className="text-center py-12 px-6 text-muted text-base">
+                No messages yet. Say hello!
+              </div>
+            )
+          })()
         ) : (
           <div className="text-center py-12 px-6 text-muted text-base">
             Select or create a thread to begin.
@@ -475,11 +517,11 @@ export function ChatPane() {
           <Button
             onClick={() => {
               if (currentId && input.trim()) {
-                send(currentId, input.trim(), 'user', streaming === 'sse')
+                send(currentId as any, input.trim(), 'user', streaming === 'sse')
                 setInput('')
               }
             }}
-            disabled={!currentId}
+            disabled={!currentId || !input.trim()}
             aria-label="Send message"
           >
             Send

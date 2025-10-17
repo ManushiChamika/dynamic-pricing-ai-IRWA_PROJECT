@@ -5,12 +5,11 @@ import { useThreadList, useCurrentThread, useThreadActions } from '../stores/thr
 import { useConfirm } from '../stores/confirmStore'
 import { useAuthUser, useAuthActions } from '../stores/authStore'
 import { useSettings } from '../stores/settingsStore'
-import { useToasts } from '../stores/toastStore'
 
 export function Sidebar() {
   const threads = useThreadList()
   const currentId = useCurrentThread()
-  const { setCurrent, refresh, createThread } = useThreadActions()
+  const { setCurrent, refresh, createDraftThread } = useThreadActions()
   const [collapsed, setCollapsed] = useState(localStorage.getItem('sidebarCollapsed') === '1')
   const user = useAuthUser()
   const { logout } = useAuthActions()
@@ -65,7 +64,11 @@ export function Sidebar() {
           >
             {collapsed ? '⮞' : '⮜'}
           </Button>
-          <Button onClick={() => createThread()} aria-label="Create new thread" className="flex-1">
+          <Button
+            onClick={() => createDraftThread()}
+            aria-label="Create new thread"
+            className="flex-1"
+          >
             + New Chat
           </Button>
         </div>

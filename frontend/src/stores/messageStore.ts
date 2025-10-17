@@ -23,12 +23,22 @@ export type Message = {
 
 type MessagesState = {
   messages: Message[]
-  refresh: (threadId: number) => Promise<void>
-  send: (threadId: number, content: string, user_name: string, stream: boolean) => Promise<void>
+  refresh: (threadId: number | string) => Promise<void>
+  send: (
+    threadId: number | string,
+    content: string,
+    user_name: string,
+    stream: boolean
+  ) => Promise<void>
   edit: (id: number, content: string) => Promise<void>
   del: (id: number) => Promise<void>
-  branch: (threadId: number, parentId: number, content: string, user_name: string) => Promise<void>
-  fork: (threadId: number, atMessage: Message, title: string) => Promise<number | null>
+  branch: (
+    threadId: number | string,
+    parentId: number,
+    content: string,
+    user_name: string
+  ) => Promise<void>
+  fork: (threadId: number | string, atMessage: Message, title: string) => Promise<number | null>
   streamingActive: boolean
   stop: () => void
   controller: AbortController | null
@@ -71,15 +81,32 @@ export const useMessages = create<MessagesState>((set, get) => ({
     if (ok && Array.isArray(data)) set({ messages: data })
   },
   send: async (threadId, content, user_name, stream) => {
+    const threadsState = useThreads.getState()
+    const isDraft = String(threadId).startsWith('draft_')
+
+    let actualThreadId: number = threadId as number
+
+    if (isDraft) {
+      const newThreadId = await threadsState.createThread('New Thread')
+      if (!newThreadId) {
+        useToasts.getState().push({ type: 'error', text: 'Failed to create thread' })
+        return
+      }
+      actualThreadId = newThreadId
+      threadsState.setCurrent(newThreadId)
+    } else {
+      actualThreadId = threadId as number
+    }
+
     if (!stream) {
-      await api(`/api/threads/${threadId}/messages`, {
+      await api(`/api/threads/${actualThreadId}/messages`, {
         method: 'POST',
         json: { content, user_name },
       })
-      await get().refresh(threadId)
+      await get().refresh(actualThreadId)
       return
     }
-    await get().refresh(threadId)
+    await get().refresh(actualThreadId)
     const live: Message = { id: -1, role: 'assistant', content: '' }
     set((s) => ({
       messages: [...s.messages, live],
@@ -90,7 +117,7 @@ export const useMessages = create<MessagesState>((set, get) => ({
       turnStats: null,
     }))
     const token = localStorage.getItem('token') || ''
-    const url = new URL(`/api/threads/${threadId}/messages/stream`, window.location.origin)
+    const url = new URL(`/api/threads/${actualThreadId}/messages/stream`, window.location.origin)
     if (token) url.searchParams.set('token', token)
     const ctrl = new AbortController()
     set({ controller: ctrl })
@@ -229,7 +256,7 @@ export const useMessages = create<MessagesState>((set, get) => ({
                       tools,
                     },
                   })
-                  await get().refresh(threadId)
+                  await get().refresh(actualThreadId)
                 }
               } catch {
                 /* ignore invalid JSON */
@@ -243,7 +270,7 @@ export const useMessages = create<MessagesState>((set, get) => ({
       // AbortError or network error - ignore
     } finally {
       set({ controller: null, streamingActive: false, liveActiveAgent: null, liveTool: null })
-      await get().refresh(threadId)
+      await get().refresh(actualThreadId)
     }
   },
   edit: async (id, content) => {
@@ -260,21 +287,23 @@ export const useMessages = create<MessagesState>((set, get) => ({
       }
     }
     const tid = useThreads.getState().currentId
-    if (tid) await get().refresh(tid)
+    if (tid && typeof tid === 'number') await get().refresh(tid)
   },
   del: async (id) => {
     set((s) => ({ messages: s.messages.filter((x) => x.id !== id) }))
     await api(`/api/messages/${id}`, { method: 'DELETE' })
     const tid = useThreads.getState().currentId
-    if (tid) await get().refresh(tid)
+    if (tid && typeof tid === 'number') await get().refresh(tid)
   },
   branch: async (threadId, parentId, content, user_name) => {
+    if (typeof threadId !== 'number') return
     await api(`/api/threads/${threadId}/messages`, {
       method: 'POST',
       json: { content, user_name, parent_id: parentId },
     })
   },
   fork: async (threadId, atMessage, title) => {
+    if (typeof threadId !== 'number') return null
     const { ok, data } = await api(`/api/threads/${threadId}/messages`)
     if (!ok || !Array.isArray(data)) return null
     const subset = data.filter((x: Message) => x.id <= atMessage.id)

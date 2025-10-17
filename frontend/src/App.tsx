@@ -339,7 +339,7 @@ import { useMessages, type Message } from './stores/messageStore'
 
 // --- UI Components
 function Sidebar() {
-  const { threads, currentId, setCurrent, refresh, createThread } = useThreads()
+  const { threads, currentId, setCurrent, refresh, createDraftThread } = useThreads()
   const [collapsed, setCollapsed] = useState(localStorage.getItem('sidebarCollapsed') === '1')
   const auth = useAuth()
 
@@ -393,7 +393,11 @@ function Sidebar() {
           >
             {collapsed ? '⮞' : '⮜'}
           </Button>
-          <Button onClick={() => createThread()} aria-label="Create new thread" style={{ flex: 1 }}>
+          <Button
+            onClick={() => createDraftThread()}
+            aria-label="Create new thread"
+            style={{ flex: 1 }}
+          >
             + New Chat
           </Button>
         </div>
@@ -1010,7 +1014,7 @@ function ChatPane() {
       // Ctrl+N new thread
       if (e.ctrlKey && e.key.toLowerCase() === 'n') {
         e.preventDefault()
-        useThreads.getState().createThread()
+        useThreads.getState().createDraftThread()
         return
       }
       if (inInput) {
@@ -1184,7 +1188,7 @@ function ChatPane() {
           ) : null}
         </div>
         <div className="flex gap-2 items-center">
-          {currentId && <SummaryIndicator threadId={currentId} />}
+          {currentId && typeof currentId === 'number' && <SummaryIndicator threadId={currentId} />}
           <Button
             variant="ghost"
             size="sm"
@@ -1206,7 +1210,7 @@ function ChatPane() {
                 defaultValue: t,
                 confirmText: 'Rename',
                 onSubmit: async (name) => {
-                  if (!name.trim()) return
+                  if (!name.trim() || typeof currentId !== 'number') return
                   await useThreads.getState().renameThread(currentId, name)
                   useToasts.getState().push({ type: 'success', text: 'Thread renamed' })
                 },
@@ -1230,6 +1234,7 @@ function ChatPane() {
                 description: `"${t}" will be permanently removed.`,
                 confirmText: 'Delete',
                 onConfirm: async () => {
+                  if (typeof currentId !== 'number') return
                   await useThreads.getState().deleteThread(currentId)
                   useToasts.getState().push({ type: 'success', text: 'Thread deleted' })
                 },
