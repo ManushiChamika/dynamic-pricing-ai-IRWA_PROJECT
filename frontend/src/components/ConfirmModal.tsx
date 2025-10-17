@@ -1,4 +1,13 @@
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert-dialog'
 import { useConfirm } from '../stores/confirmStore'
 import { useToasts } from '../stores/toastStore'
 
@@ -19,7 +28,10 @@ export function ConfirmModal() {
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={(isOpen) => !isOpen && !busy && useConfirm.getState().close()}>
+    <AlertDialog
+      open={open}
+      onOpenChange={(isOpen) => !isOpen && !busy && useConfirm.getState().close()}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
@@ -27,7 +39,9 @@ export function ConfirmModal() {
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={busy}>{cancelText}</AlertDialogCancel>
-          <AlertDialogAction onClick={handleConfirm} disabled={busy}>{confirmText}</AlertDialogAction>
+          <AlertDialogAction onClick={handleConfirm} disabled={busy}>
+            {confirmText}
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

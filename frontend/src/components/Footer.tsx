@@ -36,7 +36,8 @@ export function Footer() {
               <span className="text-2xl font-bold">FluxPricer</span>
             </div>
             <p className={`${textMuted} mb-6 max-w-sm leading-relaxed`}>
-              AI-powered dynamic pricing platform that helps businesses optimize pricing strategies in real-time through natural language control and intelligent market analysis.
+              AI-powered dynamic pricing platform that helps businesses optimize pricing strategies
+              in real-time through natural language control and intelligent market analysis.
             </p>
             <div className="flex items-center gap-4">
               <a
@@ -66,11 +67,7 @@ export function Footer() {
               >
                 <Twitter className="h-5 w-5" />
               </a>
-              <a
-                href="mailto:support@fluxpricer.com"
-                className={linkStyle}
-                aria-label="Email"
-              >
+              <a href="mailto:support@fluxpricer.com" className={linkStyle} aria-label="Email">
                 <Mail className="h-5 w-5" />
               </a>
             </div>
@@ -112,19 +109,13 @@ export function Footer() {
               </div>
               <div className="flex items-center gap-2">
                 <Mail className={`h-5 w-5 ${textMuted}`} />
-                <a 
-                  href="mailto:support@fluxpricer.com"
-                  className={`text-sm ${linkStyle}`}
-                >
+                <a href="mailto:support@fluxpricer.com" className={`text-sm ${linkStyle}`}>
                   support@fluxpricer.com
                 </a>
               </div>
               <div className="flex items-center gap-2">
                 <Phone className={`h-5 w-5 ${textMuted}`} />
-                <a 
-                  href="tel:+18005551234"
-                  className={`text-sm ${linkStyle}`}
-                >
+                <a href="tel:+18005551234" className={`text-sm ${linkStyle}`}>
                   +1 (800) 555-1234
                 </a>
               </div>
@@ -145,20 +136,16 @@ export function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className={`mt-12 pt-8 border-t ${isDark ? 'border-white/10' : 'border-slate-200'} flex flex-col md:flex-row justify-between items-center gap-4`}>
+        <div
+          className={`mt-12 pt-8 border-t ${isDark ? 'border-white/10' : 'border-slate-200'} flex flex-col md:flex-row justify-between items-center gap-4`}
+        >
           <p className={`text-sm ${textMuted}`}>
             &copy; {currentYear} FluxPricer. All rights reserved.
           </p>
           <div className="flex items-center gap-6">
-            <span className={`text-sm ${linkStyle}`}>
-              Privacy Policy
-            </span>
-            <span className={`text-sm ${linkStyle}`}>
-              Terms of Service
-            </span>
-            <span className={`text-sm ${linkStyle}`}>
-              Cookie Policy
-            </span>
+            <span className={`text-sm ${linkStyle}`}>Privacy Policy</span>
+            <span className={`text-sm ${linkStyle}`}>Terms of Service</span>
+            <span className={`text-sm ${linkStyle}`}>Cookie Policy</span>
           </div>
         </div>
       </div>

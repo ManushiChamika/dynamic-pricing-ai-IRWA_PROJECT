@@ -15,7 +15,9 @@ export function Navigation() {
   const linkClasses = (path: string) => {
     const base = 'text-base font-medium transition-colors'
     const active = isDark ? 'text-indigo-300' : 'text-indigo-700'
-    const inactive = isDark ? 'text-gray-300 hover:text-white' : 'text-slate-700 hover:text-slate-900'
+    const inactive = isDark
+      ? 'text-gray-300 hover:text-white'
+      : 'text-slate-700 hover:text-slate-900'
 
     return `${base} ${isActive(path) ? active : inactive}`
   }
@@ -23,7 +25,9 @@ export function Navigation() {
   return (
     <nav
       className={`fixed top-0 left-0 right-0 z-50 border-b app-nav-surface backdrop-blur-lg transition-colors ${
-        isDark ? 'shadow-[0_10px_30px_rgba(0,0,0,0.35)]' : 'shadow-[0_18px_40px_rgba(15,23,42,0.12)]'
+        isDark
+          ? 'shadow-[0_10px_30px_rgba(0,0,0,0.35)]'
+          : 'shadow-[0_18px_40px_rgba(15,23,42,0.12)]'
       }`}
     >
       <div className="container mx-auto flex items-center gap-6 px-6 py-5">
@@ -51,10 +55,16 @@ export function Navigation() {
             <span onClick={() => navigate('/')} className={`${linkClasses('/')} cursor-pointer`}>
               Home
             </span>
-            <span onClick={() => navigate('/pricing')} className={`${linkClasses('/pricing')} cursor-pointer`}>
+            <span
+              onClick={() => navigate('/pricing')}
+              className={`${linkClasses('/pricing')} cursor-pointer`}
+            >
               Pricing
             </span>
-            <span onClick={() => navigate('/contact')} className={`${linkClasses('/contact')} cursor-pointer`}>
+            <span
+              onClick={() => navigate('/contact')}
+              className={`${linkClasses('/contact')} cursor-pointer`}
+            >
               Contact Us
             </span>
           </div>
@@ -78,7 +88,10 @@ export function Navigation() {
           >
             Sign In
           </Button>
-          <Button onClick={() => navigate('/auth?mode=signup')} className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0">
+          <Button
+            onClick={() => navigate('/auth?mode=signup')}
+            className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0"
+          >
             Get Started
           </Button>
         </div>

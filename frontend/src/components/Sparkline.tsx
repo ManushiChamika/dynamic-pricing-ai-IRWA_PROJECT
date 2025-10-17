@@ -1,7 +1,15 @@
 import React from 'react'
 import { useSpring, animated } from '@react-spring/web'
 
-export function Sparkline({ values, width = 120, height = 28 }: { values: number[]; width?: number; height?: number }) {
+export function Sparkline({
+  values,
+  width = 120,
+  height = 28,
+}: {
+  values: number[]
+  width?: number
+  height?: number
+}) {
   const pad = 2
   const w = width
   const h = height
@@ -9,7 +17,7 @@ export function Sparkline({ values, width = 120, height = 28 }: { values: number
   const pathLength = useSpring({
     from: { strokeDashoffset: 200 },
     to: { strokeDashoffset: 0 },
-    config: { duration: 800 }
+    config: { duration: 800 },
   })
 
   if (!values.length) return <svg width={w} height={h} />

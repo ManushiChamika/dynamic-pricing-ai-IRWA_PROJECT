@@ -3,11 +3,13 @@ import { Button } from './ui/button'
 import { useSettings, type Settings } from '../stores/settingsStore'
 import { api } from '../lib/apiClient'
 
-const SettingsModal = lazy(() => import('./SettingsModal').then(m => ({ default: m.SettingsModal })))
+const SettingsModal = lazy(() =>
+  import('./SettingsModal').then((m) => ({ default: m.SettingsModal }))
+)
 
 export function SettingsButton() {
   const [open, setOpen] = useState(false)
-  const s = useSettings()
+  const s = useSettings((state) => state)
   const update = async (partial: Partial<Settings>) => {
     useSettings.setState(partial as any)
     const token = localStorage.getItem('token') || ''
@@ -32,16 +34,18 @@ export function SettingsButton() {
     }
   }
   return (
-      <>
-        <Button variant="ghost" size="sm" onClick={() => setOpen(true)} aria-label="Open settings">Settings</Button>
-        <Suspense fallback={null}>
-          <SettingsModal 
-            open={open} 
-            onOpenChange={setOpen}
-            settings={s as any}
-            onSettingsChange={(newSettings) => update(newSettings)}
-          />
-        </Suspense>
-      </>
+    <>
+      <Button variant="ghost" size="sm" onClick={() => setOpen(true)} aria-label="Open settings">
+        Settings
+      </Button>
+      <Suspense fallback={null}>
+        <SettingsModal
+          open={open}
+          onOpenChange={setOpen}
+          settings={s as any}
+          onSettingsChange={(newSettings) => update(newSettings)}
+        />
+      </Suspense>
+    </>
   )
 }

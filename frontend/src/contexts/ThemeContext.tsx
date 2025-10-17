@@ -25,7 +25,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [theme])
 
   const toggleTheme = () => {
-    setThemeState(prev => prev === 'dark' ? 'light' : 'dark')
+    setThemeState((prev) => (prev === 'dark' ? 'light' : 'dark'))
   }
 
   const setTheme = (newTheme: Theme) => {

@@ -28,7 +28,9 @@ export function useCreateThread() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (title: string) => fetcher('/api/threads', { method: 'POST', json: { title } }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['threads'] }) },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['threads'] })
+    },
   })
 }
 
@@ -36,7 +38,9 @@ export function useDeleteThread() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: number) => fetcher(`/api/threads/${id}`, { method: 'DELETE' }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['threads'] }) },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['threads'] })
+    },
   })
 }
 

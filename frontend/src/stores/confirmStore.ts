@@ -18,7 +18,7 @@ export const useConfirm = create<{
   onConfirm: (() => void | Promise<void>) | null
   openConfirm: (opts: ConfirmOpts) => void
   close: () => void
-}>(set => ({
+}>((set) => ({
   open: false,
   title: 'Are you sure?',
   description: 'This action cannot be undone.',
@@ -26,14 +26,15 @@ export const useConfirm = create<{
   cancelText: 'Cancel',
   busy: false,
   onConfirm: null,
-  openConfirm: (opts) => set({
-    open: true,
-    title: opts.title || 'Are you sure?',
-    description: opts.description || 'This action cannot be undone.',
-    confirmText: opts.confirmText || 'Confirm',
-    cancelText: opts.cancelText || 'Cancel',
-    onConfirm: opts.onConfirm,
-    busy: false,
-  }),
-  close: () => set({ open: false, busy: false })
+  openConfirm: (opts) =>
+    set({
+      open: true,
+      title: opts.title || 'Are you sure?',
+      description: opts.description || 'This action cannot be undone.',
+      confirmText: opts.confirmText || 'Confirm',
+      cancelText: opts.cancelText || 'Cancel',
+      onConfirm: opts.onConfirm,
+      busy: false,
+    }),
+  close: () => set({ open: false, busy: false }),
 }))

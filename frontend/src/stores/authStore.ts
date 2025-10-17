@@ -6,7 +6,11 @@ export type AuthState = {
   user: any | null
   setToken: (t: string | null) => void
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>
-  register: (email: string, password: string, username?: string) => Promise<{ ok: boolean; error?: string }>
+  register: (
+    email: string,
+    password: string,
+    username?: string
+  ) => Promise<{ ok: boolean; error?: string }>
   logout: () => Promise<void>
   fetchMe: () => Promise<{ ok: boolean; error?: string }>
 }
@@ -15,7 +19,8 @@ export const useAuth = create<AuthState>((set, get) => ({
   token: localStorage.getItem('token'),
   user: null,
   setToken: (t) => {
-    if (t) localStorage.setItem('token', t); else localStorage.removeItem('token')
+    if (t) localStorage.setItem('token', t)
+    else localStorage.removeItem('token')
     set({ token: t })
   },
   login: async (email, password) => {
@@ -25,7 +30,8 @@ export const useAuth = create<AuthState>((set, get) => ({
       set({ user: res.data.user || null })
       return { ok: true }
     }
-    const error = (res.data && (res.data.detail || res.data.error)) || `Login failed (${res.status})`
+    const error =
+      (res.data && (res.data.detail || res.data.error)) || `Login failed (${res.status})`
     return { ok: false, error }
   },
   register: async (email, password, username) => {
@@ -35,7 +41,8 @@ export const useAuth = create<AuthState>((set, get) => ({
       set({ user: res.data.user || null })
       return { ok: true }
     }
-    const error = (res.data && (res.data.detail || res.data.error)) || `Register failed (${res.status})`
+    const error =
+      (res.data && (res.data.detail || res.data.error)) || `Register failed (${res.status})`
     return { ok: false, error }
   },
   logout: async () => {
@@ -48,8 +55,25 @@ export const useAuth = create<AuthState>((set, get) => ({
     const t = get().token || localStorage.getItem('token')
     if (!t) return { ok: false, error: 'No token' }
     const res = await api('/api/me')
-    if (res.ok && res.data?.user) { set({ user: res.data.user }); return { ok: true } }
-    const error = (res.data && (res.data.detail || res.data.error)) || `Auth check failed (${res.status})`
+    if (res.ok && res.data?.user) {
+      set({ user: res.data.user })
+      return { ok: true }
+    }
+    const error =
+      (res.data && (res.data.detail || res.data.error)) || `Auth check failed (${res.status})`
     return { ok: false, error }
-  }
+  },
 }))
+
+export const useAuthToken = () => useAuth((state) => state.token)
+
+export const useAuthUser = () => useAuth((state) => state.user)
+
+export const useAuthActions = () =>
+  useAuth((state) => ({
+    login: state.login,
+    register: state.register,
+    logout: state.logout,
+    fetchMe: state.fetchMe,
+    setToken: state.setToken,
+  }))

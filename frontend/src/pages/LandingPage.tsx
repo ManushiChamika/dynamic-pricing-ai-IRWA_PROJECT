@@ -14,7 +14,9 @@ export function LandingPage() {
   const mutedText = isDark ? 'text-gray-400' : 'text-slate-700'
   const softMutedText = isDark ? 'text-gray-500' : 'text-slate-600'
   const sectionBackdrop = isDark ? 'bg-[#1E293B]/30' : 'bg-slate-100'
-  const gradientOverlay = isDark ? 'from-indigo-500/10 via-transparent to-purple-500/10' : 'from-indigo-400/15 via-transparent to-purple-300/10'
+  const gradientOverlay = isDark
+    ? 'from-indigo-500/10 via-transparent to-purple-500/10'
+    : 'from-indigo-400/15 via-transparent to-purple-300/10'
   const dottedOverlay = isDark
     ? 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)'
     : 'radial-gradient(circle at 1px 1px, rgba(79,70,229,0.08) 1px, transparent 0)'
@@ -27,35 +29,46 @@ export function LandingPage() {
     : 'relative rounded-2xl border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.12)]'
 
   const howItWorksCard = (color: 'indigo' | 'purple' | 'pink' | 'emerald') => {
-    const palette: Record<typeof color, { card: string; hover: string; dot: string; shadow: string; hoverShadow: string }> = {
+    const palette: Record<
+      typeof color,
+      { card: string; hover: string; dot: string; shadow: string; hoverShadow: string }
+    > = {
       indigo: {
         card: isDark ? 'from-indigo-500/5' : 'from-indigo-50',
         hover: isDark ? 'hover:border-indigo-500/50' : 'hover:border-indigo-500/40',
         dot: isDark ? 'from-indigo-500 to-indigo-600' : 'from-indigo-500 to-indigo-600',
         shadow: isDark ? 'shadow-indigo-500/25' : 'shadow-indigo-500/30',
-        hoverShadow: isDark ? 'hover:shadow-lg hover:shadow-indigo-500/10' : 'hover:shadow-[0_24px_55px_rgba(79,70,229,0.15)]'
+        hoverShadow: isDark
+          ? 'hover:shadow-lg hover:shadow-indigo-500/10'
+          : 'hover:shadow-[0_24px_55px_rgba(79,70,229,0.15)]',
       },
       purple: {
         card: isDark ? 'from-purple-500/5' : 'from-purple-50',
         hover: isDark ? 'hover:border-purple-500/50' : 'hover:border-purple-500/40',
         dot: 'from-purple-500 to-purple-600',
         shadow: isDark ? 'shadow-purple-500/25' : 'shadow-purple-500/30',
-        hoverShadow: isDark ? 'hover:shadow-lg hover:shadow-purple-500/10' : 'hover:shadow-[0_24px_55px_rgba(147,51,234,0.16)]'
+        hoverShadow: isDark
+          ? 'hover:shadow-lg hover:shadow-purple-500/10'
+          : 'hover:shadow-[0_24px_55px_rgba(147,51,234,0.16)]',
       },
       pink: {
         card: isDark ? 'from-pink-500/5' : 'from-pink-50',
         hover: isDark ? 'hover:border-pink-500/50' : 'hover:border-pink-500/40',
         dot: 'from-pink-500 to-pink-600',
         shadow: isDark ? 'shadow-pink-500/25' : 'shadow-pink-500/30',
-        hoverShadow: isDark ? 'hover:shadow-lg hover:shadow-pink-500/10' : 'hover:shadow-[0_24px_55px_rgba(236,72,153,0.14)]'
+        hoverShadow: isDark
+          ? 'hover:shadow-lg hover:shadow-pink-500/10'
+          : 'hover:shadow-[0_24px_55px_rgba(236,72,153,0.14)]',
       },
       emerald: {
         card: isDark ? 'from-emerald-500/5' : 'from-emerald-50',
         hover: isDark ? 'hover:border-emerald-500/50' : 'hover:border-emerald-500/40',
         dot: 'from-emerald-500 to-emerald-600',
         shadow: isDark ? 'shadow-emerald-500/25' : 'shadow-emerald-500/30',
-        hoverShadow: isDark ? 'hover:shadow-lg hover:shadow-emerald-500/10' : 'hover:shadow-[0_24px_55px_rgba(16,185,129,0.14)]'
-      }
+        hoverShadow: isDark
+          ? 'hover:shadow-lg hover:shadow-emerald-500/10'
+          : 'hover:shadow-[0_24px_55px_rgba(16,185,129,0.14)]',
+      },
     }
 
     return palette[color]
@@ -72,18 +85,20 @@ export function LandingPage() {
             className="absolute inset-0"
             style={{
               backgroundImage: dottedOverlay,
-              backgroundSize: '40px 40px'
+              backgroundSize: '40px 40px',
             }}
           />
-          
+
           <div className="container mx-auto relative z-10">
             <div className="mx-auto max-w-4xl text-center">
               <div className="mb-8 inline-block">
-                <span className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium ${
-                  isDark
-                    ? 'border-indigo-500/20 bg-indigo-500/10 text-indigo-300'
-                    : 'border-indigo-500/30 bg-white/80 text-indigo-700 shadow-[0_10px_25px_rgba(79,70,229,0.12)]'
-                }`}>
+                <span
+                  className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium ${
+                    isDark
+                      ? 'border-indigo-500/20 bg-indigo-500/10 text-indigo-300'
+                      : 'border-indigo-500/30 bg-white/80 text-indigo-700 shadow-[0_10px_25px_rgba(79,70,229,0.12)]'
+                  }`}
+                >
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
@@ -91,18 +106,21 @@ export function LandingPage() {
                   AI-Powered Pricing Platform
                 </span>
               </div>
-              
+
               <h1 className="mb-8 text-5xl font-extrabold leading-tight tracking-tight md:text-6xl lg:text-7xl">
                 Dynamic Pricing Made{' '}
                 <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
                   Simple
                 </span>
               </h1>
-              
-              <p className={`mb-12 text-xl md:text-2xl leading-relaxed max-w-3xl mx-auto ${mutedText}`}>
-                Let AI agents optimize your pricing in real-time. Control everything through natural language—no coding required.
+
+              <p
+                className={`mb-12 text-xl md:text-2xl leading-relaxed max-w-3xl mx-auto ${mutedText}`}
+              >
+                Let AI agents optimize your pricing in real-time. Control everything through natural
+                language—no coding required.
               </p>
-              
+
               <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center mb-12">
                 <Button
                   className="text-lg h-14 px-10 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0 shadow-[0_18px_40px_rgba(79,70,229,0.25)]"
@@ -113,7 +131,9 @@ export function LandingPage() {
                 </Button>
                 <Button
                   className={secondaryCta}
-                  onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
+                  onClick={() =>
+                    document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })
+                  }
                 >
                   Learn More
                 </Button>
@@ -122,19 +142,31 @@ export function LandingPage() {
               <div className={`flex items-center justify-center gap-8 text-sm ${softMutedText}`}>
                 <div className="flex items-center gap-2">
                   <svg className="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                   <span>No credit card</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <svg className="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                   <span>14-day free trial</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <svg className="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                   <span>Cancel anytime</span>
                 </div>
@@ -145,9 +177,9 @@ export function LandingPage() {
               <div className="flex items-end gap-6">
                 {/* Robot Image - Left Side */}
                 <div className="flex-shrink-0 w-80">
-                  <img 
-                    src="/robot-mascot.png" 
-                    alt="FluxPricer AI Assistant" 
+                  <img
+                    src="/robot-mascot.png"
+                    alt="FluxPricer AI Assistant"
                     className="w-full h-auto object-contain"
                     style={{ marginBottom: '-80px' }}
                   />
@@ -162,7 +194,9 @@ export function LandingPage() {
                         : 'border-slate-200 bg-white/95 shadow-[0_24px_60px_rgba(15,23,42,0.18)]'
                     }`}
                   >
-                    <div className={`rounded-lg p-8 border ${isDark ? 'bg-[#1E293B] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                    <div
+                      className={`rounded-lg p-8 border ${isDark ? 'bg-[#1E293B] border-white/5' : 'bg-slate-50 border-slate-200'}`}
+                    >
                       <div className="flex items-center gap-2 mb-6">
                         <div className="h-3 w-3 rounded-full bg-red-500"></div>
                         <div className="h-3 w-3 rounded-full bg-yellow-500"></div>
@@ -171,11 +205,16 @@ export function LandingPage() {
                       <div className="space-y-4 text-left font-mono text-sm">
                         <div className="flex items-start gap-3">
                           <span className="text-indigo-500 font-semibold">You:</span>
-                          <span className={isDark ? 'text-gray-300' : 'text-slate-700'}>Show me pricing for laptops under $1000</span>
+                          <span className={isDark ? 'text-gray-300' : 'text-slate-700'}>
+                            Show me pricing for laptops under $1000
+                          </span>
                         </div>
                         <div className="flex items-start gap-3">
                           <span className="text-purple-500 font-semibold">AI:</span>
-                          <span className={mutedText}>Analyzing 47 laptops... Found 3 competitors pricing below you. Recommend 8% decrease on Dell models.</span>
+                          <span className={mutedText}>
+                            Analyzing 47 laptops... Found 3 competitors pricing below you. Recommend
+                            8% decrease on Dell models.
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -186,7 +225,7 @@ export function LandingPage() {
           </div>
         </section>
 
-  <section id="features" className={`px-6 py-24 ${sectionBackdrop} relative overflow-hidden`}>
+        <section id="features" className={`px-6 py-24 ${sectionBackdrop} relative overflow-hidden`}>
           <div className="container mx-auto relative z-10">
             <div className="text-center mb-16">
               <h2 className="text-4xl font-bold mb-4">Powerful Features</h2>
@@ -208,7 +247,8 @@ export function LandingPage() {
                 </div>
                 <h3 className="mb-3 text-xl font-bold">Natural Language Control</h3>
                 <p className={`${mutedText} leading-relaxed`}>
-                  Chat with AI agents to adjust pricing strategies, set rules, and analyze market conditions—no code required.
+                  Chat with AI agents to adjust pricing strategies, set rules, and analyze market
+                  conditions—no code required.
                 </p>
               </div>
 
@@ -224,7 +264,8 @@ export function LandingPage() {
                 </div>
                 <h3 className="mb-3 text-xl font-bold">Real-Time Market Intelligence</h3>
                 <p className={`${mutedText} leading-relaxed`}>
-                  Automated data collection from competitor sites, APIs, and search engines keeps you ahead of market changes.
+                  Automated data collection from competitor sites, APIs, and search engines keeps
+                  you ahead of market changes.
                 </p>
               </div>
 
@@ -240,14 +281,15 @@ export function LandingPage() {
                 </div>
                 <h3 className="mb-3 text-xl font-bold">Smart Alerts & Notifications</h3>
                 <p className={`${mutedText} leading-relaxed`}>
-                  Get notified via email, Slack, or SMS when market conditions change or opportunities arise.
+                  Get notified via email, Slack, or SMS when market conditions change or
+                  opportunities arise.
                 </p>
               </div>
             </div>
           </div>
         </section>
 
-  <section className="px-6 py-24 relative overflow-hidden">
+        <section className="px-6 py-24 relative overflow-hidden">
           <div className="container mx-auto max-w-5xl relative z-10">
             <div className="text-center mb-16">
               <h2 className="text-4xl font-bold mb-4">How It Works</h2>
@@ -256,16 +298,19 @@ export function LandingPage() {
 
             <div className="relative">
               {/* Robot Image - Right Side, Above Step 2 */}
-              <div className="hidden md:block absolute z-0" style={{ top: '-20rem', right: '-8rem' }}>
-                <img 
-                  src="/robot-mascot1.png" 
-                  alt="AI Robot" 
+              <div
+                className="hidden md:block absolute z-0"
+                style={{ top: '-20rem', right: '-8rem' }}
+              >
+                <img
+                  src="/robot-mascot1.png"
+                  alt="AI Robot"
                   className="object-contain"
                   style={{ width: '37rem', height: '36rem', opacity: 0.95 }}
                 />
               </div>
               <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-indigo-500 via-purple-500 to-pink-500 hidden md:block" />
-              
+
               <div className="space-y-12">
                 {(() => {
                   const steps = [
@@ -300,7 +345,10 @@ export function LandingPage() {
                       ? `border-white/10 bg-gradient-to-br ${palette.card} to-transparent`
                       : 'border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.12)]'
                     return (
-                      <div key={step.num} className={`flex gap-8 items-center ${idx % 2 === 1 ? 'md:flex-row-reverse' : ''}`}>
+                      <div
+                        key={step.num}
+                        className={`flex gap-8 items-center ${idx % 2 === 1 ? 'md:flex-row-reverse' : ''}`}
+                      >
                         <div className="flex-1 text-center md:text-right">
                           <div
                             className={`inline-block rounded-2xl border p-6 transition-all ${cardSurface} ${palette.hover} ${palette.hoverShadow}`}
@@ -309,7 +357,9 @@ export function LandingPage() {
                             <p className={mutedText}>{step.desc}</p>
                           </div>
                         </div>
-                        <div className={`relative z-10 flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${palette.dot} text-2xl font-bold shadow-lg ${palette.shadow}`}>
+                        <div
+                          className={`relative z-10 flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${palette.dot} text-2xl font-bold shadow-lg ${palette.shadow}`}
+                        >
                           {step.num}
                         </div>
                         <div className="flex-1" />
@@ -322,9 +372,13 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className={`px-6 py-24 bg-gradient-to-br ${
-          isDark ? 'from-indigo-500/10 via-purple-500/10 to-pink-500/10' : 'from-indigo-100 via-purple-100 to-pink-100'
-        }`}>
+        <section
+          className={`px-6 py-24 bg-gradient-to-br ${
+            isDark
+              ? 'from-indigo-500/10 via-purple-500/10 to-pink-500/10'
+              : 'from-indigo-100 via-purple-100 to-pink-100'
+          }`}
+        >
           <div className="container mx-auto max-w-4xl text-center">
             <h2 className="text-4xl font-bold mb-6">Ready to Transform Your Pricing?</h2>
             <p className={`text-xl ${mutedText} mb-10 max-w-2xl mx-auto`}>

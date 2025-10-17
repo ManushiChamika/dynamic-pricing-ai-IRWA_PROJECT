@@ -18,7 +18,7 @@ export const usePrompt = create<{
   onSubmit: ((v: string) => void | Promise<void>) | null
   openPrompt: (opts: PromptOpts) => void
   close: () => void
-}>(set => ({
+}>((set) => ({
   open: false,
   title: '',
   value: '',
@@ -26,14 +26,15 @@ export const usePrompt = create<{
   confirmText: 'OK',
   submitting: false,
   onSubmit: null,
-  openPrompt: (opts) => set({
-    open: true,
-    title: opts.title,
-    value: opts.defaultValue || '',
-    textarea: !!opts.textarea,
-    confirmText: opts.confirmText || 'OK',
-    onSubmit: opts.onSubmit || null,
-    submitting: false
-  }),
-  close: () => set({ open: false, submitting: false })
+  openPrompt: (opts) =>
+    set({
+      open: true,
+      title: opts.title,
+      value: opts.defaultValue || '',
+      textarea: !!opts.textarea,
+      confirmText: opts.confirmText || 'OK',
+      onSubmit: opts.onSubmit || null,
+      submitting: false,
+    }),
+  close: () => set({ open: false, submitting: false }),
 }))

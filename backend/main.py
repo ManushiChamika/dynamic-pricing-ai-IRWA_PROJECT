@@ -513,8 +513,13 @@ def api_update_settings(req: UpdateSettingsRequest):
 # ---------- Chat Endpoints ----------
 
 @app.post("/api/threads", response_model=ThreadOut)
-def api_create_thread(req: CreateThreadRequest):
-    t = db_create_thread(title=req.title)
+def api_create_thread(req: CreateThreadRequest, token: Optional[str] = None):
+    owner_id = None
+    if token:
+        sess = validate_session_token(token)
+        if sess:
+            owner_id = sess["user_id"]
+    t = db_create_thread(title=req.title, owner_id=owner_id)
     return ThreadOut(id=t.id, title=t.title, created_at=t.created_at.isoformat())
 
 
@@ -623,8 +628,13 @@ def api_import_thread(req: ThreadImportRequest):
 
 
 @app.get("/api/threads", response_model=List[ThreadOut])
-def api_list_threads():
-    rows = db_list_threads()
+def api_list_threads(token: Optional[str] = None):
+    owner_id = None
+    if token:
+        sess = validate_session_token(token)
+        if sess:
+            owner_id = sess["user_id"]
+    rows = db_list_threads(owner_id=owner_id)
     return [ThreadOut(id=t.id, title=t.title, created_at=t.created_at.isoformat()) for t in rows]
 
 

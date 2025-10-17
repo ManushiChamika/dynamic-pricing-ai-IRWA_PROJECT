@@ -1,22 +1,22 @@
-import { useMemo } from 'react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { useMemo } from 'react'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip'
 
 export type Message = {
-  id: number;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  created_at?: string;
-  parent_id?: number | null;
-  [key: string]: any;
-};
+  id: number
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  created_at?: string
+  parent_id?: number | null
+  [key: string]: any
+}
 
 interface BranchInfo {
-  hasChildren: boolean;
-  childCount: number;
-  children: Message[];
-  siblingIndex: number;
-  siblingCount: number;
-  siblings: Message[];
+  hasChildren: boolean
+  childCount: number
+  children: Message[]
+  siblingIndex: number
+  siblingCount: number
+  siblings: Message[]
 }
 
 /**
@@ -24,42 +24,42 @@ interface BranchInfo {
  */
 export function analyzeBranches(messages: Message[], currentMessageId: number): BranchInfo {
   // Find children of current message
-  const children = messages.filter(m => m.parent_id === currentMessageId);
-  
+  const children = messages.filter((m) => m.parent_id === currentMessageId)
+
   // Find current message
-  const current = messages.find(m => m.id === currentMessageId);
-  
+  const current = messages.find((m) => m.id === currentMessageId)
+
   // Find siblings (messages with same parent)
-  const siblings = current?.parent_id 
-    ? messages.filter(m => m.parent_id === current.parent_id).sort((a, b) => a.id - b.id)
-    : [];
-  
-  const siblingIndex = siblings.findIndex(m => m.id === currentMessageId);
-  
+  const siblings = current?.parent_id
+    ? messages.filter((m) => m.parent_id === current.parent_id).sort((a, b) => a.id - b.id)
+    : []
+
+  const siblingIndex = siblings.findIndex((m) => m.id === currentMessageId)
+
   return {
     hasChildren: children.length > 1,
     childCount: children.length,
     children: children.sort((a, b) => a.id - b.id),
     siblingIndex: siblingIndex >= 0 ? siblingIndex : 0,
     siblingCount: siblings.length,
-    siblings
-  };
+    siblings,
+  }
 }
 
 interface BranchNavigatorProps {
-  message: Message;
-  allMessages: Message[];
-  onNavigate: (messageId: number) => void;
+  message: Message
+  allMessages: Message[]
+  onNavigate: (messageId: number) => void
 }
 
 export function BranchNavigator({ message, allMessages, onNavigate }: BranchNavigatorProps) {
   const branchInfo = useMemo(
     () => analyzeBranches(allMessages, message.id),
     [allMessages, message.id]
-  );
+  )
 
   if (!branchInfo.hasChildren && branchInfo.siblingCount <= 1) {
-    return null;
+    return null
   }
 
   return (
@@ -79,14 +79,14 @@ export function BranchNavigator({ message, allMessages, onNavigate }: BranchNavi
                 <div className="text-xs space-y-1">
                   <div className="font-semibold">Conversation branches here</div>
                   <div className="text-muted-foreground">
-                    This message has {branchInfo.childCount} different continuations.
-                    Navigate to the next message to explore branches.
+                    This message has {branchInfo.childCount} different continuations. Navigate to
+                    the next message to explore branches.
                   </div>
                 </div>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          
+
           <div className="flex gap-1">
             {branchInfo.children.slice(0, 3).map((child, idx) => (
               <TooltipProvider key={child.id}>
@@ -137,8 +137,8 @@ export function BranchNavigator({ message, allMessages, onNavigate }: BranchNavi
                 <div className="text-xs space-y-1">
                   <div className="font-semibold">Alternative branch</div>
                   <div className="text-muted-foreground">
-                    This is branch {branchInfo.siblingIndex + 1} of {branchInfo.siblingCount} alternatives.
-                    Use arrows to switch between branches.
+                    This is branch {branchInfo.siblingIndex + 1} of {branchInfo.siblingCount}{' '}
+                    alternatives. Use arrows to switch between branches.
                   </div>
                 </div>
               </TooltipContent>
@@ -148,8 +148,8 @@ export function BranchNavigator({ message, allMessages, onNavigate }: BranchNavi
           <div className="flex gap-1">
             <button
               onClick={() => {
-                const prevSibling = branchInfo.siblings[branchInfo.siblingIndex - 1];
-                if (prevSibling) onNavigate(prevSibling.id);
+                const prevSibling = branchInfo.siblings[branchInfo.siblingIndex - 1]
+                if (prevSibling) onNavigate(prevSibling.id)
               }}
               disabled={branchInfo.siblingIndex === 0}
               className="px-2 py-1 text-xs rounded bg-gray-600/30 hover:bg-gray-600/50 disabled:opacity-30 disabled:cursor-not-allowed text-gray-300 transition-colors"
@@ -160,8 +160,8 @@ export function BranchNavigator({ message, allMessages, onNavigate }: BranchNavi
             </button>
             <button
               onClick={() => {
-                const nextSibling = branchInfo.siblings[branchInfo.siblingIndex + 1];
-                if (nextSibling) onNavigate(nextSibling.id);
+                const nextSibling = branchInfo.siblings[branchInfo.siblingIndex + 1]
+                if (nextSibling) onNavigate(nextSibling.id)
               }}
               disabled={branchInfo.siblingIndex === branchInfo.siblingCount - 1}
               className="px-2 py-1 text-xs rounded bg-gray-600/30 hover:bg-gray-600/50 disabled:opacity-30 disabled:cursor-not-allowed text-gray-300 transition-colors"
@@ -174,7 +174,7 @@ export function BranchNavigator({ message, allMessages, onNavigate }: BranchNavi
         </div>
       )}
     </div>
-  );
+  )
 }
 
 /**
@@ -184,32 +184,32 @@ export function buildConversationPath(
   messages: Message[],
   selectedBranches: Map<number, number> = new Map()
 ): Message[] {
-  if (!messages.length) return [];
+  if (!messages.length) return []
 
-  const result: Message[] = [];
-  const messageMap = new Map(messages.map(m => [m.id, m]));
-  
+  const result: Message[] = []
+  const messageMap = new Map(messages.map((m) => [m.id, m]))
+
   // Start with root messages (no parent)
-  let current = messages.find(m => !m.parent_id);
-  
+  let current = messages.find((m) => !m.parent_id)
+
   while (current) {
-    result.push(current);
-    
+    result.push(current)
+
     // Find children
-    const children = messages.filter(m => m.parent_id === current?.id).sort((a, b) => a.id - b.id);
-    
+    const children = messages.filter((m) => m.parent_id === current?.id).sort((a, b) => a.id - b.id)
+
     if (children.length === 0) {
-      break;
+      break
     } else if (children.length === 1) {
       // No branch, just continue
-      current = children[0];
+      current = children[0]
     } else {
       // Multiple branches - check if we have a selection
-      const selectedId = selectedBranches.get(current.id);
-      const selected = selectedId ? children.find(c => c.id === selectedId) : null;
-      current = selected || children[0]; // Default to first branch
+      const selectedId = selectedBranches.get(current.id)
+      const selected = selectedId ? children.find((c) => c.id === selectedId) : null
+      current = selected || children[0] // Default to first branch
     }
   }
-  
-  return result;
+
+  return result
 }
