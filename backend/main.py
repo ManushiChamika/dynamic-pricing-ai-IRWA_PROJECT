@@ -732,8 +732,25 @@ def api_post_message(thread_id: int, req: PostMessageRequest, token: Optional[st
     uia = UserInteractionAgent(user_name=req.user_name, mode=mode)
     for item in _assemble_memory(thread_id):
         uia.add_to_memory(item["role"], item["content"])
-    # Get assistant response
-    answer = uia.get_response(req.content)
+    
+    # Collect response by consuming the stream
+    full_parts: List[str] = []
+    activated_agents: set = set()
+    try:
+        for delta in uia.stream_response(req.content):
+            if isinstance(delta, str) and delta:
+                full_parts.append(delta)
+            elif isinstance(delta, dict):
+                et = delta.get("type")
+                if et == "agent":
+                    agent_name = delta.get("name")
+                    if agent_name:
+                        activated_agents.add(agent_name)
+    except Exception:
+        pass
+    
+    answer = "".join(full_parts).strip()
+    
     # Persist assistant with metadata if available
     model = getattr(uia, "last_model", None)
     usage = getattr(uia, "last_usage", {}) if hasattr(uia, "last_usage") else {}
