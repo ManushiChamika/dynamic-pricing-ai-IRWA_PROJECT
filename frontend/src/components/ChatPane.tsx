@@ -4,9 +4,11 @@ import { useMessages, useMessagesActions } from '../stores/messageStore'
 import { useCurrentThread } from '../stores/threadStore'
 import { useSettings, useDisplaySettings, useAppMode } from '../stores/settingsStore'
 import { useAuthToken } from '../stores/authStore'
-import { MessageView } from './MessageView'
 import { ChatHeader } from './ChatHeader'
 import { ChatComposer } from './ChatComposer'
+import { DraftMessageView } from './chat/DraftMessageView'
+import { EmptyState } from './chat/EmptyState'
+import { MessageList } from './chat/MessageList'
 import { useChatSettings } from '../hooks/useChatSettings'
 import { useChatKeyboardShortcuts } from '../hooks/useChatKeyboardShortcuts'
 
@@ -18,8 +20,7 @@ export function ChatPane() {
   const displaySettings = useDisplaySettings()
   const { mode, streaming } = useAppMode()
   const token = useAuthToken()
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [input, setInput] = useState('')
+  const [_input, setInput] = useState('')
   const msgsRef = useRef<HTMLDivElement | null>(null)
   const shouldStickRef = useRef(true)
 
@@ -71,42 +72,27 @@ export function ChatPane() {
         aria-live="polite"
         aria-relevant="additions text"
         aria-label="Chat messages"
-      >
-        {currentId ? (
-          (() => {
-            const isDraft = String(currentId).startsWith('draft_')
-            return messages.length || isDraft ? (
-              <>
-                {isDraft && (
-                  <div className="text-center py-12 px-6 text-muted text-base">
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-accent/20 text-accent border border-accent/30 mb-4">
-                      Draft conversation
-                    </div>
-                    <p>Start typing to begin a new conversation</p>
-                  </div>
-                )}
-                {messages.map((m) => (
-                  <MessageView
-                    key={m.id + ':' + m.created_at}
-                    m={m}
-                    showModel={displaySettings.showModel}
-                    showTimestamps={displaySettings.showTimestamps}
-                    showMeta={displaySettings.showMeta}
-                    allMessages={messages}
-                  />
-                ))}
-              </>
-            ) : (
-              <div className="text-center py-12 px-6 text-muted text-base">
-                No messages yet. Say hello!
-              </div>
-            )
-          })()
-        ) : (
-          <div className="text-center py-12 px-6 text-muted text-base">
-            Select or create a thread to begin.
-          </div>
-        )}
+       >
+         {currentId ? (
+           (() => {
+             const isDraft = String(currentId).startsWith('draft_')
+             return messages.length || isDraft ? (
+               <>
+                 {isDraft && <DraftMessageView />}
+                 <MessageList
+                   messages={messages}
+                   showModel={displaySettings.showModel}
+                   showTimestamps={displaySettings.showTimestamps}
+                   showMeta={displaySettings.showMeta}
+                 />
+               </>
+             ) : (
+               <EmptyState message="No messages yet. Say hello!" />
+             )
+           })()
+         ) : (
+           <EmptyState message="Select or create a thread to begin." />
+         )}
       </div>
       <ChatComposer currentId={currentId} streaming={streaming} />
     </main>
