@@ -2,6 +2,9 @@ from datetime import datetime, timezone
 from .repo import Repo
 from .schemas import RuleSpec, Alert
 from pydantic import ValidationError
+import logging
+
+logger = logging.getLogger("alert_tools")
 
 class Tools:
     def __init__(self, repo: Repo): self.repo = repo
@@ -130,18 +133,29 @@ def get_llm_tools():
 
 
 async def execute_tool_call(tool_name: str, tool_args: dict, tools_instance: Tools) -> dict:
+    logger.info(f"Executing tool: {tool_name} with args: {tool_args}")
+    
     if tool_name == "list_rules":
-        return await tools_instance.list_rules()
+        result = await tools_instance.list_rules()
+        logger.info(f"list_rules result: {result}")
+        return result
     
     elif tool_name == "list_alerts":
         status = tool_args.get("status")
-        return await tools_instance.list_alerts(status=status)
+        result = await tools_instance.list_alerts(status=status)
+        logger.info(f"list_alerts result: {result}")
+        return result
     
     elif tool_name == "create_alert":
         name = tool_args["name"]
         description = tool_args["description"]
-        severity = tool_args["severity"]
+        severity_input = tool_args["severity"]
         details = tool_args["details"]
+        
+        severity_map = {"LOW": "info", "MEDIUM": "warn", "HIGH": "crit"}
+        severity = severity_map.get(severity_input, "warn")
+        
+        logger.info(f"Creating alert: name={name}, severity={severity_input}->{severity}, sku={details.get('sku')}")
         
         now = datetime.now(timezone.utc)
         alert = Alert(
@@ -156,6 +170,7 @@ async def execute_tool_call(tool_name: str, tool_args: dict, tools_instance: Too
         )
         
         incident = await tools_instance.repo.find_or_create_incident(alert)
+        logger.info(f"Alert created successfully: incident_id={incident.id}")
         return {
             "ok": True,
             "alert_created": True,
@@ -164,4 +179,5 @@ async def execute_tool_call(tool_name: str, tool_args: dict, tools_instance: Too
         }
     
     else:
+        logger.error(f"Unknown tool: {tool_name}")
         return {"ok": False, "error": f"Unknown tool: {tool_name}"}

@@ -15,18 +15,18 @@ from core.agents.agent_sdk.bus_factory import get_bus
 
 bus = get_bus()
 
-SYSTEM_PROMPT = """You are a vigilant Security and Anomaly Detection Agent for a dynamic pricing system. Your primary goal is to monitor system events and identify potential risks. You must evaluate every event against known rules and general best practices to find anomalies like unusual price jumps, margin breaches, or system errors. Use your tools to investigate and report on these issues by creating clear, actionable alerts.
+SYSTEM_PROMPT = """You are a vigilant Security and Anomaly Detection Agent for a dynamic pricing system. Your primary goal is to monitor system events and identify potential risks. You MUST evaluate every event against known rules and general best practices to find anomalies.
 
 When analyzing events:
-1. Check existing alert rules using list_rules() to understand configured thresholds
-2. Check current alerts using list_alerts() to avoid duplicate alerts
-3. Look for anomalies such as:
-   - Price changes > 20%
-   - Margins below minimum thresholds
-   - Unusual patterns in pricing data
-   - Competitor pricing significantly lower than ours
-4. If you detect an anomaly, create a detailed alert with create_alert()
-5. Be proactive but avoid false positives - only alert on genuine issues"""
+1. ALWAYS start by calling list_rules() to understand configured thresholds
+2. Look for critical anomalies such as:
+   - Margins below 5% (critical profit risk)
+   - Negative margins (selling at a loss)
+   - Any suspicious pricing patterns
+3. If you detect ANY anomaly, you MUST create an alert with create_alert()
+4. Be proactive - err on the side of creating alerts for potential issues
+
+IMPORTANT: Your job is to CREATE ALERTS when you see anomalies. A margin of 2% is critically low and MUST trigger an alert."""
 
 class AlertEngine:
     def __init__(self, repo: Repo):
@@ -114,19 +114,24 @@ class AlertEngine:
             
             event_summary = json.dumps(payload_dict, indent=2, default=json_serializer)
             
-            prompt = f"""{SYSTEM_PROMPT}
+            prompt = f"""A new {source} event has just been published. You need to analyze it and determine if an alert should be created.
 
-A new {source} event has just been published:
-
+Event Data:
 ```json
 {event_summary}
 ```
 
-Based on your goal, what action, if any, should you take? You have tools to list existing rules, check current alerts, or create a new alert if you detect an anomaly.
+Based on your analysis, determine if this event represents an anomaly that requires an alert. Remember:
+- Margins below 5% are concerning
+- Margins below 3% are CRITICAL
+- You should err on the side of creating alerts
 
-Analyze the event carefully and decide if any action is needed."""
+Use your tools to investigate and take action."""
 
-            messages = [{"role": "user", "content": prompt}]
+            messages = [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": prompt}
+            ]
             
             tools_schema = get_llm_tools()
             
@@ -154,8 +159,8 @@ Analyze the event carefully and decide if any action is needed."""
                     messages=messages, 
                     tools=tools_schema,
                     functions_map=functions_map,
-                    max_rounds=2,
-                    max_tokens=512
+                    max_rounds=3,
+                    max_tokens=1000
                 )
                 
                 self.logger.info(f"LLM response: {result}")
