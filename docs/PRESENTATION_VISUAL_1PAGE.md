@@ -156,7 +156,7 @@ curl -X POST http://localhost:8000/api/chat \
 | MCP Protocol Defs | `core/agents/agent_sdk/protocol.py` | All |
 | Journal (Logging) | `core/events/journal.py` | 16-28 |
 | Supervisor (Orchestrator) | `core/agents/supervisor.py` | 39-156 |
-| Alert Validation | `core/agents/alert_notifier.py` | 14-47 |
+| Alert Service (Engine) | `core/agents/alert_service/engine.py` | 17-119 |
 | Data Collector | `core/agents/data_collection_agent.py` | All |
 | Price Optimizer | `core/agents/price_optimizer_bus/price_optimizer.py` | All |
 

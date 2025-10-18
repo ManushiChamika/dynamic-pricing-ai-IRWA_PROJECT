@@ -138,7 +138,7 @@ Code Locations:
 ├─ Event Bus:         core/agents/agent_sdk/bus_factory.py
 ├─ Topics:            core/agents/agent_sdk/protocol.py
 ├─ Journal:           core/events/journal.py
-├─ Agents:            core/agents/{pricing_optimizer, alert_notifier, ...}
+├─ Agents:            core/agents/{pricing_optimizer, alert_service, ...}
 └─ Supervisor:        core/agents/supervisor.py
 
 Demo:
