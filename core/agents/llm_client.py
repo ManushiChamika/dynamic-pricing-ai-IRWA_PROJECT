@@ -1,3 +1,13 @@
+"""
+Lightweight LLM client wrapper for the Dynamic Pricing AI agents.
+
+Supports:
+- OpenRouter (preferred if OPENROUTER_API_KEY is set)
+- OpenAI (fallback if OPENAI_API_KEY is set)
+- Gemini via Google OpenAI-compatible endpoint (fallback if GEMINI_API_KEY is set)
+
+No external dotenv dependency; we do a small .env load like in core agents.
+"""
 from __future__ import annotations
 
 import os
@@ -7,11 +17,6 @@ from pathlib import Path
 from typing import Optional, Any, Dict, List, Callable
 import json
 from datetime import datetime
-
-from .llm_provider_manager import (
-    ProviderManager,
-    _save_gemini_working_key,
-)
 
 
 def _load_dotenv_if_present() -> None:
@@ -43,6 +48,7 @@ def _load_dotenv_if_present() -> None:
 
 
 class LLMClient:
+    """Tiny wrapper around OpenAI-compatible SDKs with multi-provider fallback."""
 
     def __init__(
         self,
@@ -75,9 +81,92 @@ class LLMClient:
             self._log.debug("LLM unavailable: %s", self._unavailable_reason)
             return
 
-        provider_manager = ProviderManager(self._log)
-        provider_manager.load_providers_from_env(openai_mod, api_key, base_url, model)
-        self._providers = provider_manager.get_providers()
+        def _prepare_headers(provider_name: str, key: str) -> Dict[str, str]:
+            if provider_name == "openrouter":
+                return {
+                    "HTTP-Referer": os.getenv("OPENROUTER_REFERRER", "https://dynamic-pricing-ai.local"),
+                    "X-Title": os.getenv("OPENROUTER_TITLE", "Dynamic Pricing AI"),
+                }
+            if provider_name == "gemini":
+                # Google accepts bearer token auth, but including API key header avoids conflicts.
+                return {"x-goog-api-key": key}
+            return {}
+
+        def _register_provider(
+            provider_name: str,
+            provider_api_key: Optional[str],
+            provider_model: Optional[str],
+            provider_base_url: Optional[str],
+        ) -> None:
+            if not provider_api_key:
+                return
+
+            model_name = provider_model or "gpt-4o-mini"
+            headers = _prepare_headers(provider_name, provider_api_key)
+            kwargs: Dict[str, Any] = {"api_key": provider_api_key}
+            if provider_base_url:
+                kwargs["base_url"] = provider_base_url
+            if headers:
+                kwargs["default_headers"] = headers
+
+            try:
+                client = openai_mod.OpenAI(**kwargs)
+            except TypeError:
+                # Older SDKs may not accept default_headers in constructor.
+                headers_payload = kwargs.pop("default_headers", None)
+                client = openai_mod.OpenAI(**kwargs)
+                if headers_payload:
+                    try:
+                        client.default_headers = headers_payload  # type: ignore[attr-defined]
+                    except Exception:
+                        pass
+            except Exception as exc:
+                self._log.error("Failed to initialize %s client: %s", provider_name, exc)
+                return
+
+            self._providers.append(
+                {
+                    "name": provider_name,
+                    "client": client,
+                    "model": model_name,
+                    "base_url": provider_base_url,
+                }
+            )
+            self._log.debug(
+                "Registered provider %s | model=%s base_url=%s",
+                provider_name,
+                model_name,
+                provider_base_url or "<default>",
+            )
+
+        # Resolve environment defaults
+        explicit_key = api_key
+        explicit_base = base_url
+        explicit_model = model
+
+        or_key = os.getenv("OPENROUTER_API_KEY")
+        or_base = base_url if (explicit_key and explicit_base) else os.getenv("OPENROUTER_BASE_URL")
+        if not or_base and or_key:
+            or_base = "https://openrouter.ai/api/v1"
+        or_model = os.getenv("OPENROUTER_MODEL") or "z-ai/glm-4.5-air:free"
+
+        oa_key = os.getenv("OPENAI_API_KEY")
+        oa_model = os.getenv("OPENAI_MODEL") or "gpt-4o-mini"
+
+        gemini_key = os.getenv("GEMINI_API_KEY")
+        gemini_base = os.getenv("GEMINI_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta/openai/"
+        if gemini_base and not gemini_base.endswith("/"):
+            gemini_base = gemini_base + "/"
+        gemini_model = os.getenv("GEMINI_MODEL") or "gemini-2.0-flash"
+
+        # Registration priority: explicit args > OpenRouter > OpenAI > Gemini
+        if explicit_key:
+            custom_model = explicit_model or or_model or oa_model or gemini_model
+            _register_provider("custom", explicit_key, custom_model, explicit_base)
+        else:
+            _register_provider("openrouter", or_key, or_model, or_base)
+            _register_provider("openai", oa_key, oa_model, None)
+            _register_provider("gemini", gemini_key, gemini_model, gemini_base if gemini_key else None)
 
         if not self._providers:
             self._unavailable_reason = "no API key configured"
@@ -87,91 +176,13 @@ class LLMClient:
         self._set_active_provider(0)
 
     def _set_active_provider(self, index: int) -> None:
-        if index < 0 or index >= len(self._providers):
-            self._log.error("Invalid provider index: %d", index)
-            return
-        
-        try:
-            provider = self._providers[index]
-            self._active_index = index
-            self.model = provider["model"]
-            self._provider = provider["name"]
-            
-            if self._provider.startswith("gemini"):
-                api_key = provider.get("api_key")
-                if api_key:
-                    _save_gemini_working_key(api_key)
-            
-            prior = self.last_usage or {}
-            self.last_usage = {**prior, "provider": self._provider, "model": self.model}
-            self._log.debug("Active provider set to: %s (model: %s)", self._provider, self.model)
-        except Exception as e:
-            self._log.error("Failed to set active provider: %s", e)
-
-    def _capture_usage(self, resp: Any, provider_name: str, provider_model: str) -> None:
-        try:
-            usage = getattr(resp, "usage", None)
-            if usage:
-                self.last_usage = {
-                    "provider": provider_name,
-                    "model": provider_model,
-                    "prompt_tokens": getattr(usage, "prompt_tokens", None),
-                    "completion_tokens": getattr(usage, "completion_tokens", None),
-                    "total_tokens": getattr(usage, "total_tokens", None),
-                }
-        except Exception:
-            pass
-
-    def _execute_tool_call(
-        self,
-        fn_name: Optional[str],
-        raw_args: str,
-        functions_map: Dict[str, Callable[..., Any]],
-        tools_used: List[str],
-        trace_id: Optional[str] = None,
-    ) -> Any:
-        try:
-            if fn_name and fn_name not in tools_used:
-                tools_used.append(fn_name)
-        except Exception:
-            pass
-        
-        try:
-            args = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
-        except Exception:
-            args = {}
-
-        tool_start_time = datetime.now()
-        result: Any
-        error_occurred = False
-        
-        if fn_name in functions_map:
-            try:
-                result = functions_map[fn_name](**args)
-            except TypeError:
-                result = functions_map[fn_name](args)
-            except Exception as tool_exc:
-                result = {"error": str(tool_exc)}
-                error_occurred = True
-        else:
-            result = {"error": f"unknown tool: {fn_name}"}
-            error_occurred = True
-
-        try:
-            if trace_id:
-                duration_ms = int((datetime.now() - tool_start_time).total_seconds() * 1000)
-                status = "failed" if error_occurred else "completed"
-                self._log.debug(f"Tool call {status}: {fn_name} duration={duration_ms}ms")
-        except Exception:
-            pass
-
-        return result
-
-    def _serialize_tool_result(self, result: Any) -> str:
-        try:
-            return result if isinstance(result, str) else json.dumps(result, ensure_ascii=False)
-        except Exception:
-            return str(result)
+        provider = self._providers[index]
+        self._active_index = index
+        self.model = provider["model"]
+        self._provider = provider["name"]
+        # preserve existing usage fields; just update provider/model
+        prior = self.last_usage or {}
+        self.last_usage = {**prior, "provider": self._provider, "model": self.model}
 
     def _provider_indices(self) -> List[int]:
         if not self._providers:
@@ -214,21 +225,29 @@ class LLMClient:
                     max_tokens=max_tokens,
                     temperature=temperature,
                 )
-                if not resp or not resp.choices:
-                    raise RuntimeError("Empty response from LLM")
                 content = (resp.choices[0].message.content or "").strip()
-                self._capture_usage(resp, provider["name"], provider["model"])
+                # capture usage metadata if available
+                try:
+                    usage = getattr(resp, "usage", None)
+                    if usage:
+                        self.last_usage = {
+                            "provider": provider["name"],
+                            "model": provider["model"],
+                            "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                            "completion_tokens": getattr(usage, "completion_tokens", None),
+                            "total_tokens": getattr(usage, "total_tokens", None),
+                        }
+                except Exception:
+                    pass
                 self._set_active_provider(idx)
+                self._log.debug("LLM response chars=%d", len(content))
                 return content
             except Exception as exc:
                 last_error = exc
-                error_type = type(exc).__name__
-                self._log.warning("Provider %s failed for chat (%s): %s", provider["name"], error_type, exc)
+                self._log.warning("Provider %s failed for chat: %s", provider["name"], exc)
                 continue
 
-        error_msg = f"All LLM providers failed. Last error: {last_error or 'no provider succeeded'}"
-        self._log.error(error_msg)
-        raise RuntimeError(error_msg)
+        raise RuntimeError(f"LLM error: {last_error or 'no provider succeeded'}")
 
     def chat_stream(
         self,
@@ -260,9 +279,19 @@ class LLMClient:
                     full: List[str] = []
                     for event in stream:
                         try:
+                            # usage (final chunk)
                             usage = getattr(event, "usage", None)
                             if usage:
-                                self._capture_usage(event, provider["name"], provider["model"])
+                                try:
+                                    self.last_usage = {
+                                        "provider": provider["name"],
+                                        "model": provider["model"],
+                                        "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                                        "completion_tokens": getattr(usage, "completion_tokens", None),
+                                        "total_tokens": getattr(usage, "total_tokens", None),
+                                    }
+                                except Exception:
+                                    pass
                             # token delta
                             choices = getattr(event, "choices", None) or []
                             if choices:
@@ -287,13 +316,9 @@ class LLMClient:
                     return
             except Exception as exc:
                 last_error = exc
-                error_type = type(exc).__name__
-                self._log.warning("Provider %s failed for stream (%s): %s", provider["name"], error_type, exc)
+                self._log.warning("Provider %s failed for stream: %s", provider["name"], exc)
                 continue
-        
-        error_msg = f"All LLM providers failed for streaming. Last error: {last_error or 'no provider succeeded'}"
-        self._log.error(error_msg)
-        raise RuntimeError(error_msg)
+        raise RuntimeError(f"LLM stream error: {last_error or 'no provider succeeded'}")
 
     def chat_with_tools(
         self,
@@ -340,7 +365,19 @@ class LLMClient:
                         max_tokens=max_tokens,
                         temperature=temperature,
                     )
-                    self._capture_usage(resp, provider["name"], provider["model"])
+                    # capture usage per round if available
+                    try:
+                        usage = getattr(resp, "usage", None)
+                        if usage:
+                            self.last_usage = {
+                                "provider": provider["name"],
+                                "model": provider["model"],
+                                "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                                "completion_tokens": getattr(usage, "completion_tokens", None),
+                                "total_tokens": getattr(usage, "total_tokens", None),
+                            }
+                    except Exception:
+                        pass
 
                     choice = resp.choices[0]
                     msg = choice.message
@@ -369,8 +406,21 @@ class LLMClient:
                     local_msgs.append(assistant_msg)
 
                     if not tool_calls:
-                        if tools_used:
-                            self.last_usage = {**(self.last_usage or {}), "tools_used": tools_used}
+                        # record tools_used if present
+                        try:
+                            tools_used = []
+                            try:
+                                if assistant_msg.get("tool_calls"):
+                                    for tc in assistant_msg["tool_calls"]:
+                                        fn = (tc.get("function") or {}).get("name")
+                                        if fn and fn not in tools_used:
+                                            tools_used.append(fn)
+                            except Exception:
+                                pass
+                            if tools_used:
+                                self.last_usage = {**(self.last_usage or {}), "tools_used": tools_used}
+                        except Exception:
+                            pass
                         self._set_active_provider(idx)
                         return (content or "").strip()
 
@@ -378,16 +428,60 @@ class LLMClient:
                         fn_name = tc.get("function", {}).get("name")
                         raw_args = tc.get("function", {}).get("arguments") or "{}"
                         call_id = tc.get("id") or "tool_call"
+                        try:
+                            if fn_name and fn_name not in tools_used:
+                                tools_used.append(fn_name)
+                        except Exception:
+                            pass
+                        try:
+                            args = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
+                        except Exception:
+                            args = {}
                         
-                        result = self._execute_tool_call(fn_name, raw_args, functions_map, tools_used, trace_id)
-                        content_str = self._serialize_tool_result(result)
+                        # Log tool call start
+                        tool_start_time = datetime.now()
+                        try:
+                            if trace_id:
+                                self._log.debug(f"Tool call start: {fn_name} with trace_id {trace_id}")
+                        except Exception:
+                            pass
                         
-                        local_msgs.append({
-                            "role": "tool",
-                            "tool_call_id": call_id,
-                            "name": fn_name,
-                            "content": content_str,
-                        })
+                        result: Any
+                        error_occurred = False
+                        if fn_name in functions_map:
+                            try:
+                                result = functions_map[fn_name](**args)
+                            except TypeError:
+                                result = functions_map[fn_name](args)
+                            except Exception as tool_exc:
+                                result = {"error": str(tool_exc)}
+                                error_occurred = True
+                        else:
+                            result = {"error": f"unknown tool: {fn_name}"}
+                            error_occurred = True
+
+                        # Log tool call completion
+                        try:
+                            if trace_id:
+                                duration_ms = int((datetime.now() - tool_start_time).total_seconds() * 1000)
+                                status = "failed" if error_occurred else "completed"
+                                self._log.debug(f"Tool call {status}: {fn_name} duration={duration_ms}ms")
+                        except Exception:
+                            pass
+
+                        try:
+                            content_str = result if isinstance(result, str) else json.dumps(result, ensure_ascii=False)
+                        except Exception:
+                            content_str = str(result)
+
+                        local_msgs.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": call_id,
+                                "name": fn_name,
+                                "content": content_str,
+                            }
+                        )
 
                 # max rounds exhausted
                 self._set_active_provider(idx)
@@ -399,13 +493,10 @@ class LLMClient:
                 return (assistant_msg.get("content") or "").strip()
             except Exception as exc:
                 last_error = exc
-                error_type = type(exc).__name__
-                self._log.warning("Provider %s failed for tool call (%s): %s", provider["name"], error_type, exc)
+                self._log.warning("Provider %s failed for tool call: %s", provider["name"], exc)
                 continue
 
-        error_msg = f"All LLM providers failed for tool calling. Last error: {last_error or 'no provider succeeded'}"
-        self._log.error(error_msg)
-        raise RuntimeError(error_msg)
+        raise RuntimeError(f"LLM tools error: {last_error or 'no provider succeeded'}")
 
     def chat_with_tools_stream(
         self,
@@ -483,9 +574,19 @@ class LLMClient:
 
                     for event in stream:
                         try:
+                            # usage (final chunk)
                             usage = getattr(event, "usage", None)
                             if usage:
-                                self._capture_usage(event, provider["name"], provider["model"])
+                                try:
+                                    self.last_usage = {
+                                        "provider": provider["name"],
+                                        "model": provider["model"],
+                                        "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                                        "completion_tokens": getattr(usage, "completion_tokens", None),
+                                        "total_tokens": getattr(usage, "total_tokens", None),
+                                    }
+                                except Exception:
+                                    pass
                             choices = getattr(event, "choices", None) or []
                             if not choices:
                                 continue
@@ -534,20 +635,54 @@ class LLMClient:
                         assistant_msg["tool_calls"] = normalized_calls
                         local_msgs.append(assistant_msg)
 
+                        # Execute each call
                         for tc in normalized_calls:
                             fn_name = (tc.get("function") or {}).get("name")
                             raw_args = (tc.get("function") or {}).get("arguments") or "{}"
                             call_id = tc.get("id") or "tool_call"
-                            
-                            result = self._execute_tool_call(fn_name, raw_args, functions_map, tools_used, trace_id)
-                            
+                            try:
+                                if fn_name and fn_name not in tools_used:
+                                    tools_used.append(fn_name)
+                            except Exception:
+                                pass
+                            try:
+                                args = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
+                            except Exception:
+                                args = {}
+
+                            tool_start_time = datetime.now()
+                            result: Any
+                            error_occurred = False
+                            if fn_name in functions_map:
+                                try:
+                                    result = functions_map[fn_name](**args)
+                                except TypeError:
+                                    result = functions_map[fn_name](args)
+                                except Exception as tool_exc:
+                                    result = {"error": str(tool_exc)}
+                                    error_occurred = True
+                            else:
+                                result = {"error": f"unknown tool: {fn_name}"}
+                                error_occurred = True
+
+                            try:
+                                duration_ms = int((datetime.now() - tool_start_time).total_seconds() * 1000)
+                                self._log.debug("tool %s finished in %dms (error=%s)", fn_name, duration_ms, error_occurred)
+                            except Exception:
+                                pass
+
+                            # Emit end event for tool
                             try:
                                 if fn_name:
                                     yield {"type": "tool_call", "name": fn_name, "status": "end"}
                             except Exception:
                                 pass
-                            
-                            content_str = self._serialize_tool_result(result)
+
+                            try:
+                                content_str = result if isinstance(result, str) else json.dumps(result, ensure_ascii=False)
+                            except Exception:
+                                content_str = str(result)
+
                             local_msgs.append({
                                 "role": "tool",
                                 "tool_call_id": call_id,
@@ -576,54 +711,32 @@ class LLMClient:
                 return
             except Exception as exc:
                 last_error = exc
-                error_type = type(exc).__name__
-                self._log.warning("Provider %s failed for tool stream (%s): %s", provider["name"], error_type, exc)
+                self._log.warning("Provider %s failed for tool stream: %s", provider["name"], exc)
                 continue
 
-        error_msg = f"All LLM providers failed for streaming tool calls. Last error: {last_error or 'no provider succeeded'}"
-        self._log.error(error_msg)
-        raise RuntimeError(error_msg)
-
-
-_llm_client_cache: Optional[LLMClient] = None
-_llm_client_lock_: Any = None
+        raise RuntimeError(f"LLM tools stream error: {last_error or 'no provider succeeded'}")
 
 
 def get_llm_client(model: Optional[str] = None) -> LLMClient:
-    """Return a cached LLM client instance. If `model` is provided, return a fresh
-    client with that model; otherwise return the singleton cached instance.
+    """Return an LLM client. If `model` is provided, prefer it as the default
+    model for the first available provider by inserting a higher-priority
+    provider entry with the same credentials when possible.
 
-    The singleton cache ensures that the environment is loaded once and reused,
-    fixing issues where is_available() differs between diagnostics and runtime.
+    Notes:
+    - This lightweight override leverages OPENAI_API_KEY if set; otherwise falls back
+      to existing provider resolution. It avoids duplicating full provider routing
+      logic elsewhere.
     """
-    global _llm_client_cache
-    
-    try:
-        if model:
-            key = os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("GEMINI_API_KEY")
-            if not key:
-                logging.getLogger("core.agents.llm").error("No API key found for custom model: %s", model)
-                raise RuntimeError("No API key configured for LLM client")
-            
-            base = None
-            if key and os.getenv("OPENROUTER_API_KEY") == key:
-                base = os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1"
-            elif key and os.getenv("GEMINI_API_KEY") == key:
-                base = os.getenv("GEMINI_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta/openai/"
-            
-            client = LLMClient(api_key=key, base_url=base, model=model)
-            if not client.is_available():
-                raise RuntimeError(f"LLM client initialization failed: {client.unavailable_reason()}")
-            return client
-        
-        if _llm_client_cache is None:
-            _llm_client_cache = LLMClient()
-            if not _llm_client_cache.is_available():
-                logging.getLogger("core.agents.llm").error(
-                    "LLM client unavailable: %s", _llm_client_cache.unavailable_reason()
-                )
-        
-        return _llm_client_cache
-    except Exception as e:
-        logging.getLogger("core.agents.llm").error("Failed to get LLM client: %s", e)
-        raise
+    # If a specific model is requested, try constructing a client with the same
+    # keys but preferring that model by passing it through the constructor.
+    # The constructor already respects explicit args as highest priority.
+    if model:
+        # Try OpenAI explicit if key present; else default flow
+        key = os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("GEMINI_API_KEY")
+        base = None
+        if key and os.getenv("OPENROUTER_API_KEY") == key:
+            base = os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1"
+        elif key and os.getenv("GEMINI_API_KEY") == key:
+            base = os.getenv("GEMINI_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta/openai/"
+        return LLMClient(api_key=key, base_url=base, model=model)
+    return LLMClient()

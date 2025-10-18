@@ -261,7 +261,7 @@ def generate_thread_title(thread_id: int) -> Optional[str]:
         transcript = "\n".join(lines)
 
     try:
-        llm = get_llm_client()
+        llm = get_llm_client(model="gemini-2.0-flash")
         if not llm.is_available():
             return None
 
