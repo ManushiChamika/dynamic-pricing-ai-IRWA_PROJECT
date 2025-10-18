@@ -145,3 +145,24 @@ async def delete_product(
         "message": "Product deleted successfully",
         "rows_affected": rows_affected
     }
+
+
+@router.delete("/catalog/products")
+async def delete_all_products(
+    token: str = Query(...),
+    current_user = Depends(get_current_user)
+):
+    owner_id = str(current_user['user_id'])
+    
+    try:
+        repo = DataRepo()
+        await repo.init()
+        rows_affected = await repo.delete_all_products_by_owner(owner_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    return {
+        "success": True,
+        "message": f"All products deleted successfully",
+        "rows_affected": rows_affected
+    }

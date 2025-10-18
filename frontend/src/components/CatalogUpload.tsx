@@ -11,6 +11,7 @@ import {
   Loader2,
   File,
   Package,
+  Trash2,
 } from 'lucide-react'
 
 interface UploadResponse {
@@ -28,6 +29,7 @@ export function CatalogUpload() {
   const [error, setError] = useState<string | null>(null)
   const [dragActive, setDragActive] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [deleting, setDeleting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const token = useAuthToken()
   const theme = useTheme()
@@ -118,6 +120,45 @@ export function CatalogUpload() {
     if (bytes < 1024) return bytes + ' B'
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
     return (bytes / 1024 / 1024).toFixed(2) + ' MB'
+  }
+
+  const handleDeleteAll = async () => {
+    if (!token) {
+      setError('User not authenticated')
+      return
+    }
+
+    if (!window.confirm('Are you sure you want to delete all products? This action cannot be undone.')) {
+      return
+    }
+
+    setDeleting(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const response = await fetch(`/api/catalog/products?token=${encodeURIComponent(token)}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Delete failed')
+      }
+
+      const data = await response.json()
+      setSuccess({
+        success: true,
+        filename: 'Catalog cleared',
+        rows_processed: data.rows_affected,
+        rows_inserted: 0,
+        owner_id: '',
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Delete failed')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   return (
@@ -299,7 +340,7 @@ export function CatalogUpload() {
       <div className="flex gap-3">
         <Button
           onClick={handleUpload}
-          disabled={!file || loading}
+          disabled={!file || loading || deleting}
           className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 disabled:opacity-50"
         >
           {loading ? (
@@ -311,6 +352,24 @@ export function CatalogUpload() {
             <>
               <Upload className="w-4 h-4 mr-2" />
               Upload Catalog
+            </>
+          )}
+        </Button>
+        <Button
+          onClick={handleDeleteAll}
+          disabled={loading || deleting}
+          variant="destructive"
+          className="bg-red-600 hover:bg-red-700 disabled:opacity-50"
+        >
+          {deleting ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Deleting...
+            </>
+          ) : (
+            <>
+              <Trash2 className="w-4 h-4 mr-2" />
+              Clear All
             </>
           )}
         </Button>
