@@ -171,6 +171,8 @@
   },
   "active": "a6db50ab45cab173",
   "lastOpenFiles": [
+    "frontend/vite.config.ts.timestamp-1760812882482-4e113f0d97486.mjs",
+    "backend_test.log",
     "frontend/vite.config.ts.timestamp-1760812559769-365577276b0b4.mjs",
     "test_rename_debug.py",
     "frontend/vite.config.ts.timestamp-1760811091173-72b9365c69e6b.mjs",
@@ -180,8 +182,6 @@
     "frontend/vite.config.ts.timestamp-1760810651053-09c087cdabe0f.mjs",
     "frontend/vite.config.ts.timestamp-1760810083199-d920c1c5108a8.mjs",
     "temp_diff.txt",
-    "core/chat.db",
-    "frontend/vite.config.ts.timestamp-1760808761180-edd5209cf87cc.mjs",
     "WORKFLOW_ANALYSIS.md",
     "PRICING_OPTIMIZER_LLM_UPDATE.md",
     "LLM_CONNECTION_ANALYSIS_CORRECTED.md",

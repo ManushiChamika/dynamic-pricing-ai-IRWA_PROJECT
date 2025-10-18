@@ -770,21 +770,20 @@ class LLMClient:
         raise RuntimeError(f"LLM tools stream error: {last_error or 'no provider succeeded'}")
 
 
-def get_llm_client(model: Optional[str] = None) -> LLMClient:
-    """Return an LLM client. If `model` is provided, prefer it as the default
-    model for the first available provider by inserting a higher-priority
-    provider entry with the same credentials when possible.
+_llm_client_cache: Optional[LLMClient] = None
+_llm_client_lock_: Any = None
 
-    Notes:
-    - This lightweight override leverages OPENAI_API_KEY if set; otherwise falls back
-      to existing provider resolution. It avoids duplicating full provider routing
-      logic elsewhere.
+
+def get_llm_client(model: Optional[str] = None) -> LLMClient:
+    """Return a cached LLM client instance. If `model` is provided, return a fresh
+    client with that model; otherwise return the singleton cached instance.
+
+    The singleton cache ensures that the environment is loaded once and reused,
+    fixing issues where is_available() differs between diagnostics and runtime.
     """
-    # If a specific model is requested, try constructing a client with the same
-    # keys but preferring that model by passing it through the constructor.
-    # The constructor already respects explicit args as highest priority.
+    global _llm_client_cache
+    
     if model:
-        # Try OpenAI explicit if key present; else default flow
         key = os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("GEMINI_API_KEY")
         base = None
         if key and os.getenv("OPENROUTER_API_KEY") == key:
@@ -792,4 +791,8 @@ def get_llm_client(model: Optional[str] = None) -> LLMClient:
         elif key and os.getenv("GEMINI_API_KEY") == key:
             base = os.getenv("GEMINI_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta/openai/"
         return LLMClient(api_key=key, base_url=base, model=model)
-    return LLMClient()
+    
+    if _llm_client_cache is None:
+        _llm_client_cache = LLMClient()
+    
+    return _llm_client_cache
