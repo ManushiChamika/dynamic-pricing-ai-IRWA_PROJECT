@@ -1,10 +1,14 @@
 # MCP Implementation Analysis - Complete Report
 
+> **ARCHIVAL NOTICE (Oct 19, 2025)**: Based on this analysis, unused MCP infrastructure has been archived to `_legacy_mcp_archive/`. See commit d474896 for details.
+
 ## Executive Summary
 
 **MCP Protocol**: Model Context Protocol by Anthropic - standardized way to connect AI applications to external data sources, tools, and workflows via JSON-RPC 2.0 over stdio.
 
 **Status**: MCP infrastructure is **production-ready but significantly underutilized**. Only 1 of 3 MCP servers has active consumers.
+
+**Action Taken**: Archived 6 unused files (2 MCP servers + 4 infrastructure components) to reduce architectural confusion while preserving full git history for potential restoration.
 
 ## Architecture: Documentation vs Reality
 
@@ -431,19 +435,19 @@ async def test_fallback_when_mcp_down():
 
 ## 11. Files Analyzed
 
-### MCP Servers (3)
-- `core/agents/data_collector/mcp_server.py` (356 lines)
-- `core/agents/price_optimizer/mcp_server.py` (304 lines)
-- `core/agents/alert_service/mcp_server.py` (244 lines)
+### MCP Servers (3 total, 1 active)
+- ✅ `core/agents/data_collector/mcp_server.py` (356 lines) - **ACTIVE IN PRODUCTION**
+- ⚠️ `core/agents/price_optimizer/mcp_server.py` (304 lines) - **ARCHIVED**: No consumers
+- ⚠️ `core/agents/alert_service/mcp_server.py` (244 lines) - **ARCHIVED**: No consumers
 
 ### MCP Clients (1)
-- `core/agents/agent_sdk/mcp_client.py` (350 lines)
+- ✅ `core/agents/agent_sdk/mcp_client.py` (350 lines) - **ACTIVE**: Used by supervisor for Data Collector
 
 ### MCP Infrastructure (1)
-- `core/agents/agent_sdk/mcp_supervisor.py` (317 lines)
+- ⚠️ `core/agents/agent_sdk/mcp_supervisor.py` (317 lines) - **ARCHIVED**: Never instantiated
 
 ### Consumers (1)
-- `core/agents/supervisor.py` (uses Data Collector MCP client)
+- ✅ `core/agents/supervisor.py` (uses Data Collector MCP client) - **ACTIVE**
 
 ### Event-Driven Agents (2)
 - `core/agents/auto_applier.py` (418 lines)
@@ -454,16 +458,18 @@ async def test_fallback_when_mcp_down():
 - `core/agents/alert_service/tools.py` (direct Python tools)
 - `core/agents/alert_service/repo.py` (SQLite persistence)
 
-### Startup Scripts (3)
-- `scripts/run_data_collector_mcp.py`
-- `scripts/run_price_optimizer_mcp.py`
-- `scripts/run_alerts_mcp.py`
+### Startup Scripts (3 total, 1 active)
+- ✅ `scripts/run_data_collector_mcp.py` - **ACTIVE**
+- ⚠️ `scripts/run_price_optimizer_mcp.py` - **ARCHIVED**
+- ⚠️ `scripts/run_alerts_mcp.py` - **ARCHIVED**
+- ⚠️ `scripts/mcp_server.py` (unified launcher) - **ARCHIVED**
 
 ### Test Scripts (2)
 - `scripts/smoke_end_to_end.py` (manual Alert Engine instantiation)
 - `scripts/test_price_proposal_publish.py` (manual Alert Engine instantiation)
 
-**Total Python Files in `core/agents`**: 53 files
+**Total Python Files in `core/agents`**: 53 files  
+**Total Files Archived**: 6 files → `_legacy_mcp_archive/` (Oct 19, 2025)
 
 ---
 
@@ -473,13 +479,22 @@ The codebase has **excellent MCP infrastructure** (production-ready client, conn
 
 **Key Findings**:
 1. ✅ Data Collector MCP: Fully operational
-2. ⚠️ Price Optimizer MCP: Infrastructure exists, no consumers
-3. ⚠️ Alert Service MCP: Infrastructure exists, no consumers, not started in main app
+2. ⚠️ Price Optimizer MCP: Infrastructure exists, no consumers → **ARCHIVED**
+3. ⚠️ Alert Service MCP: Infrastructure exists, no consumers, not started in main app → **ARCHIVED**
 4. ❌ Event bus is dominant communication pattern, NOT MCP
 5. ❌ Documentation describes MCP-based architecture that doesn't match reality
 
+**Action Taken (Oct 19, 2025)**:
+- ✅ Archived 6 unused MCP files to `_legacy_mcp_archive/`
+- ✅ Preserved full git history for potential restoration
+- ✅ Reduced architectural confusion by aligning codebase with actual patterns
+- ✅ Production Data Collector MCP server remains fully operational
+
+**Restoration Path**: See `_legacy_mcp_archive/README.md` for git commands to restore any archived components if MCP unification is pursued in the future.
+
 **Decision Point**: Either:
-- **Option A**: Invest 1-2 weeks to unify on MCP protocol (add clients, convert agents)
+- **Option A**: Invest 1-2 weeks to unify on MCP protocol (restore archives, add clients, convert agents)
+- **Option B**: Accept Event Bus + Direct Calls as primary patterns (current state after archival)
 - **Option B**: Remove unused MCP servers, document event bus as primary pattern
 - **Option C**: Hybrid approach - keep Data Collector MCP, event bus for real-time events
 
