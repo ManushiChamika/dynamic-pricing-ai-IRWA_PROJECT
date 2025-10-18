@@ -149,10 +149,10 @@ export function PricesPanel() {
   const fetchIncidents = async () => {
     if (!token) return
     try {
-      const response = await fetch(`/api/alerts/incidents?status=OPEN&token=${token}`)
+      const response = await fetch(`/api/alerts/incidents?token=${token}`)
       if (!response.ok) throw new Error('Failed to fetch incidents')
       const data = await response.json()
-      setIncidents(data)
+      setIncidents(data.filter((i: Incident) => i.status === 'OPEN' || i.status === 'ACKED'))
     } catch (err) {
       console.error('Error fetching incidents:', err)
     }
