@@ -43,7 +43,11 @@ export function Sidebar() {
   useEffect(() => {
     refresh().then(() => {
       const last = Number(localStorage.getItem('lastThreadId') || '')
-      if (last) setCurrent(last)
+      if (last) {
+        setCurrent(last)
+      } else if (!currentId) {
+        createDraftThread()
+      }
     })
   }, [refresh, setCurrent])
 

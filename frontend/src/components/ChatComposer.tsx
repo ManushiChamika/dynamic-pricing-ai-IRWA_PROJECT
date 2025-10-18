@@ -18,10 +18,9 @@ export function ChatComposer({ currentId, streaming }: ChatComposerProps) {
   const messages = useMessages((state) => state.messages)
 
   const handleSend = () => {
-    if (currentId && input.trim()) {
-      send(currentId as any, input.trim(), 'user', streaming === 'sse')
-      setInput('')
-    }
+    if (!currentId || !input.trim()) return
+    send(currentId as any, input.trim(), 'user', streaming === 'sse')
+    setInput('')
   }
 
   return (
