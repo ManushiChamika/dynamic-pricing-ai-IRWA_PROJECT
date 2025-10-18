@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
+import { Virtuoso } from 'react-virtuoso'
 import { Button } from './ui/button'
 import { ThreadItem } from './sidebar/ThreadItem'
 import {
@@ -29,6 +30,15 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(localStorage.getItem('sidebarCollapsed') === '1')
   const user = useAuthUser()
   const { logout } = useAuthActions()
+
+  const allItems = useMemo(() => {
+    const items = []
+    if (draftId) {
+      items.push({ id: draftId, title: 'New Chat (unsaved)', isDraft: true })
+    }
+    items.push(...threads.map((t) => ({ id: t.id, title: t.title || `Thread #${t.id}`, isDraft: false })))
+    return items
+  }, [draftId, threads])
 
   useEffect(() => {
     refresh().then(() => {
@@ -92,27 +102,22 @@ export function Sidebar() {
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto mb-[var(--space-4)]">
-          <ul id="thread-list" className="list-none m-0 p-0">
-            {draftId && (
+        <div className="flex-1 mb-[var(--space-4)]" id="thread-list">
+          <Virtuoso
+            data={allItems}
+            totalCount={allItems.length}
+            itemContent={(index, item) => (
               <ThreadItem
-                id={draftId}
-                title="New Chat (unsaved)"
-                isActive={currentId === draftId}
-                isDraft
-                onSelect={() => setCurrent(draftId)}
+                key={item.id}
+                id={item.id}
+                title={item.title}
+                isActive={currentId === item.id}
+                isDraft={item.isDraft}
+                onSelect={() => setCurrent(item.id)}
               />
             )}
-            {threads.map((t) => (
-              <ThreadItem
-                key={t.id}
-                id={t.id}
-                title={t.title || `Thread #${t.id}`}
-                isActive={currentId === t.id}
-                onSelect={() => setCurrent(t.id)}
-              />
-            ))}
-          </ul>
+            style={{ height: '100%' }}
+          />
         </div>
 
         <div className="border-t border-[var(--border-color)] pt-[var(--space-3)] flex flex-col gap-[var(--space-2)]">

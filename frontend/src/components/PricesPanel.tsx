@@ -1,12 +1,59 @@
 import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
-import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { useTheme } from '../stores/settingsStore'
 import { Sparkline } from './Sparkline'
 import { useAuthToken } from '../stores/authStore'
 
 const PriceChart = lazy(() => import('./PriceChart').then((m) => ({ default: m.PriceChart })))
+
+const PriceCard = React.memo(({ k, data, viewMode, theme }: { 
+  k: string, 
+  data: { ts: number; price: number }[], 
+  viewMode: 'sparkline' | 'chart',
+  theme: string 
+}) => {
+  const vals = data.map((x) => x.price)
+  const last = vals[vals.length - 1]
+  const first = vals[0]
+  const change = last && first ? ((last - first) / first) * 100 : 0
+  const changeColor = change >= 0 ? '#10b981' : '#ef4444'
+
+  return (
+    <div
+      key={k}
+      className="border border-border rounded-2xl p-4 bg-panel backdrop-blur-xl shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+    >
+      <div
+        className={`flex justify-between items-center ${viewMode === 'chart' ? 'mb-3' : 'mb-2'}`}
+      >
+        <span className="opacity-90 font-medium text-sm">{k}</span>
+        <div className="text-right">
+          <div className="tabular-nums text-base font-semibold">
+            ${last?.toFixed?.(2) ?? '-'}
+          </div>
+          {viewMode === 'chart' && change !== 0 ? (
+            <div className="text-[11px] font-medium" style={{ color: changeColor }}>
+              {change > 0 ? '+' : ''}
+              {change.toFixed(2)}%
+            </div>
+          ) : null}
+        </div>
+      </div>
+      {viewMode === 'sparkline' ? (
+        <Sparkline values={vals} />
+      ) : (
+        <Suspense
+          fallback={
+            <div className="text-center py-4 text-muted text-sm">Loading chart…</div>
+          }
+        >
+          <PriceChart data={data} sku={k} theme={theme} />
+        </Suspense>
+      )}
+    </div>
+  )
+})
 
 export function PricesPanel() {
   const [collapsed, setCollapsed] = useState(localStorage.getItem('pricesCollapsed') === '1')
@@ -15,7 +62,7 @@ export function PricesPanel() {
   const [prices, setPrices] = useState<Record<string, { ts: number; price: number }[]>>({})
   const [viewMode, setViewMode] = useState<'sparkline' | 'chart'>('sparkline')
   const esRef = useRef<EventSource | null>(null)
-  const [pricesParent] = useAutoAnimate()
+  const throttleRef = useRef<NodeJS.Timeout>()
   const theme = useTheme()
   const token = useAuthToken()
 
@@ -44,10 +91,14 @@ export function PricesPanel() {
           const key = data.sku || 'SKU'
           const p = Number(data.price)
           const ts = Number(data.ts) || Date.now()
-          setPrices((prev) => {
-            const list = (prev[key] || []).concat({ ts, price: p }).slice(-50)
-            return { ...prev, [key]: list }
-          })
+          
+          if (throttleRef.current) clearTimeout(throttleRef.current)
+          throttleRef.current = setTimeout(() => {
+            setPrices((prev) => {
+              const list = (prev[key] || []).concat({ ts, price: p }).slice(-50)
+              return { ...prev, [key]: list }
+            })
+          }, 100)
         } catch {
           /* ignore invalid JSON */
         }
@@ -64,6 +115,7 @@ export function PricesPanel() {
           /* ignore */
         }
         if (esRef.current === es) esRef.current = null
+        if (throttleRef.current) clearTimeout(throttleRef.current)
       }
     } catch {
       // ignore
@@ -125,53 +177,13 @@ export function PricesPanel() {
         ) : null}
       </div>
       {!collapsed ? (
-        <div ref={pricesParent as any} className="grid gap-2">
+        <div className="grid gap-2">
           {keys.length === 0 ? (
             <div className="text-center py-12 px-6 text-muted text-base">Waiting for prices…</div>
           ) : null}
-          {keys.map((k) => {
-            const data = prices[k] || []
-            const vals = data.map((x) => x.price)
-            const last = vals[vals.length - 1]
-            const first = vals[0]
-            const change = last && first ? ((last - first) / first) * 100 : 0
-            const changeColor = change >= 0 ? '#10b981' : '#ef4444'
-
-            return (
-              <div
-                key={k}
-                className="border border-border rounded-2xl p-4 bg-panel backdrop-blur-xl shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <div
-                  className={`flex justify-between items-center ${viewMode === 'chart' ? 'mb-3' : 'mb-2'}`}
-                >
-                  <span className="opacity-90 font-medium text-sm">{k}</span>
-                  <div className="text-right">
-                    <div className="tabular-nums text-base font-semibold">
-                      ${last?.toFixed?.(2) ?? '-'}
-                    </div>
-                    {viewMode === 'chart' && change !== 0 ? (
-                      <div className="text-[11px] font-medium" style={{ color: changeColor }}>
-                        {change > 0 ? '+' : ''}
-                        {change.toFixed(2)}%
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-                {viewMode === 'sparkline' ? (
-                  <Sparkline values={vals} />
-                ) : (
-                  <Suspense
-                    fallback={
-                      <div className="text-center py-4 text-muted text-sm">Loading chart…</div>
-                    }
-                  >
-                    <PriceChart data={data} sku={k} theme={theme} />
-                  </Suspense>
-                )}
-              </div>
-            )
-          })}
+          {keys.map((k) => (
+            <PriceCard key={k} k={k} data={prices[k] || []} viewMode={viewMode} theme={theme} />
+          ))}
         </div>
       ) : null}
     </aside>

@@ -17,6 +17,7 @@ interface SummaryIndicatorProps {
 
 export function SummaryIndicator({ threadId }: SummaryIndicatorProps) {
   const [open, setOpen] = useState(false)
+  const [hasHovered, setHasHovered] = useState(false)
   const { data: summaries = [] } = useQuery({
     queryKey: ['summaries', threadId],
     queryFn: async () => {
@@ -25,7 +26,26 @@ export function SummaryIndicator({ threadId }: SummaryIndicatorProps) {
       return (res.data?.summaries || []) as Summary[]
     },
     staleTime: 30000,
+    enabled: hasHovered,
   })
+
+  if (!hasHovered) {
+    return (
+      <button
+        onMouseEnter={() => setHasHovered(true)}
+        onClick={() => {
+          setHasHovered(true)
+          setOpen(true)
+        }}
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full
+                 bg-indigo-500/20 text-indigo-400 border border-indigo-500/30
+                 hover:bg-indigo-500/30 hover:border-indigo-500/50 transition-all duration-200"
+        aria-label="View summaries"
+      >
+        <span>📝</span>
+      </button>
+    )
+  }
 
   if (summaries.length === 0) return null
 
