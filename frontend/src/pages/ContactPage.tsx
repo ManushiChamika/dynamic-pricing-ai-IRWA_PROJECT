@@ -3,7 +3,7 @@ import { Footer } from '../components/Footer'
 import { ContactForm } from '../components/contact/ContactForm'
 import { ContactInfoCards } from '../components/contact/ContactInfoCards'
 import { FAQSection } from '../components/contact/FAQSection'
-import { useTheme } from '../contexts/ThemeContext'
+import { useTheme } from '../hooks/useTheme'
 import { getPageThemeClasses } from '../lib/themeHelpers'
 
 export function ContactPage() {

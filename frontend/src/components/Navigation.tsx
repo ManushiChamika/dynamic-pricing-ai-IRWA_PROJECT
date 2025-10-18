@@ -2,7 +2,7 @@ import React, { useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Button } from './ui/button'
 import { Zap } from 'lucide-react'
-import { useTheme } from '../contexts/ThemeContext'
+import { useTheme } from '../hooks/useTheme'
 import { useAuthUser, useAuthActions, useAuthToken } from '../stores/authStore'
 
 export function Navigation() {
