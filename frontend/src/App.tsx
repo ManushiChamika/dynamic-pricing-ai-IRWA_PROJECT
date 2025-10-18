@@ -6,6 +6,7 @@ import { PromptModal } from './components/PromptModal'
 import { ConfirmModal } from './components/ConfirmModal'
 import { HelpModal } from './components/HelpModal'
 import { Toasts } from './components/Toasts'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { useSettings } from './stores/settingsStore'
 
 const SettingsModal = lazy(() =>
@@ -20,22 +21,24 @@ export default function App() {
     localStorage.setItem('theme', theme)
   }, [theme])
   return (
-    <div className="flex h-full">
-      <Sidebar />
-      <ChatPane />
-      <PricesPanel />
-      <PromptModal />
-      <ConfirmModal />
-      <HelpModal />
-      <Suspense fallback={null}>
-        <SettingsModal
-          open={settingsOpen}
-          onOpenChange={setSettingsOpen}
-          settings={{ theme, ...settings }}
-          onSettingsChange={(newSettings) => useSettings.getState().set(newSettings)}
-        />
-      </Suspense>
-      <Toasts />
-    </div>
+    <ErrorBoundary>
+      <div className="flex h-full">
+        <Sidebar />
+        <ChatPane />
+        <PricesPanel />
+        <PromptModal />
+        <ConfirmModal />
+        <HelpModal />
+        <Suspense fallback={null}>
+          <SettingsModal
+            open={settingsOpen}
+            onOpenChange={setSettingsOpen}
+            settings={{ theme, ...settings }}
+            onSettingsChange={(newSettings) => useSettings.getState().set(newSettings)}
+          />
+        </Suspense>
+        <Toasts />
+      </div>
+    </ErrorBoundary>
   )
 }

@@ -18,6 +18,7 @@ export function ChatPane() {
   const displaySettings = useDisplaySettings()
   const { mode, streaming } = useAppMode()
   const token = useAuthToken()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [input, setInput] = useState('')
   const msgsRef = useRef<HTMLDivElement | null>(null)
   const shouldStickRef = useRef(true)

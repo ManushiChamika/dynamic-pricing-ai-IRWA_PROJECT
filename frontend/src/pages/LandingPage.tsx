@@ -3,6 +3,7 @@ import { Button } from '../components/ui/button'
 import { MessageSquare, BarChart3, Bell, ArrowRight } from 'lucide-react'
 import { Navigation } from '../components/Navigation'
 import { Footer } from '../components/Footer'
+import { getHowItWorksCard } from '../lib/themeHelpers'
 import { useTheme } from '../contexts/ThemeContext'
 
 export function LandingPage() {
@@ -27,52 +28,6 @@ export function LandingPage() {
   const featureCardBase = isDark
     ? 'relative rounded-2xl border border-white/10 bg-gradient-to-br'
     : 'relative rounded-2xl border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.12)]'
-
-  const howItWorksCard = (color: 'indigo' | 'purple' | 'pink' | 'emerald') => {
-    const palette: Record<
-      typeof color,
-      { card: string; hover: string; dot: string; shadow: string; hoverShadow: string }
-    > = {
-      indigo: {
-        card: isDark ? 'from-indigo-500/5' : 'from-indigo-50',
-        hover: isDark ? 'hover:border-indigo-500/50' : 'hover:border-indigo-500/40',
-        dot: isDark ? 'from-indigo-500 to-indigo-600' : 'from-indigo-500 to-indigo-600',
-        shadow: isDark ? 'shadow-indigo-500/25' : 'shadow-indigo-500/30',
-        hoverShadow: isDark
-          ? 'hover:shadow-lg hover:shadow-indigo-500/10'
-          : 'hover:shadow-[0_24px_55px_rgba(79,70,229,0.15)]',
-      },
-      purple: {
-        card: isDark ? 'from-purple-500/5' : 'from-purple-50',
-        hover: isDark ? 'hover:border-purple-500/50' : 'hover:border-purple-500/40',
-        dot: 'from-purple-500 to-purple-600',
-        shadow: isDark ? 'shadow-purple-500/25' : 'shadow-purple-500/30',
-        hoverShadow: isDark
-          ? 'hover:shadow-lg hover:shadow-purple-500/10'
-          : 'hover:shadow-[0_24px_55px_rgba(147,51,234,0.16)]',
-      },
-      pink: {
-        card: isDark ? 'from-pink-500/5' : 'from-pink-50',
-        hover: isDark ? 'hover:border-pink-500/50' : 'hover:border-pink-500/40',
-        dot: 'from-pink-500 to-pink-600',
-        shadow: isDark ? 'shadow-pink-500/25' : 'shadow-pink-500/30',
-        hoverShadow: isDark
-          ? 'hover:shadow-lg hover:shadow-pink-500/10'
-          : 'hover:shadow-[0_24px_55px_rgba(236,72,153,0.14)]',
-      },
-      emerald: {
-        card: isDark ? 'from-emerald-500/5' : 'from-emerald-50',
-        hover: isDark ? 'hover:border-emerald-500/50' : 'hover:border-emerald-500/40',
-        dot: 'from-emerald-500 to-emerald-600',
-        shadow: isDark ? 'shadow-emerald-500/25' : 'shadow-emerald-500/30',
-        hoverShadow: isDark
-          ? 'hover:shadow-lg hover:shadow-emerald-500/10'
-          : 'hover:shadow-[0_24px_55px_rgba(16,185,129,0.14)]',
-      },
-    }
-
-    return palette[color]
-  }
 
   return (
     <div className={pageClasses}>
@@ -340,7 +295,7 @@ export function LandingPage() {
                     },
                   ]
                   return steps.map((step, idx) => {
-                    const palette = howItWorksCard(step.color)
+                    const palette = getHowItWorksCard(step.color, isDark)
                     const cardSurface = isDark
                       ? `border-white/10 bg-gradient-to-br ${palette.card} to-transparent`
                       : 'border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.12)]'

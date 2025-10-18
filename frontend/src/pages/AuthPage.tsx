@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/button'
 import { Navigation } from '../components/Navigation'
 import { useAuth } from '../stores/authStore'
+import { getAuthThemeClasses } from '../lib/themeHelpers'
 import { useTheme } from '../contexts/ThemeContext'
 
 export function AuthPage() {
@@ -18,16 +19,7 @@ export function AuthPage() {
   const cardSurface = isDark
     ? 'bg-gray-800/50 border-gray-700'
     : 'bg-white/95 border-slate-200 shadow-[0_20px_45px_rgba(15,23,42,0.12)]'
-  const labelColor = isDark ? 'text-gray-300' : 'text-slate-700'
-  const inputClass = isDark
-    ? 'bg-gray-900 border-gray-600 text-white'
-    : 'bg-white border-slate-300 text-slate-900 shadow-sm'
-  const switchLink = isDark
-    ? 'text-indigo-300 hover:text-indigo-200'
-    : 'text-indigo-600 hover:text-indigo-700'
-  const backLink = isDark
-    ? 'text-gray-400 hover:text-gray-300'
-    : 'text-slate-600 hover:text-slate-700'
+  const { labelColor, inputClass, switchLink, backLink } = getAuthThemeClasses(isDark)
   const [mode, setMode] = useState<'signin' | 'signup'>(
     searchParams.get('mode') === 'signup' ? 'signup' : 'signin'
   )
