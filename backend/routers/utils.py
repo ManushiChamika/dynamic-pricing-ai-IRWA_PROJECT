@@ -173,10 +173,10 @@ def generate_summary(thread_id: int, upto_message_id: int) -> Optional[str]:
         content = llm.chat([
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},
-         ], max_tokens=220, temperature=0.2)
-         return content
-     except Exception:
-         return None
+        ], max_tokens=220, temperature=0.2)
+        return content
+    except Exception:
+        return None
 
 
 def count_user_messages_since(thread_id: int, since_message_id: Optional[int] = None) -> int:

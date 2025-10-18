@@ -49,6 +49,21 @@ def db_add_summary(thread_id: int, upto_message_id: int, content: str):
     return _add_summary(thread_id, upto_message_id, content)
 
 
+def _should_auto_rename_thread(thread_id: int) -> bool:
+    from backend.routers.utils import should_auto_rename_thread
+    return should_auto_rename_thread(thread_id)
+
+
+def _generate_thread_title(thread_id: int) -> Optional[str]:
+    from backend.routers.utils import generate_thread_title
+    return generate_thread_title(thread_id)
+
+
+def _update_thread_title(thread_id: int, new_title: str):
+    from core.chat_db import update_thread
+    return update_thread(thread_id, title=new_title)
+
+
 @router.post("/{thread_id}/messages", response_model=MessageOut)
 def api_post_message(thread_id: int, req: PostMessageRequest, token: Optional[str] = None):
     import json as _json
@@ -125,6 +140,14 @@ def api_post_message(thread_id: int, req: PostMessageRequest, token: Optional[st
             summary = _generate_summary(thread_id, am.id)
             if summary:
                 db_add_summary(thread_id=thread_id, upto_message_id=am.id, content=summary)
+    except Exception:
+        pass
+
+    try:
+        if _should_auto_rename_thread(thread_id):
+            new_title = _generate_thread_title(thread_id)
+            if new_title:
+                _update_thread_title(thread_id, new_title)
     except Exception:
         pass
 
@@ -265,6 +288,15 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
                     summary = _generate_summary(thread_id, am.id)
                     if summary:
                         db_add_summary(thread_id=thread_id, upto_message_id=am.id, content=summary)
+            except Exception:
+                pass
+
+            try:
+                if _should_auto_rename_thread(thread_id):
+                    new_title = _generate_thread_title(thread_id)
+                    if new_title:
+                        _update_thread_title(thread_id, new_title)
+                        yield "event: thread_renamed\n" + "data: " + _json.dumps({"id": thread_id, "title": new_title}, ensure_ascii=False) + "\n\n"
             except Exception:
                 pass
 
