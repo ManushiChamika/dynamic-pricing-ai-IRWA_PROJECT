@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { SCROLL_STICKY_THRESHOLD_PX } from '@/lib/constants'
 import { useMessages, useMessagesActions } from '../stores/messageStore'
 import { useCurrentThread } from '../stores/threadStore'
