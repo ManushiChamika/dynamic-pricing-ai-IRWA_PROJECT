@@ -1,14 +1,24 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Button } from './ui/button'
 import { Zap } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
+import { useAuthUser, useAuthActions, useAuthToken } from '../stores/authStore'
 
 export function Navigation() {
   const navigate = useNavigate()
   const location = useLocation()
   const { theme, toggleTheme } = useTheme()
   const isDark = theme === 'dark'
+  const user = useAuthUser()
+  const token = useAuthToken()
+  const { logout, fetchMe } = useAuthActions()
+
+  useEffect(() => {
+    if (token && !user) {
+      fetchMe()
+    }
+  }, [token, user, fetchMe])
 
   const isActive = (path: string) => location.pathname === path
 
@@ -82,18 +92,43 @@ export function Navigation() {
             {isDark ? '☾' : '☀'}
           </span>
 
-          <Button
-            onClick={() => navigate('/auth?mode=signin')}
-            className={`${isDark ? 'border-white/20 text-white hover:bg-white/10' : 'border-slate-400 text-slate-800 hover:bg-slate-100'} border`}
-          >
-            Sign In
-          </Button>
-          <Button
-            onClick={() => navigate('/auth?mode=signup')}
-            className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0"
-          >
-            Get Started
-          </Button>
+          {user ? (
+            <>
+              <span
+                className={`text-base font-medium ${isDark ? 'text-gray-300' : 'text-slate-700'}`}
+              >
+                {user.full_name || user.email}
+              </span>
+              <Button
+                onClick={async () => {
+                  try {
+                    await logout()
+                  } catch {
+                    /* ignore */
+                  }
+                  window.location.href = '/'
+                }}
+                className={`${isDark ? 'border-white/20 text-white hover:bg-white/10' : 'border-slate-400 text-slate-800 hover:bg-slate-100'} border`}
+              >
+                Logout
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                onClick={() => navigate('/auth?mode=signin')}
+                className={`${isDark ? 'border-white/20 text-white hover:bg-white/10' : 'border-slate-400 text-slate-800 hover:bg-slate-100'} border`}
+              >
+                Sign In
+              </Button>
+              <Button
+                onClick={() => navigate('/auth?mode=signup')}
+                className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0"
+              >
+                Get Started
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </nav>

@@ -74,7 +74,7 @@ export function PricesPanel() {
 
   return (
     <aside
-      className={`${collapsed ? 'w-12' : 'w-[280px]'} border-l border-border p-[var(--space-4)] overflow-auto bg-[rgba(17,24,39,0.85)] backdrop-blur-3xl transition-all duration-300`}
+      className={`${collapsed ? 'w-12' : 'w-[280px]'} border-l border-border p-[var(--space-4)] overflow-auto bg-[var(--panel)] backdrop-blur-3xl transition-all duration-300`}
       aria-label="Prices panel"
     >
       <div className="flex gap-[var(--space-2)] items-center mb-[var(--space-2)]">
