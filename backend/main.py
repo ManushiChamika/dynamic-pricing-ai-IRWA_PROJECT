@@ -16,6 +16,7 @@ from core.chat_db import (
     delete_message as db_delete_message,
     update_thread as db_update_thread,
     delete_thread as db_delete_thread,
+    cleanup_empty_threads,
     SessionLocal,
     get_latest_summary as db_get_latest_summary,
     add_summary as db_add_summary,
@@ -40,6 +41,7 @@ from contextlib import asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     init_chat_db()
+    cleanup_empty_threads()
     yield
 
 app = FastAPI(title="FluxPricer Auth + Chat API", lifespan=lifespan)
@@ -79,7 +81,11 @@ except Exception:
 # ---------- Utility: LLM cost + metadata helpers ----------
 
 def _default_price_map() -> Dict[str, Dict[str, float]]:
-    # Per-1K token prices in USD for a few common models (override via LLM_PRICE_MAP)
+    """Get default LLM pricing map with per-1K token rates in USD.
+    
+    Returns dict mapping model identifiers to input/output pricing.
+    Can be overridden via LLM_PRICE_MAP environment variable.
+    """
     return {
         "openai:gpt-4o-mini": {"in": 0.005, "out": 0.015},
         "openai:gpt-4o": {"in": 0.01, "out": 0.03},
@@ -90,6 +96,11 @@ def _default_price_map() -> Dict[str, Dict[str, float]]:
 
 
 def _load_price_map() -> Dict[str, Dict[str, float]]:
+    """Load LLM pricing configuration from environment or use defaults.
+    
+    Parses LLM_PRICE_MAP JSON env var with model-to-pricing mappings.
+    Falls back to _default_price_map() if env var is missing or invalid.
+    """
     import os, json
     raw = os.getenv("LLM_PRICE_MAP")
     if not raw:
@@ -106,6 +117,16 @@ def _load_price_map() -> Dict[str, Dict[str, float]]:
 
 
 def _compute_cost_usd(provider: Optional[str], model: Optional[str], token_in: Optional[int], token_out: Optional[int]) -> Optional[str]:
+    """Compute LLM API call cost in USD based on token usage and pricing.
+    
+    Args:
+        provider: LLM provider name (e.g., 'openai', 'gemini')
+        model: Model identifier
+        token_in: Input prompt tokens consumed
+        token_out: Output completion tokens generated
+    
+    Returns formatted cost string (e.g., "0.0123") or None if uncalculable.
+    """
     try:
         if not provider or not model or token_in is None or token_out is None:
             return None
@@ -122,14 +143,26 @@ def _compute_cost_usd(provider: Optional[str], model: Optional[str], token_in: O
 
 
 def _derive_agents_from_tools(tools_used: Optional[List[str]]) -> List[str]:
+    """Map tool names to activated agent names for UI display.
+    
+    Args:
+        tools_used: List of tool names invoked during LLM execution
+    
+    Returns list of unique agent names responsible for those tools.
+    """
     if not tools_used:
         return []
     mapping = {
-        "run_pricing_workflow": "PricingOptimizerAgent",
-        "optimize_price": "PricingOptimizerAgent",
+        "list_inventory_items": "UserInteractionAgent",
+        "get_inventory_item": "UserInteractionAgent",
+        "list_pricing_list": "PriceOptimizationAgent",
+        "list_price_proposals": "PriceOptimizationAgent",
+        "list_market_data": "DataCollectorAgent",
+        "run_pricing_workflow": "PriceOptimizationAgent",
+        "optimize_price": "PriceOptimizationAgent",
         "scan_for_alerts": "AlertNotificationAgent",
-        "collect_market_data": "DataCollectionAgent",
-        "request_market_fetch": "MarketCollector",
+        "collect_market_data": "DataCollectorAgent",
+        "request_market_fetch": "DataCollectorAgent",
     }
     agents: List[str] = []
     for t in tools_used:
@@ -142,6 +175,14 @@ def _derive_agents_from_tools(tools_used: Optional[List[str]]) -> List[str]:
 # ---------- Context assembly + summarization helpers ----------
 
 def _env_int(name: str, default: int) -> int:
+    """Read integer environment variable with fallback default.
+    
+    Args:
+        name: Environment variable name
+        default: Default value if variable not set or parse fails
+    
+    Returns parsed integer or default.
+    """
     try:
         import os
         return int(os.getenv(name, str(default)) or default)
@@ -150,6 +191,14 @@ def _env_int(name: str, default: int) -> int:
 
 
 def _env_float(name: str, default: float) -> float:
+    """Read float environment variable with fallback default.
+    
+    Args:
+        name: Environment variable name
+        default: Default value if variable not set or parse fails
+    
+    Returns parsed float or default.
+    """
     try:
         import os
         return float(os.getenv(name, str(default)) or default)
@@ -194,6 +243,19 @@ def _assemble_memory(thread_id: int) -> List[Dict[str, str]]:
 
 
 def _should_summarize(thread_id: int, upto_message_id: int, token_in: Optional[int], token_out: Optional[int]) -> bool:
+    """Determine if conversation thread should be summarized.
+    
+    Uses heuristics: message count threshold, token usage, thread length,
+    and probabilistic triggers via environment variables.
+    
+    Args:
+        thread_id: Thread to evaluate
+        upto_message_id: Last message ID to consider
+        token_in: Input tokens from latest API call
+        token_out: Output tokens from latest API call
+    
+    Returns True if summarization should occur.
+    """
     import random
     msgs = db_get_thread_messages(thread_id)
     latest = db_get_latest_summary(thread_id)
@@ -357,6 +419,10 @@ class ThreadImportRequest(BaseModel):
 # ---------- Optional auth gating ----------
 
 def _require_login_enabled() -> bool:
+    """Check if authentication is required for chat endpoints.
+    
+    Returns True if UI_REQUIRE_LOGIN env var is set to truthy value.
+    """
     try:
         import os
         return (os.getenv("UI_REQUIRE_LOGIN", "0").lower() in {"1","true","yes","on"})
@@ -365,6 +431,15 @@ def _require_login_enabled() -> bool:
 
 
 def _extract_token_from_request(request: Request) -> str | None:
+    """Extract session token from request query, header, or cookie.
+    
+    Checks: query param 'token', 'Authorization' header, 'fp_session' cookie.
+    
+    Args:
+        request: FastAPI request object
+    
+    Returns token string or None if not found.
+    """
     try:
         token = request.query_params.get("token")
         if token:
@@ -417,6 +492,11 @@ SETTINGS_STORE: Dict[int, Dict[str, Any]] = {}
 
 
 def _default_settings() -> Dict[str, Any]:
+    """Get default chat UI settings.
+    
+    Returns dict with theme, model tag display, timestamps, mode, and streaming options.
+    Developer mode toggles metadata panel and thinking display.
+    """
     import os
     dev = (os.getenv("DEV_MODE", "0").lower() in {"1", "true", "yes", "on"})
     return {
@@ -431,6 +511,16 @@ def _default_settings() -> Dict[str, Any]:
 
 
 def _get_user_settings(token: Optional[str]) -> Dict[str, Any]:
+    """Get merged user-specific or default chat settings.
+    
+    If token is valid and user has saved settings, returns those.
+    Otherwise returns default settings for all users.
+    
+    Args:
+        token: Optional session token to look up user
+    
+    Returns settings dict.
+    """
     user_id: Optional[int] = None
     if token:
         sess = validate_session_token(token)
@@ -513,8 +603,13 @@ def api_update_settings(req: UpdateSettingsRequest):
 # ---------- Chat Endpoints ----------
 
 @app.post("/api/threads", response_model=ThreadOut)
-def api_create_thread(req: CreateThreadRequest):
-    t = db_create_thread(title=req.title)
+def api_create_thread(req: CreateThreadRequest, token: Optional[str] = None):
+    owner_id = None
+    if token:
+        sess = validate_session_token(token)
+        if sess:
+            owner_id = sess["user_id"]
+    t = db_create_thread(title=req.title, owner_id=owner_id)
     return ThreadOut(id=t.id, title=t.title, created_at=t.created_at.isoformat())
 
 
@@ -623,8 +718,13 @@ def api_import_thread(req: ThreadImportRequest):
 
 
 @app.get("/api/threads", response_model=List[ThreadOut])
-def api_list_threads():
-    rows = db_list_threads()
+def api_list_threads(token: Optional[str] = None):
+    owner_id = None
+    if token:
+        sess = validate_session_token(token)
+        if sess:
+            owner_id = sess["user_id"]
+    rows = db_list_threads(owner_id=owner_id)
     return [ThreadOut(id=t.id, title=t.title, created_at=t.created_at.isoformat()) for t in rows]
 
 
@@ -720,8 +820,25 @@ def api_post_message(thread_id: int, req: PostMessageRequest, token: Optional[st
     uia = UserInteractionAgent(user_name=req.user_name, mode=mode)
     for item in _assemble_memory(thread_id):
         uia.add_to_memory(item["role"], item["content"])
-    # Get assistant response
-    answer = uia.get_response(req.content)
+    
+    # Collect response by consuming the stream
+    full_parts: List[str] = []
+    activated_agents: set = set()
+    try:
+        for delta in uia.stream_response(req.content):
+            if isinstance(delta, str) and delta:
+                full_parts.append(delta)
+            elif isinstance(delta, dict):
+                et = delta.get("type")
+                if et == "agent":
+                    agent_name = delta.get("name")
+                    if agent_name:
+                        activated_agents.add(agent_name)
+    except Exception:
+        pass
+    
+    answer = "".join(full_parts).strip()
+    
     # Persist assistant with metadata if available
     model = getattr(uia, "last_model", None)
     usage = getattr(uia, "last_usage", {}) if hasattr(uia, "last_usage") else {}
@@ -736,7 +853,7 @@ def api_post_message(thread_id: int, req: PostMessageRequest, token: Optional[st
         metadata = None
 
     # Derived metadata for UI/exports
-    agents_list = _derive_agents_from_tools(tools_used if isinstance(tools_used, list) else [])
+    agents_list = list(activated_agents) if activated_agents else []
     tools_obj = {"used": (tools_used or []), "count": len(tools_used or [])}
     agents_obj = {"activated": agents_list, "count": len(agents_list)}
     api_calls = (1 if model else 0) + len(tools_obj["used"])  # model call + tool calls
@@ -844,6 +961,7 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
 
             # Stream tokens from the LLM and forward as SSE deltas
             full_parts: List[str] = []
+            activated_agents: set = set()
             try:
                 for delta in uia.stream_response(req.content):
                     try:
@@ -862,8 +980,11 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
                                     full_parts.append(text)
                                     yield "event: message\n" + "data: " + _json.dumps({"id": am.id, "delta": text}, ensure_ascii=False) + "\n\n"
                             elif et == "agent":
-                                # Forward agent activation for UI badges
-                                payload = {"name": delta.get("name")}
+                                # Forward agent activation for UI badges and collect for database
+                                agent_name = delta.get("name")
+                                if agent_name:
+                                    activated_agents.add(agent_name)
+                                payload = {"name": agent_name}
                                 yield "event: agent\n" + "data: " + _json.dumps(payload, ensure_ascii=False) + "\n\n"
                             elif et == "tool_call":
                                 # Forward tool call lifecycle events
@@ -891,7 +1012,7 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
             except Exception:
                 metadata = None
 
-            agents_list = _derive_agents_from_tools(tools_used if isinstance(tools_used, list) else [])
+            agents_list = list(activated_agents) if activated_agents else []
             tools_obj = {"used": (tools_used or []), "count": len(tools_used or [])}
             agents_obj = {"activated": agents_list, "count": len(agents_list)}
             api_calls = (1 if model else 0) + len(tools_obj["used"])
@@ -963,8 +1084,19 @@ async def api_prices_stream(sku: Optional[str] = None):
     import json
     import random
     import time
+    import sqlite3
 
-    symbols = [sku] if sku else ["SKU-1", "SKU-2", "SKU-3"]
+    if sku:
+        symbols = [sku]
+    else:
+        conn = sqlite3.connect('data/market.db')
+        cursor = conn.cursor()
+        cursor.execute('SELECT product_name FROM market_data LIMIT 50')
+        symbols = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        if not symbols:
+            symbols = ["SKU-1", "SKU-2", "SKU-3"]
+    
     bases = {s: 100.0 + random.random() * 10.0 for s in symbols}
 
     async def _aiter():

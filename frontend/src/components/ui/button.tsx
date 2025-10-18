@@ -1,45 +1,49 @@
-import * as React from "react";
-import { cn } from "../../lib/utils";
+import * as React from 'react'
+import { Slot } from '@radix-ui/react-slot'
+import { cva, type VariantProps } from 'class-variance-authority'
 
-export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "default" | "destructive" | "outline" | "ghost" | "secondary";
-  size?: "default" | "sm" | "lg" | "icon";
+import { cn } from '@/lib/utils'
+
+const buttonVariants = cva(
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+  {
+    variants: {
+      variant: {
+        default: 'bg-primary text-primary-foreground hover:bg-primary/90',
+        destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+        outline: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
+        secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
+        ghost: 'hover:bg-accent hover:text-accent-foreground',
+        link: 'text-primary underline-offset-4 hover:underline',
+      },
+      size: {
+        default: 'h-10 px-4 py-2',
+        sm: 'h-9 rounded-md px-3',
+        lg: 'h-11 rounded-md px-8',
+        icon: 'h-10 w-10',
+      },
+    },
+    defaultVariants: {
+      variant: 'default',
+      size: 'default',
+    },
+  }
+)
+
+export interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {
+  asChild?: boolean
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = "default", size = "default", ...props }, ref) => {
+  ({ className, variant, size, asChild = false, ...props }, ref) => {
+    const Comp = asChild ? Slot : 'button'
     return (
-      <button
-        className={cn(
-          "inline-flex items-center justify-center rounded-lg font-medium text-sm transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-accent",
-          "disabled:pointer-events-none disabled:opacity-50 disabled:saturate-[0.4]",
-          "relative overflow-hidden backdrop-blur-2xl",
-          "before:content-[''] before:absolute before:inset-0 before:transition-opacity before:duration-300 before:opacity-0",
-          "hover:not(:disabled):before:opacity-100 active:not(:disabled):translate-y-0",
-          {
-            default: "bg-gradient-to-br from-[rgba(30,41,59,0.8)] to-[rgba(26,32,44,0.9)] border border-border shadow-[0_2px_6px_rgba(0,0,0,0.4),0_1px_3px_rgba(0,0,0,0.3)] before:bg-gradient-to-br before:from-accent before:to-accent-hover hover:not(:disabled):border-accent hover:not(:disabled):text-white hover:not(:disabled):-translate-y-0.5 hover:not(:disabled):shadow-[0_6px_12px_rgba(99,102,241,0.3),0_2px_4px_rgba(99,102,241,0.2)] active:not(:disabled):shadow-[0_2px_4px_rgba(99,102,241,0.2)]",
-            secondary: "bg-gradient-to-br from-[rgba(30,41,59,0.8)] to-[rgba(26,32,44,0.9)] border border-border shadow-[0_2px_6px_rgba(0,0,0,0.4),0_1px_3px_rgba(0,0,0,0.3)] before:bg-gradient-to-br before:from-accent before:to-accent-hover hover:not(:disabled):border-accent hover:not(:disabled):text-white hover:not(:disabled):-translate-y-0.5 hover:not(:disabled):shadow-[0_6px_12px_rgba(99,102,241,0.3),0_2px_4px_rgba(99,102,241,0.2)] active:not(:disabled):shadow-[0_2px_4px_rgba(99,102,241,0.2)]",
-            destructive: "bg-gradient-to-br from-red-600 to-red-700 text-white border-0 shadow-[0_2px_6px_rgba(239,68,68,0.4)] before:bg-gradient-to-br before:from-red-500 before:to-red-600 hover:not(:disabled):-translate-y-0.5 hover:not(:disabled):shadow-[0_6px_12px_rgba(239,68,68,0.4)]",
-            outline: "border border-border bg-transparent hover:not(:disabled):bg-accent/10 hover:not(:disabled):border-accent",
-            ghost: "border-0 shadow-none hover:not(:disabled):bg-accent/10",
-          }[variant],
-          {
-            default: "h-9 px-4 py-2",
-            sm: "h-8 px-3 text-xs",
-            lg: "h-10 px-8",
-            icon: "h-9 w-9 p-0",
-          }[size],
-          className
-        )}
-        ref={ref}
-        {...props}
-      >
-        <span className="relative z-10">{props.children}</span>
-      </button>
-    );
+      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
+    )
   }
-);
-Button.displayName = "Button";
+)
+Button.displayName = 'Button'
 
-export { Button };
+export { Button, buttonVariants }
