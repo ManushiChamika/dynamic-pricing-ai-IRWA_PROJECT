@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../ui/button'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, MessageSquare } from 'lucide-react'
+import { useAuthUser } from '../../stores/authStore'
 
 interface CTASectionProps {
   isDark: boolean
@@ -9,6 +10,7 @@ interface CTASectionProps {
 
 export function CTASection({ isDark, mutedText }: CTASectionProps) {
   const navigate = useNavigate()
+  const user = useAuthUser()
 
   return (
     <section
@@ -23,16 +25,28 @@ export function CTASection({ isDark, mutedText }: CTASectionProps) {
         <p className={`text-xl ${mutedText} mb-10 max-w-2xl mx-auto`}>
           Join businesses using AI to stay competitive and maximize revenue
         </p>
-        <Button
-          className="text-lg h-16 px-12 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white hover:text-white border-0 shadow-lg shadow-indigo-500/25 gap-3"
-          onClick={() => navigate('/auth?mode=signup')}
-        >
-          Get Started Now
-          <ArrowRight className="h-5 w-5" />
-        </Button>
-        <p className="mt-6 text-sm text-gray-500">
-          No credit card required • 14-day free trial • Cancel anytime
-        </p>
+        {user ? (
+          <Button
+            className="text-lg h-16 px-12 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white hover:text-white border-0 shadow-lg shadow-indigo-500/25 gap-3"
+            onClick={() => navigate('/chat')}
+          >
+            Go to Chat
+            <MessageSquare className="h-5 w-5" />
+          </Button>
+        ) : (
+          <>
+            <Button
+              className="text-lg h-16 px-12 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white hover:text-white border-0 shadow-lg shadow-indigo-500/25 gap-3"
+              onClick={() => navigate('/auth?mode=signup')}
+            >
+              Get Started Now
+              <ArrowRight className="h-5 w-5" />
+            </Button>
+            <p className="mt-6 text-sm text-gray-500">
+              No credit card required • 14-day free trial • Cancel anytime
+            </p>
+          </>
+        )}
       </div>
     </section>
   )

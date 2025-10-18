@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, Response, Cookie
+from fastapi import APIRouter, HTTPException, Response, Cookie, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from core.auth_service import (
     RegisterIn,
@@ -10,6 +11,7 @@ from core.auth_service import (
 )
 
 router = APIRouter(prefix="/api", tags=["auth"])
+bearer_scheme = HTTPBearer()
 
 
 class RegisterRequest(BaseModel):
@@ -49,7 +51,8 @@ def api_login(req: LoginRequest):
 
 
 @router.get("/me")
-def api_me(token: str):
+def api_me(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
+    token = credentials.credentials
     sess = validate_session_token(token)
     if not sess:
         raise HTTPException(status_code=401, detail="Invalid or expired token")

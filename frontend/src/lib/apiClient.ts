@@ -38,13 +38,12 @@ export async function api<T = any>(
   init?: RequestInit & { json?: any }
 ): Promise<ApiResult<T>> {
   const opts: RequestInit = { method: init?.method || 'GET', headers: init?.headers || {} }
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') || '' : ''
-  let full = url
-  if (token && url.startsWith('/api/')) {
-    const u = new URL(url, window.location.origin)
-    if (!u.searchParams.get('token')) u.searchParams.set('token', token)
-    full = u.pathname + u.search + u.hash
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+
+  if (token) {
+    opts.headers = { ...opts.headers, Authorization: `Bearer ${token}` }
   }
+
   if (init?.json !== undefined) {
     opts.headers = { ...(opts.headers || {}), 'content-type': 'application/json' }
     opts.body = JSON.stringify(init.json)
@@ -52,7 +51,7 @@ export async function api<T = any>(
     opts.body = init.body
   }
   
-  const r = await fetchWithRetry(full, opts)
+  const r = await fetchWithRetry(url, opts)
   const ct = r.headers.get('content-type') || ''
   const data = ct.includes('application/json') ? await r.json().catch(() => null) : null
   if (r.status === 401 && unauthorizedHandler) {
