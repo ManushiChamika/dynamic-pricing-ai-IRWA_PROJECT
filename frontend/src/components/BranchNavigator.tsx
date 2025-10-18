@@ -187,9 +187,7 @@ export function buildConversationPath(
   if (!messages.length) return []
 
   const result: Message[] = []
-  const messageMap = new Map(messages.map((m) => [m.id, m]))
 
-  // Start with root messages (no parent)
   let current = messages.find((m) => !m.parent_id)
 
   while (current) {

@@ -1,4 +1,3 @@
-import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
@@ -9,12 +8,10 @@ import { useState } from 'react'
 import { useTheme } from '../contexts/ThemeContext'
 
 export function ContactPage() {
-  const navigate = useNavigate()
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const pageClasses = isDark ? 'bg-[#0F172A] text-white' : 'bg-slate-50 text-slate-900'
   const mutedText = isDark ? 'text-gray-400' : 'text-slate-700'
-  const helperText = isDark ? 'text-gray-500' : 'text-slate-600'
   const heroGradient = isDark
     ? 'from-indigo-500/10 via-transparent to-purple-500/10'
     : 'from-indigo-400/15 via-transparent to-purple-300/10'

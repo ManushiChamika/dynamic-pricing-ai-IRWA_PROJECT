@@ -140,15 +140,6 @@ export function MessageView({
   const currentId = useCurrentThread()
   const showThinking = useSettings((state) => state.showThinking)
 
-  const handleNavigate = async (targetMessageId: number) => {
-    const targetEl = document.querySelector(`[data-message-id="${targetMessageId}"]`)
-    if (targetEl) {
-      targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      targetEl.classList.add('highlight-pulse')
-      setTimeout(() => targetEl.classList.remove('highlight-pulse'), 2000)
-    }
-  }
-
   const [hovered, setHovered] = useState(false)
 
   const fadeIn = useSpring({

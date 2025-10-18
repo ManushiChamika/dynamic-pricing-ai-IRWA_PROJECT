@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/button'
-import { MessageSquare, BarChart3, Bell, ArrowRight, Zap } from 'lucide-react'
+import { MessageSquare, BarChart3, Bell, ArrowRight } from 'lucide-react'
 import { Navigation } from '../components/Navigation'
 import { Footer } from '../components/Footer'
 import { useTheme } from '../contexts/ThemeContext'

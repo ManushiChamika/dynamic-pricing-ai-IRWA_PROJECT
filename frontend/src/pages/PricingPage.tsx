@@ -1,4 +1,4 @@
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/button'
 import { Navigation } from '../components/Navigation'
 import { Footer } from '../components/Footer'
@@ -19,7 +19,6 @@ export function PricingPage() {
     ? 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)'
     : 'radial-gradient(circle at 1px 1px, rgba(79,70,229,0.08) 1px, transparent 0)'
   const secondarySurface = isDark ? 'bg-[#1E293B]/30' : 'bg-slate-100'
-  const faqSurface = isDark ? 'border-white/10 bg-[#1E293B]/50' : 'border-slate-200 bg-white'
   const planCardBase = isDark
     ? 'relative rounded-2xl border transition-all duration-300'
     : 'relative rounded-2xl border border-slate-200 bg-white shadow-[0_20px_45px_rgba(15,23,42,0.12)] transition-all duration-300'

@@ -1,9 +1,8 @@
 import { useGlobalShortcuts, isInInput } from '@/lib/hooks'
-import { useMessagesActions, useStreamingState, useMessages } from '../stores/messageStore'
+import { useMessagesActions } from '../stores/messageStore'
 import { useThreads } from '../stores/threadStore'
 import { useSettings } from '../stores/settingsStore'
 import { useHelp } from '../stores/helpStore'
-import { usePrompt } from '../stores/promptStore'
 
 export function useChatKeyboardShortcuts(
   currentId: number | string | null,
@@ -11,8 +10,7 @@ export function useChatKeyboardShortcuts(
   streaming: string | undefined,
   setInput: (value: string) => void
 ) {
-  const { send, stop, refresh } = useMessagesActions()
-  const messages = useMessages((state) => state.messages)
+  const { send, stop } = useMessagesActions()
 
   useGlobalShortcuts([
     {

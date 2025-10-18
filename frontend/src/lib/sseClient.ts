@@ -1,7 +1,6 @@
 import { useSettings } from '../stores/settingsStore'
 import { useToasts } from '../stores/toastStore'
 import { triggerUnauthorized } from './apiClient'
-import type { Message } from '../stores/messageStore'
 
 export type SSEUpdateCallback = (update: {
   delta?: string
