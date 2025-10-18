@@ -5,10 +5,11 @@ import sqlite3
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List, Tuple
 from datetime import datetime
 
 from .optimizer import Features, optimize
+from .algorithms import ALGORITHMS
 
 try:
     from core.agents.agent_sdk.activity_log import should_trace, activity_log, safe_redact, generate_trace_id
@@ -51,12 +52,32 @@ class PricingOptimizerAgent:
     - Emits activity + journal events so the UI shows progress
     """
 
-    def __init__(self, app_db: Optional[Path] = None, market_db: Optional[Path] = None) -> None:
+    def __init__(
+        self, 
+        app_db: Optional[Path] = None, 
+        market_db: Optional[Path] = None,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+        model: Optional[str] = None,
+        strict_ai_selection: Optional[bool] = None,
+    ) -> None:
         root = Path(__file__).resolve().parents[3]
         self.db = _DBPaths(
             app_db=app_db or (root / "app" / "data.db"),
             market_db=market_db or (root / "data" / "market.db"),
         )
+        
+        self.llm_brain = None
+        try:
+            from .llm_brain import LLMBrain
+            self.llm_brain = LLMBrain(
+                api_key=api_key,
+                base_url=base_url,
+                model=model,
+                strict_ai_selection=strict_ai_selection,
+            )
+        except Exception:
+            pass
 
     async def process_full_workflow(
         self,
@@ -189,25 +210,51 @@ class PricingOptimizerAgent:
             "avg_price": competitor_price,
         }
 
-        # Step 3: Pick an algorithm label (for demo/telemetry)
-        req_l = (user_request or "").lower()
-        if any(k in req_l for k in ("maximize", "profit", "greedy")):
-            algorithm = "profit_maximization"
-        elif any(k in req_l for k in ("ml", "predict", "model")):
-            algorithm = "ml_model"
+        algorithm = "rule_based"
+        llm_reason = None
+        
+        if self.llm_brain:
+            decision = self.llm_brain.decide_tool(user_request, ALGORITHMS, market_context)
+            if "error" not in decision:
+                algorithm = decision.get("tool_name", "rule_based")
+                llm_reason = decision.get("reason")
+            else:
+                req_l = (user_request or "").lower()
+                if any(k in req_l for k in ("maximize", "profit", "greedy")):
+                    algorithm = "profit_maximization"
+                elif any(k in req_l for k in ("ml", "predict", "model")):
+                    algorithm = "ml_model"
         else:
-            algorithm = "rule_based"
+            req_l = (user_request or "").lower()
+            if any(k in req_l for k in ("maximize", "profit", "greedy")):
+                algorithm = "profit_maximization"
+            elif any(k in req_l for k in ("ml", "predict", "model")):
+                algorithm = "ml_model"
 
-        # Step 4: Run optimization (heuristic v0)
+        market_records: List[Tuple[float, str]] = []
+        uri_market = f"file:{self.db.market_db.as_posix()}?mode=ro"
+        try:
+            with sqlite3.connect(uri_market, uri=True) as m:
+                m.row_factory = sqlite3.Row
+                if title:
+                    rows = m.execute(
+                        "SELECT price, scraped_at FROM market_data WHERE product_name=? ORDER BY scraped_at DESC LIMIT 50",
+                        (title,),
+                    ).fetchall()
+                    market_records = [(float(r["price"]), r["scraped_at"]) for r in rows if r["price"] is not None]
+        except Exception:
+            pass
+
         res = optimize(
             f=Features(sku=sku, our_price=float(our_price), competitor_price=competitor_price, cost=cost),
             min_price=0.0,
             max_price=1e12,
             min_margin=0.12,
             trace_id=local_trace,
+            algorithm=algorithm,
+            market_records=market_records,
         )
 
-        # Step 5: Compile response and log
         completed = datetime.now()
         out = {
             "status": "ok",
@@ -216,6 +263,7 @@ class PricingOptimizerAgent:
             "confidence": res.get("confidence", 0.6),
             "reason": res.get("rationale", ""),
             "algorithm": algorithm,
+            "llm_reason": llm_reason,
             "market_context": market_context,
             "inputs": {
                 "sku": sku,

@@ -21,21 +21,29 @@ A FastAPI backend with a lightweight static HTML/JS UI for chat-driven dynamic p
 - Python 3.10+
 - pip install -r requirements.txt
 
-3) Run the API server
+3) Build and run the application
+- cd frontend && npm install && npm run build && cd ..
 - uvicorn backend.main:app --reload --port 8000
-- Open http://localhost:8000/ui/index.html for the chat UI
+- Open http://localhost:8000 for the application
+- Or use run_full_app.bat for hot-reload development (backend + frontend dev server)
 
 4) Optional: run tests
-- pytest -q
+- Backend: pytest -q
+- Frontend: cd frontend && npm test
 
 
 ## Architecture Overview
 
 - Backend: FastAPI app at `backend/main.py`
-  - Serves static UI from `backend/ui` under `/ui`
+  - Serves React frontend build from `frontend/dist` at root (`/`)
   - Provides REST endpoints for auth, settings, threads, messages, export/import
   - SSE endpoint for token-by-token streaming
   - Stores chat threads/messages/summaries in `data/chat.db` (SQLite)
+- Frontend: React 18 + TypeScript SPA at `frontend/src`
+  - Multi-page application with routing (Landing, Auth, Chat, Pricing, Contact)
+  - Built with Vite, styled with Tailwind CSS + shadcn/ui components
+  - State management via Zustand (8 stores)
+  - Real-time chat with SSE streaming
 - Core agents
   - `core/agents/llm_client.py`: multi-provider LLM wrapper with fallbacks and streaming
   - `core/agents/user_interact/user_interaction_agent.py`: orchestrates tool-calling or streaming responses and captures usage metadata
@@ -60,8 +68,8 @@ If multiple providers are configured, the client falls back to the next one on e
 ## API Endpoints
 
 - UI and Root
-  - GET `/` → static landing (opens UI when available)
-  - Static UI at `/ui` (served from `backend/ui`)
+  - GET `/` → React frontend SPA (served from `frontend/dist`)
+  - React Router handles client-side routing (/auth, /chat, /pricing, /contact)
 
 - Auth
   - POST `/api/register` { email, password, username? } → { ok, token, user, expires_at }
@@ -95,12 +103,15 @@ If multiple providers are configured, the client falls back to the next one on e
 
 ## UI Features
 
+The React frontend includes:
+- Multi-page navigation: Landing, Auth, Chat, Pricing, Contact
 - Sidebar: list threads, rename/delete; export/import threads
-- Chat: copy/edit/delete/branch messages
-- Streaming: live tokens via SSE with optional “Thinking…” pre-event and Stop in the client
+- Chat: copy/edit/delete/branch messages with SSE streaming
 - Info: shows model tag, timestamps, cost/tokens/agents/tools when enabled
-- Settings: toggles for model tag, timestamps, metadata panel, thinking, theme, streaming mode (sse), and mode (user/developer)
+- Settings: toggles for model tag, timestamps, metadata panel, thinking, theme, streaming mode
 - Auth modal: login/register/logout; per-user settings persist when a valid token is supplied
+- Theme support: light/dark mode with smooth transitions
+- Real-time notifications via toast system
 
 
 ## Environment Flags
@@ -142,7 +153,8 @@ These are displayed in the UI when the metadata panel is enabled.
 
 ## Notes & Troubleshooting
 
-- No Streamlit: The project serves a static UI via FastAPI. Open `/ui` in your browser.
+- React Frontend: The project serves a React SPA via FastAPI. Build with `npm run build` in `frontend/` directory.
+- Development: Use `run_full_app.bat` for concurrent backend + frontend dev servers with hot-reload.
 - Missing keys: Without LLM keys, chat still works but returns a clear non‑LLM fallback response.
 - SQLite files: `data/chat.db` is created automatically. Market data lives in `data/market.db`.
 - Windows PowerShell beep: If sound notification fails, it is silently ignored.
