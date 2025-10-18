@@ -49,7 +49,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`sidebar ${collapsed ? 'w-14' : 'w-[280px]'} border-r border-border p-[var(--space-4)] overflow-auto bg-[rgba(17,24,39,0.85)] backdrop-blur-3xl transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}
+      className={`sidebar ${collapsed ? 'w-14' : 'w-[280px]'} border-r border-border p-[var(--space-4)] overflow-auto app-surface-secondary backdrop-blur-3xl transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}
       aria-label="Threads sidebar"
     >
       <div className="flex flex-col h-full">

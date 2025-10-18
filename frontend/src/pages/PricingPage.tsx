@@ -223,10 +223,10 @@ export function PricingPage() {
             </p>
             <Button
               onClick={() => navigate('/contact')}
-              className="h-12 px-8 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0"
+              className="h-12 px-8 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white hover:text-white border-0 gap-3"
             >
               Contact Sales
-              <ArrowRight className="ml-2 h-5 w-5" />
+              <ArrowRight className="h-5 w-5" />
             </Button>
           </div>
         </section>

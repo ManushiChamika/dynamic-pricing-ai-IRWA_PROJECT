@@ -24,11 +24,11 @@ export function CTASection({ isDark, mutedText }: CTASectionProps) {
           Join businesses using AI to stay competitive and maximize revenue
         </p>
         <Button
-          className="text-lg h-16 px-12 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0 shadow-lg shadow-indigo-500/25"
+          className="text-lg h-16 px-12 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white hover:text-white border-0 shadow-lg shadow-indigo-500/25 gap-3"
           onClick={() => navigate('/auth?mode=signup')}
         >
           Get Started Now
-          <ArrowRight className="ml-2 h-5 w-5" />
+          <ArrowRight className="h-5 w-5" />
         </Button>
         <p className="mt-6 text-sm text-gray-500">
           No credit card required • 14-day free trial • Cancel anytime

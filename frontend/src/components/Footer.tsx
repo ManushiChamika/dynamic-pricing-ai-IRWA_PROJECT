@@ -22,18 +22,18 @@ export function Footer() {
   }
 
   return (
-    <footer className={`border-t ${footerBg} transition-colors`}>
-      <div className="container mx-auto px-6 py-16">
-        <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-5">
+    <footer className={`border-t ${footerBg} transition-colors mt-auto`}>
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20">
+        <div className="grid gap-8 sm:gap-10 md:gap-12 md:grid-cols-2 lg:grid-cols-5">
           {/* Brand Section */}
           <div className="lg:col-span-2">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-4 sm:mb-6">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600">
                 <Zap className="h-6 w-6 text-white fill-white" />
               </div>
               <span className="text-2xl font-bold">FluxPricer</span>
             </div>
-            <p className={`${textMuted} mb-6 max-w-sm leading-relaxed`}>
+            <p className={`${textMuted} mb-4 sm:mb-6 max-w-sm leading-relaxed text-sm sm:text-base`}>
               AI-powered dynamic pricing platform that helps businesses optimize pricing strategies
               in real-time through natural language control and intelligent market analysis.
             </p>
@@ -73,8 +73,8 @@ export function Footer() {
 
           {/* Product Section */}
           <div>
-            <h3 className="font-semibold mb-4 text-base">Product</h3>
-            <ul className="space-y-3">
+            <h3 className="font-semibold mb-3 sm:mb-4 text-base">Product</h3>
+            <ul className="space-y-2 sm:space-y-3">
               <li>
                 <span onClick={() => navigate('/')} className={linkStyle}>
                   Home
@@ -95,8 +95,8 @@ export function Footer() {
 
           {/* Company Section */}
           <div>
-            <h3 className="font-semibold mb-4 text-base">Company</h3>
-            <div className="space-y-4">
+            <h3 className="font-semibold mb-3 sm:mb-4 text-base">Company</h3>
+            <div className="space-y-3 sm:space-y-4">
               <div className="flex items-start gap-2">
                 <MapPin className={`h-5 w-5 ${textMuted} shrink-0`} />
                 <div className={`text-sm ${textMuted}`}>
@@ -122,8 +122,8 @@ export function Footer() {
 
           {/* Resources Section */}
           <div>
-            <h3 className="font-semibold mb-4 text-base">Resources</h3>
-            <ul className="space-y-3">
+            <h3 className="font-semibold mb-3 sm:mb-4 text-base">Resources</h3>
+            <ul className="space-y-2 sm:space-y-3">
               <li>
                 <span onClick={() => navigate('/contact')} className={linkStyle}>
                   Contact Us
@@ -135,15 +135,15 @@ export function Footer() {
 
         {/* Bottom Bar */}
         <div
-          className={`mt-12 pt-8 border-t ${isDark ? 'border-white/10' : 'border-slate-200'} flex flex-col md:flex-row justify-between items-center gap-4`}
+          className={`mt-8 sm:mt-10 lg:mt-12 pt-6 sm:pt-8 border-t ${isDark ? 'border-white/10' : 'border-slate-200'} flex flex-col md:flex-row justify-between items-center gap-3 sm:gap-4`}
         >
-          <p className={`text-sm ${textMuted}`}>
+          <p className={`text-xs sm:text-sm ${textMuted}`}>
             &copy; {currentYear} FluxPricer. All rights reserved.
           </p>
-          <div className="flex items-center gap-6">
-            <span className={`text-sm ${linkStyle}`}>Privacy Policy</span>
-            <span className={`text-sm ${linkStyle}`}>Terms of Service</span>
-            <span className={`text-sm ${linkStyle}`}>Cookie Policy</span>
+          <div className="flex items-center gap-4 sm:gap-6">
+            <span className={`text-xs sm:text-sm ${linkStyle}`}>Privacy Policy</span>
+            <span className={`text-xs sm:text-sm ${linkStyle}`}>Terms of Service</span>
+            <span className={`text-xs sm:text-sm ${linkStyle}`}>Cookie Policy</span>
           </div>
         </div>
       </div>

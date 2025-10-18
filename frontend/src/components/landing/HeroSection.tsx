@@ -58,18 +58,18 @@ export function HeroSection({
             </span>
           </h1>
 
-          <p className={`mb-12 text-xl md:text-2xl leading-relaxed max-w-3xl mx-auto ${mutedText}`}>
+          <p className={`mb-20 text-xl md:text-2xl leading-relaxed max-w-3xl mx-auto ${mutedText}`}>
             Let AI agents optimize your pricing in real-time. Control everything through natural
             language—no coding required.
           </p>
 
-          <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center mb-12">
+          <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center mb-4">
             <Button
-              className="text-lg h-14 px-10 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0 shadow-[0_18px_40px_rgba(79,70,229,0.25)]"
+              className="text-lg h-14 px-10 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white hover:text-white border-0 shadow-[0_18px_40px_rgba(79,70,229,0.25)] gap-3"
               onClick={() => navigate('/auth?mode=signup')}
             >
               Start Free Trial
-              <ArrowRight className="ml-2 h-5 w-5" />
+              <ArrowRight className="h-5 w-5" />
             </Button>
             <Button
               className={secondaryCta}

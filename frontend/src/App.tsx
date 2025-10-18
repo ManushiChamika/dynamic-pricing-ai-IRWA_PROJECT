@@ -17,7 +17,8 @@ const SettingsModal = lazy(() =>
 export default function App() {
   const { theme, settingsOpen, setSettingsOpen, ...settings } = useSettings()
   useEffect(() => {
-    document.documentElement.classList.toggle('light', theme === 'light')
+    document.documentElement.classList.remove('light', 'dark')
+    document.documentElement.classList.add(theme === 'light' ? 'light' : 'dark')
     localStorage.setItem('theme', theme)
   }, [theme])
   return (

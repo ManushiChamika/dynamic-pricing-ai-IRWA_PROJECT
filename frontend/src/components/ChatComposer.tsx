@@ -26,7 +26,7 @@ export function ChatComposer({ currentId, streaming }: ChatComposerProps) {
 
   return (
     <>
-      <div className="flex gap-[var(--space-3)] px-[var(--space-5)] py-[var(--space-4)] border-t border-border bg-[rgba(17,24,39,0.9)] backdrop-blur-3xl shadow-[0_-4px_16px_rgba(0,0,0,0.5)]">
+      <div className="flex gap-[var(--space-3)] px-[var(--space-5)] py-[var(--space-4)] border-t border-border app-surface-primary backdrop-blur-3xl shadow-[0_-4px_16px_rgba(0,0,0,0.5)]">
         <textarea
           className="composer"
           rows={2}
