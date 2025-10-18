@@ -10,6 +10,7 @@ import {
   Legend,
   Filler,
   ChartOptions,
+  ScriptableContext,
 } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 
@@ -62,7 +63,7 @@ export function PriceChart({ data, sku, theme = 'dark' }: PriceChartProps) {
           label: sku,
           data: prices,
           borderColor: lineColor,
-          backgroundColor: (context: any) => {
+          backgroundColor: (context: ScriptableContext<'line'>) => {
             const ctx = context.chart.ctx
             const gradient = ctx.createLinearGradient(0, 0, 0, context.chart.height)
             gradient.addColorStop(0, gradientColor)

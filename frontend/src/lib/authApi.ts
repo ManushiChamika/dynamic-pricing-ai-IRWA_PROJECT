@@ -1,11 +1,17 @@
 import { api } from './apiClient'
 
+export interface User {
+  email: string
+  username?: string
+  id?: string
+}
+
 export type AuthResponse = { ok: boolean; error?: string }
 
 export type LoginResult = {
   ok: boolean
   token?: string
-  user?: any
+  user?: User
   error?: string
 }
 
@@ -37,7 +43,7 @@ export async function logout(token: string): Promise<void> {
   await api('/api/logout', { method: 'POST', json: { token } })
 }
 
-export async function fetchMe(): Promise<{ ok: boolean; user?: any; error?: string }> {
+export async function fetchMe(): Promise<{ ok: boolean; user?: User; error?: string }> {
   const res = await api('/api/me')
   if (res.ok && res.data?.user) {
     return { ok: true, user: res.data.user }

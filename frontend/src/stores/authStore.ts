@@ -1,9 +1,15 @@
 import { create } from 'zustand'
 import * as authApi from '../lib/authApi'
 
+export interface User {
+  email: string
+  username?: string
+  id?: string
+}
+
 export type AuthState = {
   token: string | null
-  user: any | null
+  user: User | null
   setToken: (t: string | null) => void
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>
   register: (
