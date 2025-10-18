@@ -239,7 +239,7 @@
   textarea::placeholder {
     color: var(--app-input-placeholder);
     opacity: 0.6;
-  }
+  } 
 
   .app-surface-primary {
     background: var(--app-surface-primary);
