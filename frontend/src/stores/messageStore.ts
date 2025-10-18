@@ -1,14 +1,14 @@
 import { create } from 'zustand'
 import { useThreads } from './threadStore'
 import { useToasts } from './toastStore'
-import { streamMessage } from '../lib/sseClient'
+import { streamMessage } from '../lib/api/sseClient'
 import {
   fetchMessages,
   sendMessage,
   editMessage,
   deleteMessage,
   branchMessage,
-} from '../lib/messageApi'
+} from '../lib/api/messageApi'
 
 export type Message = {
   id: number

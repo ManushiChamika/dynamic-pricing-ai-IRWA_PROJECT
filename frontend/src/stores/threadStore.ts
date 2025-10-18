@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import * as threadApi from '../lib/threadApi'
+import * as threadApi from '../lib/api/threadApi'
 
 export type Thread = { id: number; title: string }
 

@@ -1,7 +1,7 @@
 import React, { useEffect, lazy, Suspense } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { PricesPanel } from './components/PricesPanel'
-import { ChatPane } from './components/ChatPane'
+import { ChatPane } from './components/chat/ChatPane'
 import { Sidebar } from './components/Sidebar'
 import { PromptModal } from './components/PromptModal'
 import { ConfirmModal } from './components/ConfirmModal'

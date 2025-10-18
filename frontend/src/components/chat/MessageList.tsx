@@ -1,5 +1,5 @@
 import React from 'react'
-import { MessageView } from '../MessageView'
+import { MessageView } from './MessageView'
 import { type Message } from '../../stores/messageStore'
 
 interface MessageListProps {
