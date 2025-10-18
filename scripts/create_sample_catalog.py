@@ -7,83 +7,83 @@ output_file = desktop_path / "sample_catalog.csv"
 
 sample_data = [
     {
-        "sku": "LAPTOP-001",
-        "title": "Dell XPS 15 Laptop",
+        "sku": "LAPTOP-DELL-XPS-13-9350",
+        "title": "Dell XPS 13 9350 Laptop",
         "currency": "USD",
-        "current_price": 1299.99,
-        "cost": 950.00,
+        "current_price": 1199.99,
+        "cost": 875.00,
         "stock": 15
     },
     {
-        "sku": "LAPTOP-002",
-        "title": "HP Pavilion 14",
+        "sku": "LAPTOP-DELL-XPS-14-9440",
+        "title": "Dell XPS 14 9440 Laptop",
         "currency": "USD",
-        "current_price": 749.99,
-        "cost": 550.00,
-        "stock": 25
-    },
-    {
-        "sku": "LAPTOP-003",
-        "title": "Lenovo ThinkPad X1",
-        "currency": "USD",
-        "current_price": 1499.99,
-        "cost": 1100.00,
-        "stock": 10
-    },
-    {
-        "sku": "LAPTOP-004",
-        "title": "ASUS ROG Gaming Laptop",
-        "currency": "USD",
-        "current_price": 1899.99,
-        "cost": 1400.00,
-        "stock": 8
-    },
-    {
-        "sku": "LAPTOP-005",
-        "title": "Acer Aspire 5",
-        "currency": "USD",
-        "current_price": 599.99,
-        "cost": 450.00,
-        "stock": 30
-    },
-    {
-        "sku": "MOUSE-001",
-        "title": "Logitech MX Master 3",
-        "currency": "USD",
-        "current_price": 99.99,
-        "cost": 70.00,
-        "stock": 50
-    },
-    {
-        "sku": "KEYBOARD-001",
-        "title": "Corsair K95 RGB Mechanical",
-        "currency": "USD",
-        "current_price": 199.99,
-        "cost": 140.00,
-        "stock": 20
-    },
-    {
-        "sku": "MONITOR-001",
-        "title": "Dell UltraSharp 27 4K",
-        "currency": "USD",
-        "current_price": 649.99,
-        "cost": 480.00,
+        "current_price": 1449.99,
+        "cost": 1060.00,
         "stock": 12
     },
     {
-        "sku": "HEADSET-001",
-        "title": "Sony WH-1000XM4",
+        "sku": "LAPTOP-DELL-PREMIUM-16",
+        "title": "Dell 16 Premium Laptop",
         "currency": "USD",
-        "current_price": 349.99,
-        "cost": 250.00,
+        "current_price": 1799.99,
+        "cost": 1315.00,
+        "stock": 8
+    },
+    {
+        "sku": "LAPTOP-LENOVO-THINKPAD-X1",
+        "title": "Lenovo ThinkPad X1 Carbon",
+        "currency": "USD",
+        "current_price": 1499.99,
+        "cost": 1095.00,
+        "stock": 10
+    },
+    {
+        "sku": "MOUSE-LOGITECH-MX-MASTER-4",
+        "title": "Logitech MX Master 4 Wireless Mouse",
+        "currency": "USD",
+        "current_price": 119.99,
+        "cost": 85.00,
+        "stock": 50
+    },
+    {
+        "sku": "MOUSE-LOGITECH-LIFT",
+        "title": "Logitech LIFT Vertical Ergonomic Mouse",
+        "currency": "USD",
+        "current_price": 69.99,
+        "cost": 50.00,
+        "stock": 40
+    },
+    {
+        "sku": "MOUSE-LOGITECH-M720",
+        "title": "Logitech M720 Triathlon Multi-Device Wireless Mouse",
+        "currency": "USD",
+        "current_price": 44.99,
+        "cost": 32.00,
+        "stock": 60
+    },
+    {
+        "sku": "MOUSE-LOGITECH-MX-ANYWHERE-3S",
+        "title": "Logitech MX Anywhere 3S Compact Performance Mouse",
+        "currency": "USD",
+        "current_price": 79.99,
+        "cost": 58.00,
         "stock": 35
     },
     {
-        "sku": "WEBCAM-001",
-        "title": "Logitech C920 HD Pro",
+        "sku": "MOUSE-LOGITECH-MX-VERTICAL",
+        "title": "Logitech MX Vertical Advanced Ergonomic Mouse",
         "currency": "USD",
-        "current_price": 79.99,
-        "cost": 55.00,
+        "current_price": 109.99,
+        "cost": 80.00,
+        "stock": 25
+    },
+    {
+        "sku": "MOUSE-LOGITECH-ERGO-M575S",
+        "title": "Logitech ERGO M575S Wireless Trackball",
+        "currency": "USD",
+        "current_price": 39.99,
+        "cost": 29.00,
         "stock": 45
     }
 ]
