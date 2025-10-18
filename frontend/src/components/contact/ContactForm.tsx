@@ -119,7 +119,7 @@ function ContactFormComponent({
         <Button
           type="submit"
           disabled={loading}
-          className="w-full h-12 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0"
+          className="w-full h-12 bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-0"
         >
           {loading ? 'Sending...' : 'Send Message'}
           {!loading && <ArrowRight className="ml-2 h-5 w-5" />}
@@ -130,3 +130,5 @@ function ContactFormComponent({
 }
 
 export const ContactForm = React.memo(ContactFormComponent)
+
+

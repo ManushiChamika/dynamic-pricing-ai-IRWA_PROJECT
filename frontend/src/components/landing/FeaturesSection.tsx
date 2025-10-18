@@ -18,7 +18,7 @@ export function FeaturesSection({
       <div className="container mx-auto relative z-10">
         <div className="text-center mb-16">
           <h2 className="text-4xl font-bold mb-4">Powerful Features</h2>
-          <p className={`text-xl ${mutedText} max-w-2xl mx-auto`}>
+          <p className={`text-xl ${mutedText} max-w-2xl mx-auto text-center`}>
             Everything you need to optimize pricing and stay competitive
           </p>
         </div>
@@ -79,3 +79,5 @@ export function FeaturesSection({
     </section>
   )
 }
+
+

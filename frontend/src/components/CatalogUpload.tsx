@@ -174,7 +174,7 @@ export function CatalogUpload() {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={loading}
-            className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
+            className="bg-gradient-to-r from-indigo-500 to-purple-600"
           >
             <FileText className="w-4 h-4 mr-2" />
             Choose File
@@ -297,7 +297,7 @@ export function CatalogUpload() {
         <Button
           onClick={handleUpload}
           disabled={!file || loading}
-          className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 disabled:opacity-50"
+          className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 disabled:opacity-50"
         >
           {loading ? (
             <>
@@ -357,3 +357,5 @@ export function CatalogUpload() {
     </div>
   )
 }
+
+

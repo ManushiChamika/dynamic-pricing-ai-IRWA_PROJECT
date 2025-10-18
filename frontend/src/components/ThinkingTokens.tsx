@@ -38,3 +38,5 @@ export function ThinkingTokens({ thinking }: ThinkingTokensProps) {
     </Collapsible>
   )
 }
+
+

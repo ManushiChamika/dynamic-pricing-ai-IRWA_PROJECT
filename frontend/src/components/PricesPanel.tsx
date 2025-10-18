@@ -177,3 +177,5 @@ export function PricesPanel() {
     </aside>
   )
 }
+
+

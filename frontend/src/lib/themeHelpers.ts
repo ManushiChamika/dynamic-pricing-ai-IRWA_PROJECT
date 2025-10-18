@@ -53,10 +53,8 @@ export function getAuthThemeClasses(isDark: boolean) {
     inputClass: isDark
       ? 'bg-gray-900 border-gray-600 text-white'
       : 'bg-white border-slate-300 text-slate-900 shadow-sm',
-    switchLink: isDark
-      ? 'text-indigo-300 hover:text-indigo-200'
-      : 'text-indigo-600 hover:text-indigo-700',
-    backLink: isDark ? 'text-gray-400 hover:text-gray-300' : 'text-slate-600 hover:text-slate-700',
+    switchLink: isDark ? 'text-indigo-300' : 'text-indigo-600',
+    backLink: isDark ? 'text-gray-400' : 'text-slate-600',
   }
 }
 
@@ -86,14 +84,14 @@ export function getFooterThemeClasses(isDark: boolean) {
   return {
     footerBg: isDark ? 'bg-[#0F172A] border-white/10' : 'bg-white border-slate-200',
     textMuted: isDark ? 'text-gray-400' : 'text-slate-600',
-    textHover: isDark ? 'hover:text-white' : 'hover:text-slate-900',
+    textHover: isDark ? '' : '',
   }
 }
 
 export function getSecondaryCta(isDark: boolean) {
   return isDark
-    ? 'text-lg h-14 px-10 border border-white/20 text-white hover:bg-white/10 hover:border-white/40'
-    : 'text-lg h-14 px-10 border border-slate-300 bg-white/85 text-slate-800 hover:bg-slate-100 hover:border-slate-400'
+    ? 'text-lg h-14 px-10 border border-white/20 text-white'
+    : 'text-lg h-14 px-10 border border-slate-300 bg-white/85 text-slate-800'
 }
 
 export function getFeatureCardBase(isDark: boolean) {
@@ -107,3 +105,5 @@ export function getPlanCardBase(isDark: boolean) {
     ? 'relative rounded-2xl border transition-all duration-300'
     : 'relative rounded-2xl border border-slate-200 bg-white shadow-[0_20px_45px_rgba(15,23,42,0.12)] transition-all duration-300'
 }
+
+

@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react'
+import React, { Suspense, lazy, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
@@ -37,12 +37,32 @@ const ContactPage = lazy(() =>
 )
 const App = lazy(() => import('./App'))
 
+// Ensure user session is restored on initial load if a token exists
+function AuthBootstrap() {
+  const { token, user, fetchMe, setToken } = useAuth()
+  useEffect(() => {
+    try {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+      const t = token ?? stored
+      if (t && !user) {
+        // Make sure the store knows about the token, then fetch user
+        setToken(t)
+        fetchMe().catch(() => {})
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [token, user, fetchMe, setToken])
+  return null
+}
+
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ThemeProvider>
       <QueryClientProvider client={qc}>
         <BrowserRouter>
           <Suspense fallback={<div className="loading">Loading…</div>}>
+            <AuthBootstrap />
             <Routes>
               <Route path="/" element={<LandingPage />} />
               <Route path="/pricing" element={<PricingPage />} />

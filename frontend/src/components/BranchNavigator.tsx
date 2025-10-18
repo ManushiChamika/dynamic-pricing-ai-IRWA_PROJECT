@@ -59,7 +59,7 @@ export function BranchNavigator({ message, allMessages, onNavigate }: BranchNavi
                   <TooltipTrigger asChild>
                     <button
                       onClick={() => onNavigate(child.id)}
-                      className="px-2 py-1 text-xs rounded bg-gray-600/30 hover:bg-gray-600/50 text-gray-300 transition-colors"
+                      className="px-2 py-1 text-xs rounded bg-gray-600/30 text-gray-300"
                       aria-label={`Jump to branch ${idx + 1}`}
                     >
                       {child.role === 'user' ? '👤' : '🤖'} #{idx + 1}
@@ -117,7 +117,7 @@ export function BranchNavigator({ message, allMessages, onNavigate }: BranchNavi
                 if (prevSibling) onNavigate(prevSibling.id)
               }}
               disabled={branchInfo.siblingIndex === 0}
-              className="px-2 py-1 text-xs rounded bg-gray-600/30 hover:bg-gray-600/50 disabled:opacity-30 disabled:cursor-not-allowed text-gray-300 transition-colors"
+              className="px-2 py-1 text-xs rounded bg-gray-600/30 disabled:opacity-30 disabled:cursor-not-allowed text-gray-300"
               aria-label="Previous branch"
               title="Previous branch (Ctrl+[)"
             >
@@ -129,7 +129,7 @@ export function BranchNavigator({ message, allMessages, onNavigate }: BranchNavi
                 if (nextSibling) onNavigate(nextSibling.id)
               }}
               disabled={branchInfo.siblingIndex === branchInfo.siblingCount - 1}
-              className="px-2 py-1 text-xs rounded bg-gray-600/30 hover:bg-gray-600/50 disabled:opacity-30 disabled:cursor-not-allowed text-gray-300 transition-colors"
+              className="px-2 py-1 text-xs rounded bg-gray-600/30 disabled:opacity-30 disabled:cursor-not-allowed text-gray-300"
               aria-label="Next branch"
               title="Next branch (Ctrl+])"
             >
@@ -141,3 +141,5 @@ export function BranchNavigator({ message, allMessages, onNavigate }: BranchNavi
     </div>
   )
 }
+
+

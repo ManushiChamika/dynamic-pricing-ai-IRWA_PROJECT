@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { Button } from './ui/button'
 import { Zap } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
-import { useAuthUser, useAuthActions } from '../stores/authStore'
+import { useAuthUser, useAuthToken, useAuthActions } from '../stores/authStore'
 
 export function Navigation() {
   const navigate = useNavigate()
@@ -11,6 +11,7 @@ export function Navigation() {
   const { theme, toggleTheme } = useTheme()
   const isDark = theme === 'dark'
   const user = useAuthUser()
+  const token = useAuthToken()
   const { logout } = useAuthActions()
 
   const handleLogout = async () => {
@@ -24,8 +25,8 @@ export function Navigation() {
     const base = 'text-base font-medium transition-colors'
     const active = isDark ? 'text-indigo-300' : 'text-indigo-700'
     const inactive = isDark
-      ? 'text-gray-300 hover:text-white'
-      : 'text-slate-700 hover:text-slate-900'
+      ? 'text-gray-300'
+      : 'text-slate-700'
 
     return `${base} ${isActive(path) ? active : inactive}`
   }
@@ -40,7 +41,7 @@ export function Navigation() {
     >
       <div className="container mx-auto flex items-center gap-6 px-6 py-5">
         <div
-          className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+          className="flex items-center gap-2 cursor-pointer"
           onClick={() => navigate('/')}
           role="button"
           tabIndex={0}
@@ -90,10 +91,10 @@ export function Navigation() {
             {isDark ? '☾' : '☀'}
           </span>
 
-          {user ? (
+          {user || token ? (
             <Button
               onClick={handleLogout}
-              className={`${isDark ? 'border-white/20 text-white hover:bg-white/10' : 'border-slate-400 text-slate-800 hover:bg-slate-100'} border`}
+              className={`${isDark ? 'border-white/20 text-white' : 'border-slate-400 text-slate-800'} border`}
             >
               Sign Out
             </Button>
@@ -101,13 +102,13 @@ export function Navigation() {
             <>
               <Button
                 onClick={() => navigate('/auth?mode=signin')}
-                className={`${isDark ? 'border-white/20 text-white hover:bg-white/10' : 'border-slate-400 text-slate-800 hover:bg-slate-100'} border`}
+                className={`${isDark ? 'border-white/20 text-white' : 'border-slate-400 text-slate-800'} border`}
               >
                 Sign In
               </Button>
               <Button
                 onClick={() => navigate('/auth?mode=signup')}
-                className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0"
+                className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-0"
               >
                 Get Started
               </Button>
@@ -118,3 +119,5 @@ export function Navigation() {
     </nav>
   )
 }
+
+

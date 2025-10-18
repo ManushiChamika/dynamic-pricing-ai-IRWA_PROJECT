@@ -115,8 +115,8 @@ export function PricingPage() {
                             : 'bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100'
                         }`
                       : isDark
-                        ? 'border-white/10 bg-[#1E293B]/50 hover:border-indigo-500/35'
-                        : 'hover:border-indigo-500/30 hover:shadow-[0_24px_55px_rgba(79,70,229,0.16)]'
+                        ? 'border-white/10 bg-[#1E293B]/50'
+                        : ''
                   }`}
                 >
                   {plan.highlighted && (
@@ -142,10 +142,10 @@ export function PricingPage() {
                       onClick={() => navigate('/auth?mode=signup')}
                       className={`w-full mb-8 h-11 ${
                         plan.highlighted
-                          ? 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0'
+                          ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-0'
                           : isDark
-                            ? 'bg-white/10 hover:bg-white/20 text-white border border-white/15'
-                            : 'bg-white hover:bg-slate-100 text-slate-800 border border-slate-300'
+                            ? 'bg-white/10 text-white border border-white/15'
+                            : 'bg-white text-slate-800 border border-slate-300'
                       }`}
                     >
                       Get Started
@@ -223,7 +223,7 @@ export function PricingPage() {
             </p>
             <Button
               onClick={() => navigate('/contact')}
-              className="h-12 px-8 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0"
+              className="h-12 px-8 bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-0"
             >
               Contact Sales
               <ArrowRight className="ml-2 h-5 w-5" />
@@ -236,3 +236,5 @@ export function PricingPage() {
     </div>
   )
 }
+
+
