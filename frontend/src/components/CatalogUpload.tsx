@@ -129,7 +129,9 @@ export function CatalogUpload() {
       return
     }
 
-    if (!window.confirm('Are you sure you want to delete all products? This action cannot be undone.')) {
+    if (
+      !window.confirm('Are you sure you want to delete all products? This action cannot be undone.')
+    ) {
       return
     }
 

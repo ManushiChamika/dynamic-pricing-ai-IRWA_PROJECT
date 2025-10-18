@@ -36,7 +36,14 @@ export function Sidebar() {
     if (draftId) {
       items.push({ id: draftId, title: 'New Chat (unsaved)', isDraft: true, updated_at: '' })
     }
-    items.push(...threads.map((t) => ({ id: t.id, title: t.title || `Thread #${t.id}`, isDraft: false, updated_at: t.updated_at })))
+    items.push(
+      ...threads.map((t) => ({
+        id: t.id,
+        title: t.title || `Thread #${t.id}`,
+        isDraft: false,
+        updated_at: t.updated_at,
+      }))
+    )
     return items
   }, [draftId, threads])
 
@@ -49,7 +56,7 @@ export function Sidebar() {
         createDraftThread()
       }
     })
-  }, [refresh, setCurrent])
+  }, [refresh, setCurrent, createDraftThread, currentId])
 
   useEffect(() => {
     document.querySelector('.sidebar')?.classList.toggle('collapsed', collapsed)
@@ -98,7 +105,7 @@ export function Sidebar() {
             <Button
               onClick={() => createDraftThread()}
               aria-label="Create new thread"
-              className="flex-1"
+              className="flex-1 flex items-center justify-center"
             >
               <MessageSquarePlus className="w-4 h-4 mr-2" />
               New Chat

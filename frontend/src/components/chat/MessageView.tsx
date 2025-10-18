@@ -175,4 +175,3 @@ function MessageViewComponent({
 }
 
 export const MessageView = React.memo(MessageViewComponent)
-

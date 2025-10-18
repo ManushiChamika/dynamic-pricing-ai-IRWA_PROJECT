@@ -35,18 +35,18 @@ export const ThreadItem = React.memo(
       >
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <div 
+            <div
               className="text-sm leading-snug mb-0.5 overflow-hidden text-ellipsis whitespace-nowrap"
               style={{ fontWeight: isActive ? 500 : 400 }}
             >
               {title}
             </div>
             {updatedAt && !isDraft && (
-              <div 
+              <div
                 className="text-xs"
-                style={{ 
+                style={{
                   color: isActive ? 'rgba(255, 255, 255, 0.7)' : 'var(--fg)',
-                  opacity: isActive ? 1 : 0.6
+                  opacity: isActive ? 1 : 0.6,
                 }}
               >
                 {formatRelativeTime(updatedAt)}
