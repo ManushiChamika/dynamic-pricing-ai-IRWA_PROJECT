@@ -37,18 +37,20 @@ def _load_gemini_working_key() -> Optional[str]:
         if cache_file.exists():
             key = cache_file.read_text(encoding="utf-8").strip()
             return key if key else None
-    except Exception:
-        pass
+    except Exception as e:
+        logging.getLogger("core.agents.llm").debug("Failed to load Gemini working key: %s", e)
     return None
 
 
 def _save_gemini_working_key(key: str) -> None:
     """Save the working Gemini key to cache."""
     try:
+        if not key:
+            return
         cache_file = _get_gemini_working_key_file()
         cache_file.write_text(key, encoding="utf-8")
-    except Exception:
-        pass
+    except Exception as e:
+        logging.getLogger("core.agents.llm").debug("Failed to save Gemini working key: %s", e)
 
 
 def _load_dotenv_if_present() -> None:
@@ -202,10 +204,13 @@ class LLMClient:
         if gemini_key_3:
             gemini_keys.append(("gemini_3", gemini_key_3))
         
-        working_gemini_key = _load_gemini_working_key()
-        if working_gemini_key and any(key == working_gemini_key for _, key in gemini_keys):
-            original_order = {item: idx for idx, item in enumerate(gemini_keys)}
-            gemini_keys.sort(key=lambda x: (x[1] != working_gemini_key, original_order[x]))
+        try:
+            working_gemini_key = _load_gemini_working_key()
+            if working_gemini_key and gemini_keys and any(key == working_gemini_key for _, key in gemini_keys):
+                original_order = {item: idx for idx, item in enumerate(gemini_keys)}
+                gemini_keys.sort(key=lambda x: (x[1] != working_gemini_key, original_order.get(x, 999)))
+        except Exception as e:
+            self._log.debug("Failed to sort Gemini keys by working key: %s", e)
 
         # Registration priority: explicit args > OpenRouter > OpenAI > Gemini(s)
         if explicit_key:
@@ -225,18 +230,26 @@ class LLMClient:
         self._set_active_provider(0)
 
     def _set_active_provider(self, index: int) -> None:
-        provider = self._providers[index]
-        self._active_index = index
-        self.model = provider["model"]
-        self._provider = provider["name"]
+        if index < 0 or index >= len(self._providers):
+            self._log.error("Invalid provider index: %d", index)
+            return
         
-        if self._provider.startswith("gemini"):
-            api_key = provider.get("api_key")
-            if api_key:
-                _save_gemini_working_key(api_key)
-        
-        prior = self.last_usage or {}
-        self.last_usage = {**prior, "provider": self._provider, "model": self.model}
+        try:
+            provider = self._providers[index]
+            self._active_index = index
+            self.model = provider["model"]
+            self._provider = provider["name"]
+            
+            if self._provider.startswith("gemini"):
+                api_key = provider.get("api_key")
+                if api_key:
+                    _save_gemini_working_key(api_key)
+            
+            prior = self.last_usage or {}
+            self.last_usage = {**prior, "provider": self._provider, "model": self.model}
+            self._log.debug("Active provider set to: %s (model: %s)", self._provider, self.model)
+        except Exception as e:
+            self._log.error("Failed to set active provider: %s", e)
 
     def _provider_indices(self) -> List[int]:
         if not self._providers:
@@ -279,6 +292,8 @@ class LLMClient:
                     max_tokens=max_tokens,
                     temperature=temperature,
                 )
+                if not resp or not resp.choices:
+                    raise RuntimeError("Empty response from LLM")
                 content = (resp.choices[0].message.content or "").strip()
                 # capture usage metadata if available
                 try:
@@ -294,14 +309,16 @@ class LLMClient:
                 except Exception:
                     pass
                 self._set_active_provider(idx)
-                self._log.debug("LLM response chars=%d", len(content))
                 return content
             except Exception as exc:
                 last_error = exc
-                self._log.warning("Provider %s failed for chat: %s", provider["name"], exc)
+                error_type = type(exc).__name__
+                self._log.warning("Provider %s failed for chat (%s): %s", provider["name"], error_type, exc)
                 continue
 
-        raise RuntimeError(f"LLM error: {last_error or 'no provider succeeded'}")
+        error_msg = f"All LLM providers failed. Last error: {last_error or 'no provider succeeded'}"
+        self._log.error(error_msg)
+        raise RuntimeError(error_msg)
 
     def chat_stream(
         self,
@@ -370,9 +387,13 @@ class LLMClient:
                     return
             except Exception as exc:
                 last_error = exc
-                self._log.warning("Provider %s failed for stream: %s", provider["name"], exc)
+                error_type = type(exc).__name__
+                self._log.warning("Provider %s failed for stream (%s): %s", provider["name"], error_type, exc)
                 continue
-        raise RuntimeError(f"LLM stream error: {last_error or 'no provider succeeded'}")
+        
+        error_msg = f"All LLM providers failed for streaming. Last error: {last_error or 'no provider succeeded'}"
+        self._log.error(error_msg)
+        raise RuntimeError(error_msg)
 
     def chat_with_tools(
         self,
@@ -547,10 +568,13 @@ class LLMClient:
                 return (assistant_msg.get("content") or "").strip()
             except Exception as exc:
                 last_error = exc
-                self._log.warning("Provider %s failed for tool call: %s", provider["name"], exc)
+                error_type = type(exc).__name__
+                self._log.warning("Provider %s failed for tool call (%s): %s", provider["name"], error_type, exc)
                 continue
 
-        raise RuntimeError(f"LLM tools error: {last_error or 'no provider succeeded'}")
+        error_msg = f"All LLM providers failed for tool calling. Last error: {last_error or 'no provider succeeded'}"
+        self._log.error(error_msg)
+        raise RuntimeError(error_msg)
 
     def chat_with_tools_stream(
         self,
@@ -765,10 +789,13 @@ class LLMClient:
                 return
             except Exception as exc:
                 last_error = exc
-                self._log.warning("Provider %s failed for tool stream: %s", provider["name"], exc)
+                error_type = type(exc).__name__
+                self._log.warning("Provider %s failed for tool stream (%s): %s", provider["name"], error_type, exc)
                 continue
 
-        raise RuntimeError(f"LLM tools stream error: {last_error or 'no provider succeeded'}")
+        error_msg = f"All LLM providers failed for streaming tool calls. Last error: {last_error or 'no provider succeeded'}"
+        self._log.error(error_msg)
+        raise RuntimeError(error_msg)
 
 
 _llm_client_cache: Optional[LLMClient] = None
@@ -784,16 +811,32 @@ def get_llm_client(model: Optional[str] = None) -> LLMClient:
     """
     global _llm_client_cache
     
-    if model:
-        key = os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("GEMINI_API_KEY")
-        base = None
-        if key and os.getenv("OPENROUTER_API_KEY") == key:
-            base = os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1"
-        elif key and os.getenv("GEMINI_API_KEY") == key:
-            base = os.getenv("GEMINI_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta/openai/"
-        return LLMClient(api_key=key, base_url=base, model=model)
-    
-    if _llm_client_cache is None:
-        _llm_client_cache = LLMClient()
-    
-    return _llm_client_cache
+    try:
+        if model:
+            key = os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("GEMINI_API_KEY")
+            if not key:
+                logging.getLogger("core.agents.llm").error("No API key found for custom model: %s", model)
+                raise RuntimeError("No API key configured for LLM client")
+            
+            base = None
+            if key and os.getenv("OPENROUTER_API_KEY") == key:
+                base = os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1"
+            elif key and os.getenv("GEMINI_API_KEY") == key:
+                base = os.getenv("GEMINI_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta/openai/"
+            
+            client = LLMClient(api_key=key, base_url=base, model=model)
+            if not client.is_available():
+                raise RuntimeError(f"LLM client initialization failed: {client.unavailable_reason()}")
+            return client
+        
+        if _llm_client_cache is None:
+            _llm_client_cache = LLMClient()
+            if not _llm_client_cache.is_available():
+                logging.getLogger("core.agents.llm").error(
+                    "LLM client unavailable: %s", _llm_client_cache.unavailable_reason()
+                )
+        
+        return _llm_client_cache
+    except Exception as e:
+        logging.getLogger("core.agents.llm").error("Failed to get LLM client: %s", e)
+        raise
