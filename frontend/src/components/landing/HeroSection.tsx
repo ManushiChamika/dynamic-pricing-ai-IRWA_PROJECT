@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '../ui/button'
 import { ArrowRight } from 'lucide-react'
 import { CheckmarkItem } from './CheckmarkItem'
+import { useAuthUser } from '../../stores/authStore'
 
 interface HeroSectionProps {
   isDark: boolean
@@ -21,6 +22,7 @@ export function HeroSection({
   secondaryCta,
 }: HeroSectionProps) {
   const navigate = useNavigate()
+  const user = useAuthUser()
 
   return (
     <section className="relative overflow-hidden px-6 py-24 lg:py-32">
@@ -64,21 +66,33 @@ export function HeroSection({
           </p>
 
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center mb-12">
-            <Button
-              className="text-lg h-14 px-10 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0 shadow-[0_18px_40px_rgba(79,70,229,0.25)]"
-              onClick={() => navigate('/auth?mode=signup')}
-            >
-              Start Free Trial
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
-            <Button
-              className={secondaryCta}
-              onClick={() =>
-                document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })
-              }
-            >
-              Learn More
-            </Button>
+            {user ? (
+              <Button
+                className="text-lg h-14 px-10 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0 shadow-[0_18px_40px_rgba(79,70,229,0.25)]"
+                onClick={() => navigate('/chat')}
+              >
+                Go to Chat
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            ) : (
+              <>
+                <Button
+                  className="text-lg h-14 px-10 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0 shadow-[0_18px_40px_rgba(79,70,229,0.25)]"
+                  onClick={() => navigate('/auth?mode=signup')}
+                >
+                  Start Free Trial
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+                <Button
+                  className={secondaryCta}
+                  onClick={() =>
+                    document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })
+                  }
+                >
+                  Learn More
+                </Button>
+              </>
+            )}
           </div>
 
           <div className={`flex items-center justify-center gap-8 text-sm ${softMutedText}`}>
