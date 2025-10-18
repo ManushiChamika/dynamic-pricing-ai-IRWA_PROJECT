@@ -252,6 +252,9 @@ def summarize_assistant_response(content: str) -> str:
 
 
 def generate_thread_title(thread_id: int) -> Optional[str]:
+    import logging
+    logger = logging.getLogger("backend.routers.utils")
+    
     try:
         from core.agents.llm_client import get_llm_client
     except Exception:
@@ -293,6 +296,7 @@ def generate_thread_title(thread_id: int) -> Optional[str]:
     try:
         llm = get_llm_client()
         if not llm.is_available():
+            logger.warning("LLM client unavailable for title generation")
             return None
 
         system = (
@@ -301,16 +305,26 @@ def generate_thread_title(thread_id: int) -> Optional[str]:
             "Return ONLY the title text, nothing else."
         )
         prompt = f"Generate a thread title based on this conversation:\n\n{transcript}"
+        
+        logger.debug(f"Requesting title generation for thread {thread_id}")
         title = llm.chat([
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},
-        ], max_tokens=50, temperature=0.3)
+        ], max_tokens=200, temperature=0.3)
 
+        logger.debug(f"LLM returned title: '{title}' (length={len(title)})")
+        
         title = title.strip()
         if title:
             word_count = len(title.split())
             if word_count <= 10:
+                logger.info(f"Generated title for thread {thread_id}: '{title}'")
                 return title
+            else:
+                logger.warning(f"Title too long ({word_count} words), rejecting: '{title}'")
+        else:
+            logger.warning(f"LLM returned empty title for thread {thread_id}")
         return None
-    except Exception:
+    except Exception as e:
+        logger.error(f"Error generating title for thread {thread_id}: {e}", exc_info=True)
         return None

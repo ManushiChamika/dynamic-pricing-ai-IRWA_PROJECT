@@ -232,7 +232,26 @@ class LLMClient:
                 )
                 if not resp or not resp.choices:
                     raise RuntimeError("Empty response from LLM")
-                content = (resp.choices[0].message.content or "").strip()
+                
+                choice = resp.choices[0]
+                raw_content = choice.message.content
+                finish_reason = getattr(choice, "finish_reason", None)
+                
+                self._log.debug(
+                    "Raw response content: %r (type=%s, finish_reason=%s)", 
+                    raw_content, 
+                    type(raw_content).__name__,
+                    finish_reason
+                )
+                
+                content = (raw_content or "").strip()
+                if not content:
+                    self._log.warning(
+                        "LLM returned empty content for provider %s (finish_reason=%s)", 
+                        provider["name"],
+                        finish_reason
+                    )
+                
                 self._capture_usage(resp, provider["name"], provider["model"])
                 self._set_active_provider(idx)
                 return content
