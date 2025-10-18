@@ -35,6 +35,7 @@ class Thread(Base):
     title = Column(String(255), nullable=False, default="New Thread")
     owner_id = Column(Integer, nullable=True, index=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     messages = relationship("Message", back_populates="thread", cascade="all, delete-orphan")
 
@@ -154,7 +155,7 @@ def list_threads(owner_id: Optional[int] = None) -> list[Thread]:
         q = db.query(Thread)
         if owner_id is not None:
             q = q.filter(Thread.owner_id == owner_id)
-        threads = q.order_by(Thread.created_at.desc()).all()
+        threads = q.order_by(Thread.updated_at.desc()).all()
         filtered = []
         for t in threads:
             msg_count = db.query(func.count(Message.id)).filter(Message.thread_id == t.id).scalar() or 0

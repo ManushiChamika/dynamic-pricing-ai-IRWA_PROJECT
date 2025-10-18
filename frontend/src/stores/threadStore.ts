@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import * as threadApi from '../lib/api/threadApi'
 
-export type Thread = { id: number; title: string }
+export type Thread = { id: number; title: string; updated_at: string }
 
 export type ThreadsState = {
   threads: Thread[]

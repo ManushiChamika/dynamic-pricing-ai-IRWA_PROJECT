@@ -12,6 +12,7 @@ from .llm_provider_manager import (
     ProviderManager,
     _save_gemini_working_key,
 )
+from .base_chat_handler import BaseChatHandler
 
 
 def _load_dotenv_if_present() -> None:
@@ -108,95 +109,8 @@ class LLMClient:
         except Exception as e:
             self._log.error("Failed to set active provider: %s", e)
 
-    def _capture_usage(self, resp: Any, provider_name: str, provider_model: str) -> None:
-        try:
-            usage = getattr(resp, "usage", None)
-            if usage:
-                self.last_usage = {
-                    "provider": provider_name,
-                    "model": provider_model,
-                    "prompt_tokens": getattr(usage, "prompt_tokens", None),
-                    "completion_tokens": getattr(usage, "completion_tokens", None),
-                    "total_tokens": getattr(usage, "total_tokens", None),
-                }
-        except Exception:
-            pass
-
-    def _execute_tool_call(
-        self,
-        fn_name: Optional[str],
-        raw_args: str,
-        functions_map: Dict[str, Callable[..., Any]],
-        tools_used: List[str],
-        trace_id: Optional[str] = None,
-    ) -> Any:
-        try:
-            if fn_name and fn_name not in tools_used:
-                tools_used.append(fn_name)
-        except Exception:
-            pass
-        
-        try:
-            args = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
-        except Exception:
-            args = {}
-
-        tool_start_time = datetime.now()
-        result: Any
-        error_occurred = False
-        
-        if fn_name in functions_map:
-            try:
-                result = functions_map[fn_name](**args)
-            except TypeError:
-                result = functions_map[fn_name](args)
-            except Exception as tool_exc:
-                result = {"error": str(tool_exc)}
-                error_occurred = True
-            
-            if hasattr(result, '__await__'):
-                import asyncio
-                from concurrent.futures import ThreadPoolExecutor
-                
-                def run_in_new_loop():
-                    new_loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(new_loop)
-                    try:
-                        return new_loop.run_until_complete(result)
-                    finally:
-                        new_loop.close()
-                
-                with ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(run_in_new_loop)
-                    result = future.result()
-        else:
-            result = {"error": f"unknown tool: {fn_name}"}
-            error_occurred = True
-
-        try:
-            if trace_id:
-                duration_ms = int((datetime.now() - tool_start_time).total_seconds() * 1000)
-                status = "failed" if error_occurred else "completed"
-                self._log.debug(f"Tool call {status}: {fn_name} duration={duration_ms}ms")
-        except Exception:
-            pass
-
-        return result
-
-    def _serialize_tool_result(self, result: Any) -> str:
-        try:
-            return result if isinstance(result, str) else json.dumps(result, ensure_ascii=False)
-        except Exception:
-            return str(result)
-
-    def _provider_indices(self) -> List[int]:
-        if not self._providers:
-            return []
-        order: List[int] = []
-        if self._active_index is not None:
-            order.append(self._active_index)
-        order.extend(idx for idx in range(len(self._providers)) if idx != self._active_index)
-        return order
+    def _get_handler(self) -> BaseChatHandler:
+        return BaseChatHandler(self._providers, self._active_index, self._log, self.last_usage)
 
     def is_available(self) -> bool:
         return bool(self._providers)
@@ -208,62 +122,11 @@ class LLMClient:
         return self._unavailable_reason
 
     def chat(self, messages: List[Dict[str, str]], max_tokens: int = 256, temperature: float = 0.2) -> str:
-        """Call chat completions; returns assistant content or raises on hard failure."""
-        if not self._providers:
-            raise RuntimeError("LLM client unavailable (missing key or package)")
-
-        last_error: Optional[Exception] = None
-        for idx in self._provider_indices():
-            provider = self._providers[idx]
-            try:
-                self._log.debug(
-                    "Sending chat completion | provider=%s model=%s msgs=%d max_tokens=%d temp=%.2f",
-                    provider["name"],
-                    provider["model"],
-                    len(messages),
-                    max_tokens,
-                    temperature,
-                )
-                resp = provider["client"].chat.completions.create(
-                    model=provider["model"],
-                    messages=messages,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                )
-                if not resp or not resp.choices:
-                    raise RuntimeError("Empty response from LLM")
-                
-                choice = resp.choices[0]
-                raw_content = choice.message.content
-                finish_reason = getattr(choice, "finish_reason", None)
-                
-                self._log.debug(
-                    "Raw response content: %r (type=%s, finish_reason=%s)", 
-                    raw_content, 
-                    type(raw_content).__name__,
-                    finish_reason
-                )
-                
-                content = (raw_content or "").strip()
-                if not content:
-                    self._log.warning(
-                        "LLM returned empty content for provider %s (finish_reason=%s)", 
-                        provider["name"],
-                        finish_reason
-                    )
-                
-                self._capture_usage(resp, provider["name"], provider["model"])
-                self._set_active_provider(idx)
-                return content
-            except Exception as exc:
-                last_error = exc
-                error_type = type(exc).__name__
-                self._log.warning("Provider %s failed for chat (%s): %s", provider["name"], error_type, exc)
-                continue
-
-        error_msg = f"All LLM providers failed. Last error: {last_error or 'no provider succeeded'}"
-        self._log.error(error_msg)
-        raise RuntimeError(error_msg)
+        handler = self._get_handler()
+        content, idx = handler.execute_chat(messages, max_tokens, temperature, "chat completion")
+        self.last_usage = handler.last_usage
+        self._set_active_provider(idx)
+        return content
 
     def chat_stream(
         self,
@@ -271,18 +134,14 @@ class LLMClient:
         max_tokens: int = 256,
         temperature: float = 0.2,
     ):
-        """Yield content chunks from a streaming chat completion.
-        Falls back to non-streaming single-shot if streaming fails.
-        Updates self.last_usage at the end if usage is provided by the SDK.
-        """
         if not self._providers:
             raise RuntimeError("LLM client unavailable (missing key or package)")
 
+        handler = self._get_handler()
         last_error: Optional[Exception] = None
-        for idx in self._provider_indices():
+        for idx in handler.provider_indices():
             provider = self._providers[idx]
             try:
-                # Try streaming first
                 try:
                     stream = provider["client"].chat.completions.create(
                         model=provider["model"],
@@ -297,8 +156,7 @@ class LLMClient:
                         try:
                             usage = getattr(event, "usage", None)
                             if usage:
-                                self._capture_usage(event, provider["name"], provider["model"])
-                            # token delta
+                                handler.capture_usage(event, provider["name"], provider["model"])
                             choices = getattr(event, "choices", None) or []
                             if choices:
                                 delta = getattr(choices[0], "delta", None)
@@ -308,14 +166,12 @@ class LLMClient:
                                         full.append(text)
                                         yield text
                         except Exception:
-                            # Ignore malformed events
                             continue
-                    # finalize provider
+                    self.last_usage = handler.last_usage
                     self._set_active_provider(idx)
                     return
                 except Exception as se:
                     self._log.debug("Streaming not available for %s: %s", provider["name"], se)
-                    # Fallback to non-streaming
                     content = self.chat(messages, max_tokens=max_tokens, temperature=temperature)
                     yield content
                     self._set_active_provider(idx)
@@ -325,7 +181,7 @@ class LLMClient:
                 error_type = type(exc).__name__
                 self._log.warning("Provider %s failed for stream (%s): %s", provider["name"], error_type, exc)
                 continue
-        
+
         error_msg = f"All LLM providers failed for streaming. Last error: {last_error or 'no provider succeeded'}"
         self._log.error(error_msg)
         raise RuntimeError(error_msg)
@@ -341,106 +197,15 @@ class LLMClient:
         temperature: float = 0.2,
         trace_id: Optional[str] = None,
     ) -> str:
-        """OpenAI-style tool calling loop.
-
-        - Sends tools schema to the model.
-        - If the model returns tool_calls, executes mapped Python functions.
-        - Appends tool outputs as messages with role="tool" and continues.
-        - Returns final assistant content when no further tool_calls are present.
-        """
-        if not self._providers:
-            raise RuntimeError("LLM client unavailable (missing key or package)")
-
-        last_error: Optional[Exception] = None
-        for idx in self._provider_indices():
-            provider = self._providers[idx]
-            try:
-                local_msgs: List[Dict[str, Any]] = list(messages)
-                assistant_msg: Dict[str, Any] = {}
-                tools_used: List[str] = []
-                for round_i in range(max_rounds):
-                    self._log.debug(
-                        "Tool round %d | provider=%s model=%s msgs=%d tools=%d",
-                        round_i + 1,
-                        provider["name"],
-                        provider["model"],
-                        len(local_msgs),
-                        len(tools),
-                    )
-                    resp = provider["client"].chat.completions.create(
-                        model=provider["model"],
-                        messages=local_msgs,
-                        tools=tools,
-                        **({"tool_choice": tool_choice} if tool_choice else {}),
-                        max_tokens=max_tokens,
-                        temperature=temperature,
-                    )
-                    self._capture_usage(resp, provider["name"], provider["model"])
-
-                    choice = resp.choices[0]
-                    msg = choice.message
-                    content = getattr(msg, "content", None)
-                    tool_calls = getattr(msg, "tool_calls", None) or []
-
-                    assistant_msg = {"role": "assistant"}
-                    if content is not None:
-                        assistant_msg["content"] = content
-                    if tool_calls:
-                        normalized_calls = []
-                        for tc in tool_calls:
-                            try:
-                                normalized_calls.append({
-                                    "id": tc.id,
-                                    "type": getattr(tc, "type", "function"),
-                                    "function": {
-                                        "name": tc.function.name,
-                                        "arguments": tc.function.arguments,
-                                    },
-                                })
-                            except Exception:
-                                normalized_calls.append(json.loads(json.dumps(tc)))
-                        assistant_msg["tool_calls"] = normalized_calls
-
-                    local_msgs.append(assistant_msg)
-
-                    if not tool_calls:
-                        if tools_used:
-                            self.last_usage = {**(self.last_usage or {}), "tools_used": tools_used}
-                        self._set_active_provider(idx)
-                        return (content or "").strip()
-
-                    for tc in assistant_msg["tool_calls"]:
-                        fn_name = tc.get("function", {}).get("name")
-                        raw_args = tc.get("function", {}).get("arguments") or "{}"
-                        call_id = tc.get("id") or "tool_call"
-                        
-                        result = self._execute_tool_call(fn_name, raw_args, functions_map, tools_used, trace_id)
-                        content_str = self._serialize_tool_result(result)
-                        
-                        local_msgs.append({
-                            "role": "tool",
-                            "tool_call_id": call_id,
-                            "name": fn_name,
-                            "content": content_str,
-                        })
-
-                # max rounds exhausted
-                self._set_active_provider(idx)
-                # record tools_used
-                try:
-                    self.last_usage = {**(self.last_usage or {}), "tools_used": tools_used}
-                except Exception:
-                    pass
-                return (assistant_msg.get("content") or "").strip()
-            except Exception as exc:
-                last_error = exc
-                error_type = type(exc).__name__
-                self._log.warning("Provider %s failed for tool call (%s): %s", provider["name"], error_type, exc)
-                continue
-
-        error_msg = f"All LLM providers failed for tool calling. Last error: {last_error or 'no provider succeeded'}"
-        self._log.error(error_msg)
-        raise RuntimeError(error_msg)
+        handler = self._get_handler()
+        content, idx, tools_used = handler.execute_chat_with_tools(
+            messages, tools, functions_map, tool_choice, max_rounds, max_tokens, temperature, trace_id
+        )
+        if tools_used:
+            handler.last_usage = {**(handler.last_usage or {}), "tools_used": tools_used}
+        self.last_usage = handler.last_usage
+        self._set_active_provider(idx)
+        return content
 
     def chat_with_tools_stream(
         self,

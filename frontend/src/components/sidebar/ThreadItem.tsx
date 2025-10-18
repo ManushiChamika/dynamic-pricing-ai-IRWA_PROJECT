@@ -1,52 +1,41 @@
 import React from 'react'
 import { SummaryIndicator } from '../SummaryIndicator'
+import { formatRelativeTime } from '../../lib/timeUtils'
 
 interface ThreadItemProps {
   id: number | string
   title: string
   isActive: boolean
   isDraft?: boolean
+  updatedAt?: string
   onSelect: () => void
 }
 
 export const ThreadItem = React.memo(
-  ({ id, title, isActive, isDraft = false, onSelect }: ThreadItemProps) => {
-    const handleMouseEnter = (e: React.MouseEvent<HTMLLIElement>) => {
-      if (!isActive) {
-        const el = e.currentTarget as HTMLElement
-        el.style.background = 'var(--accent-light)'
-        el.style.borderColor = 'var(--border-color)'
-      }
-    }
-
-    const handleMouseLeave = (e: React.MouseEvent<HTMLLIElement>) => {
-      if (!isActive) {
-        const el = e.currentTarget as HTMLElement
-        el.style.background = 'transparent'
-        el.style.borderColor = 'transparent'
-      }
-    }
-
+  ({ id, title, isActive, isDraft = false, updatedAt, onSelect }: ThreadItemProps) => {
     return (
       <li
-        className="px-3 py-2.5 rounded-lg cursor-pointer mb-1.5 transition-all duration-200 border"
-        style={{
-          background: isActive ? 'var(--accent-color)' : 'transparent',
-          color: isActive ? 'white' : 'var(--fg)',
-          fontWeight: isActive ? 500 : 400,
-          borderColor: 'transparent',
-        }}
+        className={`group relative px-3 py-2 rounded-lg cursor-pointer mb-2 transition-all duration-200
+          ${isActive 
+            ? 'bg-[var(--accent-color)] text-white' 
+            : 'hover:bg-[var(--accent-light)] text-[var(--fg)]'
+          }`}
         onClick={onSelect}
         aria-current={isActive ? 'true' : undefined}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
       >
-        <div className="flex items-center justify-between gap-2">
-          <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--font-sm)]">
-            {title}
-          </span>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <div className={`text-sm leading-snug mb-0.5 overflow-hidden text-ellipsis whitespace-nowrap ${isActive ? 'font-medium' : ''}`}>
+              {title}
+            </div>
+            {updatedAt && !isDraft && (
+              <div className={`text-xs ${isActive ? 'text-white/70' : 'text-[var(--fg)]/60'}`}>
+                {formatRelativeTime(updatedAt)}
+              </div>
+            )}
+          </div>
           {!isDraft && (
-            <span onClick={(e) => e.stopPropagation()}>
+            <span className="flex-shrink-0 mt-0.5" onClick={(e) => e.stopPropagation()}>
               <SummaryIndicator threadId={id as number} />
             </span>
           )}

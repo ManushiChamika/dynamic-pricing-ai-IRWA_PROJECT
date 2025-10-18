@@ -31,7 +31,7 @@ def api_create_thread(req: CreateThreadRequest, token: Optional[str] = Query(Non
         if sess:
             owner_id = sess["user_id"]
     t = create_thread(title=req.title, owner_id=owner_id)
-    return ThreadOut(id=t.id, title=t.title, created_at=t.created_at.isoformat())
+    return ThreadOut(id=t.id, title=t.title, created_at=t.created_at.isoformat(), updated_at=t.updated_at.isoformat())
 
 
 @router.get("", response_model=List[ThreadOut])
@@ -42,7 +42,7 @@ def api_list_threads(token: Optional[str] = Query(None)):
         if sess:
             owner_id = sess["user_id"]
     rows = list_threads(owner_id=owner_id)
-    return [ThreadOut(id=t.id, title=t.title, created_at=t.created_at.isoformat()) for t in rows]
+    return [ThreadOut(id=t.id, title=t.title, created_at=t.created_at.isoformat(), updated_at=t.updated_at.isoformat()) for t in rows]
 
 
 @router.patch("/{thread_id}", response_model=ThreadOut)
@@ -52,7 +52,7 @@ def api_update_thread(thread_id: int, req: UpdateThreadRequest):
     t = update_thread(thread_id, title=req.title.strip())
     if not t:
         raise HTTPException(status_code=404, detail="Thread not found")
-    return ThreadOut(id=t.id, title=t.title, created_at=t.created_at.isoformat())
+    return ThreadOut(id=t.id, title=t.title, created_at=t.created_at.isoformat(), updated_at=t.updated_at.isoformat())
 
 
 @router.delete("/{thread_id}")

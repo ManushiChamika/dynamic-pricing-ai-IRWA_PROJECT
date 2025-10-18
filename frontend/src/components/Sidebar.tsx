@@ -34,9 +34,9 @@ export function Sidebar() {
   const allItems = useMemo(() => {
     const items = []
     if (draftId) {
-      items.push({ id: draftId, title: 'New Chat (unsaved)', isDraft: true })
+      items.push({ id: draftId, title: 'New Chat (unsaved)', isDraft: true, updated_at: '' })
     }
-    items.push(...threads.map((t) => ({ id: t.id, title: t.title || `Thread #${t.id}`, isDraft: false })))
+    items.push(...threads.map((t) => ({ id: t.id, title: t.title || `Thread #${t.id}`, isDraft: false, updated_at: t.updated_at })))
     return items
   }, [draftId, threads])
 
@@ -117,6 +117,7 @@ export function Sidebar() {
                 title={item.title}
                 isActive={currentId === item.id}
                 isDraft={item.isDraft}
+                updatedAt={item.updated_at}
                 onSelect={() => startTransition(() => setCurrent(item.id))}
               />
             )}
