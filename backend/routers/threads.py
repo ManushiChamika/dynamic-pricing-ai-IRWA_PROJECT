@@ -1,5 +1,5 @@
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from core.chat_db import (
     create_thread,
     delete_thread,
@@ -24,7 +24,7 @@ router = APIRouter(prefix="/api/threads", tags=["threads"])
 
 
 @router.post("", response_model=ThreadOut)
-def api_create_thread(req: CreateThreadRequest, token: Optional[str] = None):
+def api_create_thread(req: CreateThreadRequest, token: Optional[str] = Query(None)):
     owner_id = None
     if token:
         sess = validate_session_token(token)
@@ -35,7 +35,7 @@ def api_create_thread(req: CreateThreadRequest, token: Optional[str] = None):
 
 
 @router.get("", response_model=List[ThreadOut])
-def api_list_threads(token: Optional[str] = None):
+def api_list_threads(token: Optional[str] = Query(None)):
     owner_id = None
     if token:
         sess = validate_session_token(token)
