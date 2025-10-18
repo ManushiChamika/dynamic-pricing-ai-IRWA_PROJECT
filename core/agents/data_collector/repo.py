@@ -47,14 +47,19 @@ class DataRepo:
 
                 -- Additive tables for product catalog, jobs, and proposals
                 CREATE TABLE IF NOT EXISTS product_catalog (
-                  sku TEXT PRIMARY KEY,
-                  title TEXT,
-                  currency TEXT,
-                  current_price REAL,
-                  cost REAL,
-                  stock INTEGER,
-                  updated_at TEXT
+                   sku TEXT,
+                   owner_id TEXT NOT NULL,
+                   title TEXT,
+                   currency TEXT,
+                   current_price REAL,
+                   cost REAL,
+                   stock INTEGER,
+                   updated_at TEXT,
+                   PRIMARY KEY (sku, owner_id)
                 );
+                
+                CREATE INDEX IF NOT EXISTS idx_product_catalog_owner_id 
+                   ON product_catalog(owner_id);
 
                 CREATE TABLE IF NOT EXISTS ingestion_jobs (
                   id TEXT PRIMARY KEY,
@@ -155,17 +160,16 @@ class DataRepo:
         }
 
 
-    async def upsert_products(self, rows: List[Dict[str, Any]]) -> int:
+    async def upsert_products(self, rows: List[Dict[str, Any]], owner_id: str) -> int:
         """Upsert a list of product rows into product_catalog.
 
-        Uses INSERT ... ON CONFLICT(sku) DO UPDATE for efficiency; if not
+        Uses INSERT ... ON CONFLICT(sku, owner_id) DO UPDATE for efficiency; if not
         supported, falls back to INSERT/UPDATE per-row. Returns number of
         processed rows.
         """
         if not rows:
             return 0
 
-        # Normalize and validate rows; build parameter tuples
         params = []
         for r in rows:
             sku = str(r["sku"]).strip()
@@ -178,7 +182,7 @@ class DataRepo:
             stock = r.get("stock")
             updated_at = r.get("updated_at") or _utc_now_iso()
             params.append(
-                (sku, title, currency, current_price, cost, stock, updated_at)
+                (sku, owner_id, title, currency, current_price, cost, stock, updated_at)
             )
 
         if not params:
@@ -187,9 +191,9 @@ class DataRepo:
         insert_sql = (
             """
             INSERT INTO product_catalog
-              (sku, title, currency, current_price, cost, stock, updated_at)
-            VALUES (?,?,?,?,?,?,?)
-            ON CONFLICT(sku) DO UPDATE SET
+              (sku, owner_id, title, currency, current_price, cost, stock, updated_at)
+            VALUES (?,?,?,?,?,?,?,?)
+            ON CONFLICT(sku, owner_id) DO UPDATE SET
               title=excluded.title,
               currency=excluded.currency,
               current_price=excluded.current_price,
@@ -205,32 +209,31 @@ class DataRepo:
                 await db.commit()
                 return len(params)
             except Exception:
-                # Fallback lightweight upsert if ON CONFLICT not available
                 processed = 0
                 for p in params:
                     try:
                         await db.execute(
                             """
                             INSERT INTO product_catalog
-                              (sku, title, currency, current_price, cost, stock,
+                              (sku, owner_id, title, currency, current_price, cost, stock,
                                updated_at)
-                            VALUES (?,?,?,?,?,?,?)
+                            VALUES (?,?,?,?,?,?,?,?)
                             """,
                             p,
                         )
                         processed += 1
                     except sqlite3.IntegrityError:
-                        # Update existing row by sku
                         sku = p[0]
+                        owner_id_val = p[1]
                         title, currency, current_price, cost, stock, updated_at = (
-                            p[1], p[2], p[3], p[4], p[5], p[6]
+                            p[2], p[3], p[4], p[5], p[6], p[7]
                         )
                         await db.execute(
                             """
                             UPDATE product_catalog
                             SET title=?, currency=?, current_price=?, cost=?,
                                 stock=?, updated_at=?
-                            WHERE sku=?
+                            WHERE sku=? AND owner_id=?
                             """,
                             (
                                 title,
@@ -240,11 +243,56 @@ class DataRepo:
                                 stock,
                                 updated_at,
                                 sku,
+                                owner_id_val,
                             ),
                         )
                         processed += 1
                 await db.commit()
                 return processed
+
+    async def get_products_by_owner(self, owner_id: str) -> List[Dict[str, Any]]:
+        """Retrieve all products for a specific owner."""
+        async with aiosqlite.connect(self.path.as_posix()) as db:
+            db.row_factory = aiosqlite.Row
+            cur = await db.execute(
+                """
+                SELECT sku, owner_id, title, currency, current_price, cost, stock, updated_at
+                FROM product_catalog
+                WHERE owner_id=?
+                ORDER BY updated_at DESC
+                """,
+                (owner_id,),
+            )
+            rows = await cur.fetchall()
+        return [dict(row) for row in rows]
+
+    async def get_product_by_sku_and_owner(self, sku: str, owner_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve a specific product by SKU and owner_id."""
+        async with aiosqlite.connect(self.path.as_posix()) as db:
+            db.row_factory = aiosqlite.Row
+            cur = await db.execute(
+                """
+                SELECT sku, owner_id, title, currency, current_price, cost, stock, updated_at
+                FROM product_catalog
+                WHERE sku=? AND owner_id=?
+                """,
+                (sku, owner_id),
+            )
+            row = await cur.fetchone()
+        return dict(row) if row else None
+
+    async def delete_product_by_owner(self, sku: str, owner_id: str) -> int:
+        """Delete a product for a specific owner. Returns rows affected."""
+        async with aiosqlite.connect(self.path.as_posix()) as db:
+            cursor = await db.execute(
+                """
+                DELETE FROM product_catalog
+                WHERE sku=? AND owner_id=?
+                """,
+                (sku, owner_id),
+            )
+            await db.commit()
+        return cursor.rowcount
 
     async def create_job(
         self, sku: str, market: str, connector: str, depth: int

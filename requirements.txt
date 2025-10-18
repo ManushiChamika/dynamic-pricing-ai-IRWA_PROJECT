@@ -8,6 +8,7 @@ aiohttp
 aiosmtplib
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
+python-multipart==0.0.6
 # Core ML / AI dependencies
 transformers
 torch
