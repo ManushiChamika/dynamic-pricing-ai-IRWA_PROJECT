@@ -130,25 +130,23 @@ Analyze the event carefully and decide if any action is needed."""
             
             tools_schema = get_llm_tools()
             
-            import asyncio
-            loop = asyncio.get_event_loop()
             
-            def create_alert_wrapper(name: str, description: str, severity: str, details: dict):
-                return loop.run_until_complete(execute_tool_call("create_alert", {
+            async def create_alert_async(name: str, description: str, severity: str, details: dict):
+                return await execute_tool_call("create_alert", {
                     "name": name, "description": description, 
                     "severity": severity, "details": details
-                }, self.tools))
+                }, self.tools)
             
-            def list_alerts_wrapper(status: str = None):
-                return loop.run_until_complete(execute_tool_call("list_alerts", {"status": status}, self.tools))
+            async def list_alerts_async(status: str = None):
+                return await execute_tool_call("list_alerts", {"status": status}, self.tools)
             
-            def list_rules_wrapper():
-                return loop.run_until_complete(execute_tool_call("list_rules", {}, self.tools))
+            async def list_rules_async():
+                return await execute_tool_call("list_rules", {}, self.tools)
             
             functions_map = {
-                "create_alert": create_alert_wrapper,
-                "list_alerts": list_alerts_wrapper,
-                "list_rules": list_rules_wrapper
+                "create_alert": create_alert_async,
+                "list_alerts": list_alerts_async,
+                "list_rules": list_rules_async
             }
             
             try:
