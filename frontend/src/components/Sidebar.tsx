@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo, startTransition } from 'react'
 import { Virtuoso } from 'react-virtuoso'
 import { Button } from './ui/button'
 import { ThreadItem } from './sidebar/ThreadItem'
@@ -113,7 +113,7 @@ export function Sidebar() {
                 title={item.title}
                 isActive={currentId === item.id}
                 isDraft={item.isDraft}
-                onSelect={() => setCurrent(item.id)}
+                onSelect={() => startTransition(() => setCurrent(item.id))}
               />
             )}
             style={{ height: '100%' }}

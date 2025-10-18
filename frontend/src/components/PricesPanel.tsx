@@ -7,7 +7,7 @@ import { useAuthToken } from '../stores/authStore'
 
 const PriceChart = lazy(() => import('./PriceChart').then((m) => ({ default: m.PriceChart })))
 
-const PriceCard = React.memo(({ k, data, viewMode, theme }: { 
+const PriceCardComponent = ({ k, data, viewMode, theme }: { 
   k: string, 
   data: { ts: number; price: number }[], 
   viewMode: 'sparkline' | 'chart',
@@ -53,7 +53,9 @@ const PriceCard = React.memo(({ k, data, viewMode, theme }: {
       )}
     </div>
   )
-})
+}
+
+const PriceCard = React.memo(PriceCardComponent)
 
 export function PricesPanel() {
   const [collapsed, setCollapsed] = useState(localStorage.getItem('pricesCollapsed') === '1')

@@ -14,7 +14,7 @@ function MessageListComponent({ messages, showModel, showTimestamps, showMeta }:
     <>
       {messages.map((m) => (
         <MessageView
-          key={m.id + ':' + m.created_at}
+          key={m.id}
           m={m}
           showModel={showModel}
           showTimestamps={showTimestamps}

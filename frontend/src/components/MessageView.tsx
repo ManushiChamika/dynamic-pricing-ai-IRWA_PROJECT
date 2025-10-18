@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState, lazy, Suspense } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { useSpring, animated } from '@react-spring/web'
 import { AgentBadgeGroup } from './AgentBadge'
 import { BranchNavigator } from './BranchNavigator'
 import { ThinkingTokens } from './ThinkingTokens'
@@ -44,7 +43,7 @@ const MARKDOWN_COMPONENTS = {
 
 const PriceChart = lazy(() => import('./PriceChart').then((m) => ({ default: m.PriceChart })))
 
-export function MessageView({
+function MessageViewComponent({
   m,
   showModel,
   showTimestamps,
@@ -63,17 +62,6 @@ export function MessageView({
   const showThinking = useSettings((state) => state.showThinking)
 
   const [hovered, setHovered] = useState(false)
-
-  const fadeIn = useSpring({
-    from: { opacity: 0, transform: 'translateY(20px) scale(0.95)' },
-    to: { opacity: 1, transform: 'translateY(0px) scale(1)' },
-    config: { tension: 280, friction: 60 },
-  })
-
-  const hoverSpring = useSpring({
-    backgroundColor: hovered ? 'var(--hover-bg)' : 'transparent',
-    config: { tension: 300, friction: 30 },
-  })
 
   const rowRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
@@ -114,12 +102,12 @@ export function MessageView({
   const showAgentBadges = m.role === 'assistant' && agentNames.length > 0
 
   return (
-    <animated.div
+    <div
       ref={rowRef}
-      className="max-w-[900px] animate-slideIn origin-left"
+      className="max-w-[900px] animate-slideIn origin-left transition-colors duration-200"
       role="article"
       aria-label={`${m.role} message`}
-      style={{ ...fadeIn, ...hoverSpring }}
+      style={{ backgroundColor: hovered ? 'var(--hover-bg)' : 'transparent' }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       data-message-id={m.id}
@@ -182,6 +170,9 @@ export function MessageView({
         showMeta={showMeta}
         showModel={showModel}
       />
-    </animated.div>
+    </div>
   )
 }
+
+export const MessageView = React.memo(MessageViewComponent)
+

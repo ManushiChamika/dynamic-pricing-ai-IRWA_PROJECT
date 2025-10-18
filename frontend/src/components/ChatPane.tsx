@@ -56,8 +56,10 @@ export function ChatPane() {
   }, [currentId])
   useEffect(() => {
     const el = msgsRef.current
-    if (!el) return
-    if (shouldStickRef.current) el.scrollTop = el.scrollHeight
+    if (!el || !shouldStickRef.current) return
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight
+    })
   }, [messages])
   useEffect(() => {
     if (mode === 'developer') {
