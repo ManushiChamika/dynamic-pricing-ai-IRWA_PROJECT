@@ -13,10 +13,7 @@ export function ThreadListExample() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-semibold">Threads (TanStack Query)</h2>
-        <Button
-          onClick={() => createThread.mutate('New Thread')}
-          disabled={createThread.isPending}
-        >
+        <Button onClick={() => createThread.mutate('New Thread')} disabled={createThread.isPending}>
           {createThread.isPending ? 'Creating...' : 'New Thread'}
         </Button>
       </div>

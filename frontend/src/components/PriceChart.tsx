@@ -9,7 +9,7 @@ import {
   Tooltip,
   Legend,
   Filler,
-  ChartOptions
+  ChartOptions,
 } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 
@@ -39,15 +39,13 @@ export function PriceChart({ data, sku, theme = 'dark' }: PriceChartProps) {
   const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
   const textColor = isDark ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)'
 
-  const prices = data.map(d => d.price)
+  const prices = data.map((d) => d.price)
   const firstPrice = prices[0] || 0
   const lastPrice = prices[prices.length - 1] || 0
   const isUp = lastPrice >= firstPrice
 
   const lineColor = isUp ? 'rgb(16, 185, 129)' : 'rgb(239, 68, 68)'
-  const gradientColor = isUp
-    ? 'rgba(16, 185, 129, 0.2)'
-    : 'rgba(239, 68, 68, 0.2)'
+  const gradientColor = isUp ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'
 
   const labels = data.map((d, i) => {
     const date = new Date(d.ts)
@@ -77,9 +75,9 @@ export function PriceChart({ data, sku, theme = 'dark' }: PriceChartProps) {
         pointHoverBackgroundColor: lineColor,
         pointHoverBorderColor: '#fff',
         pointHoverBorderWidth: 2,
-        borderWidth: 2
-      }
-    ]
+        borderWidth: 2,
+      },
+    ],
   }
 
   const options: ChartOptions<'line'> = {
@@ -87,15 +85,15 @@ export function PriceChart({ data, sku, theme = 'dark' }: PriceChartProps) {
     maintainAspectRatio: false,
     animation: {
       duration: 750,
-      easing: 'easeInOutQuart'
+      easing: 'easeInOutQuart',
     },
     interaction: {
       mode: 'index',
-      intersect: false
+      intersect: false,
     },
     plugins: {
       legend: {
-        display: false
+        display: false,
       },
       tooltip: {
         enabled: true,
@@ -107,9 +105,9 @@ export function PriceChart({ data, sku, theme = 'dark' }: PriceChartProps) {
         padding: 12,
         displayColors: false,
         callbacks: {
-          label: (context) => `$${context.parsed.y.toFixed(2)}`
-        }
-      }
+          label: (context) => `$${context.parsed.y.toFixed(2)}`,
+        },
+      },
     },
     scales: {
       x: {
@@ -117,18 +115,18 @@ export function PriceChart({ data, sku, theme = 'dark' }: PriceChartProps) {
         grid: {
           display: true,
           color: gridColor,
-          drawTicks: false
+          drawTicks: false,
         },
         ticks: {
           color: textColor,
           font: { size: 10 },
           maxRotation: 0,
           autoSkip: true,
-          maxTicksLimit: 6
+          maxTicksLimit: 6,
         },
         border: {
-          display: false
-        }
+          display: false,
+        },
       },
       y: {
         display: true,
@@ -136,19 +134,19 @@ export function PriceChart({ data, sku, theme = 'dark' }: PriceChartProps) {
         grid: {
           display: true,
           color: gridColor,
-          drawTicks: false
+          drawTicks: false,
         },
         ticks: {
           color: textColor,
           font: { size: 10 },
           callback: (value) => `$${Number(value).toFixed(0)}`,
-          maxTicksLimit: 5
+          maxTicksLimit: 5,
         },
         border: {
-          display: false
-        }
-      }
-    }
+          display: false,
+        },
+      },
+    },
   }
 
   useEffect(() => {

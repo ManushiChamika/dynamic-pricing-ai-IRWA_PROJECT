@@ -1,25 +1,33 @@
-import { useState } from 'react';
-import { useSummaries } from '../lib/api';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '../lib/apiClient'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip'
 
 export interface Summary {
-  id: number;
-  upto_message_id: number;
-  content: string;
-  created_at: string | null;
+  id: number
+  upto_message_id: number
+  content: string
+  created_at: string | null
 }
 
 interface SummaryIndicatorProps {
-  threadId: number;
-  token?: string;
+  threadId: number
 }
 
 export function SummaryIndicator({ threadId }: SummaryIndicatorProps) {
-  const [open, setOpen] = useState(false);
-  const { data: summaries = [] } = useSummaries(threadId);
+  const [open, setOpen] = useState(false)
+  const { data: summaries = [] } = useQuery({
+    queryKey: ['summaries', threadId],
+    queryFn: async () => {
+      const res = await api<{ summaries: Summary[] }>(`/api/threads/${threadId}/summaries`)
+      if (!res.ok) throw new Error(`API Error: ${res.status}`)
+      return (res.data?.summaries || []) as Summary[]
+    },
+    staleTime: 30000,
+  })
 
-  if (summaries.length === 0) return null;
+  if (summaries.length === 0) return null
 
   return (
     <>
@@ -41,7 +49,8 @@ export function SummaryIndicator({ threadId }: SummaryIndicatorProps) {
             <div className="text-xs">
               <div className="font-semibold">Conversation Summaries</div>
               <div className="text-muted-foreground">
-                {summaries.length} summary checkpoint{summaries.length > 1 ? 's' : ''} available. Click to view.
+                {summaries.length} summary checkpoint{summaries.length > 1 ? 's' : ''} available.
+                Click to view.
               </div>
             </div>
           </TooltipContent>
@@ -59,7 +68,7 @@ export function SummaryIndicator({ threadId }: SummaryIndicatorProps) {
               </span>
             </DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4 mt-4">
             {summaries.length === 0 ? (
               <div className="text-center text-muted-foreground py-8">
@@ -76,9 +85,7 @@ export function SummaryIndicator({ threadId }: SummaryIndicatorProps) {
                       Checkpoint #{idx + 1} · Up to message #{summary.upto_message_id}
                     </span>
                     {summary.created_at && (
-                      <span>
-                        {new Date(summary.created_at).toLocaleString()}
-                      </span>
+                      <span>{new Date(summary.created_at).toLocaleString()}</span>
                     )}
                   </div>
                   <div className="text-sm leading-relaxed whitespace-pre-wrap">
@@ -91,5 +98,5 @@ export function SummaryIndicator({ threadId }: SummaryIndicatorProps) {
         </DialogContent>
       </Dialog>
     </>
-  );
+  )
 }

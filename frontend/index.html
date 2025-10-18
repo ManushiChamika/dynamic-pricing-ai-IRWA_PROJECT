@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark light" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href="/robot-mascot1.png" as="image" />
+    <link rel="preload" href="/src/styles.css" as="style" />
     <style>
       :root {
         color-scheme: dark light;
@@ -42,6 +44,26 @@
         font-size: 16px;
         color: var(--fg);
       }
+      nav, main, .container, .mx-auto, .text-center, h1, h2, p, button {
+        opacity: 1;
+      }
+      h1 {
+        font-size: clamp(2.5rem, 5vw, 4.5rem);
+        font-weight: 800;
+        line-height: 1.1;
+        letter-spacing: -0.02em;
+      }
+      h2 {
+        font-size: clamp(2rem, 4vw, 2.5rem);
+        font-weight: 700;
+      }
+      button, a {
+        cursor: pointer;
+      }
+      img {
+        max-width: 100%;
+        height: auto;
+      }
     </style>
     <script>
       try {
@@ -51,7 +73,8 @@
         }
       } catch (e) {}
     </script>
-    <link rel="stylesheet" href="/src/styles.css" />
+    <link rel="stylesheet" href="/src/styles.css" media="print" onload="this.media='all'; this.onload=null;" />
+    <noscript><link rel="stylesheet" href="/src/styles.css" /></noscript>
     <title>Dynamic Pricing Chat</title>
   </head>
   <body>

@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from .auth_db import SessionLocal, User, SessionToken
 
 ph = PasswordHasher()
-SESSION_DAYS = 7  # persistent login duration
+SESSION_DAYS = 7
 
 
 class RegisterIn(BaseModel):
@@ -32,21 +32,12 @@ def _verify(pw: str, h: str) -> bool:
 
 
 def _utcnow_naive() -> datetime:
-    """
-    Return current time in UTC as a naive datetime.
-    We intentionally use naive UTC because our SQLAlchemy DateTime columns
-    are configured without timezone=True. This avoids mixing aware/naive
-    datetimes on comparisons and inserts while keeping a consistent UTC basis.
-    """
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
-# ---------- Register ----------
 def register_user(inp: RegisterIn) -> None:
     email_norm = (inp.email or "").strip().lower()
     pw = (inp.password or "").strip()
-
-    # validate email (allow test domains)
     try:
         validate_email(email_norm, check_deliverability=False)
     except EmailNotValidError as e:
@@ -85,7 +76,7 @@ def authenticate(email: str, password: str) -> dict:
 
 
 # ---------- Profile ----------
-def get_profile(user_id: int) -> dict:
+def get_profile(user_id: int) -> dict[str, any]:
     with SessionLocal() as db:
         u: Optional[User] = db.get(User, user_id)
         if not u:

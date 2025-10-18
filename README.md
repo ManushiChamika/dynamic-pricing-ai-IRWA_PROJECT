@@ -149,6 +149,119 @@ These are displayed in the UI when the metadata panel is enabled.
 - Ports/CORS: CORS allows local dev from any `localhost`/`127.0.0.1` port.
 
 
+## Repository Structure
+
+```
+dynamic-pricing-ai-IRWA_PROJECT/
+├── backend/                           # FastAPI server
+│   ├── main.py                       # Main API application & endpoints
+│   ├── ui/                           # Static frontend assets
+│   ├── test_*.py                     # API endpoint tests
+│   └── __init__.py
+├── frontend/                          # React + TypeScript UI
+│   ├── src/
+│   │   ├── components/               # React components (ChatPane, MessageView, etc.)
+│   │   ├── stores/                   # Zustand state management
+│   │   ├── lib/                      # Utilities (API client, hooks, constants)
+│   │   ├── pages/                    # Page components
+│   │   ├── App.tsx                   # Root component
+│   │   ├── main.tsx                  # Entry point
+│   │   └── styles.css
+│   ├── e2e/                          # Playwright end-to-end tests
+│   ├── public/                       # Static assets
+│   ├── package.json                  # Node dependencies
+│   ├── vite.config.ts                # Vite build config
+│   ├── tsconfig.json                 # TypeScript config
+│   └── tailwind.config.js            # Tailwind CSS config
+├── core/                              # Business logic & agents
+│   ├── agents/                       # Agent implementations
+│   │   ├── llm_client.py             # Multi-provider LLM wrapper
+│   │   ├── user_interact/            # User interaction agent
+│   │   ├── pricing_optimizer.py      # Pricing optimization algorithms
+│   │   ├── alert_*.py                # Alert & notification agents
+│   │   ├── data_collection_agent.py  # Market data collection
+│   │   └── supervisor.py             # Agent orchestration
+│   ├── auth_db.py                    # Auth database models
+│   ├── auth_service.py               # Authentication logic
+│   ├── chat_db.py                    # Chat persistence layer
+│   ├── config.py                     # Configuration management
+│   ├── events/                       # Event journal & schemas
+│   ├── evaluation/                   # Performance metrics
+│   └── observability/                # Logging & monitoring
+├── data/                              # Data files
+│   ├── market.db                     # Sample market data (SQLite)
+│   └── chat.db                       # Chat persistence (auto-created)
+├── scripts/                           # Utility scripts
+│   ├── run_*.py                      # Agent runners
+│   ├── test_*.py                     # Integration tests
+│   └── *.ps1                         # Windows PowerShell helpers
+├── docs/                              # Documentation
+│   ├── VIVA_PREPARATION.md           # VIVA session guide
+│   ├── system_architecture.mmd       # Mermaid diagrams
+│   └── *.md                          # Technical documentation
+├── .env.example                       # Environment template
+├── requirements.txt                  # Python dependencies
+├── package.json                      # Node.js root config
+├── pyproject.toml                    # Python project config
+├── pytest.ini                        # pytest configuration
+└── run_full_app.bat                 # Windows startup script
+```
+
+## Development
+
+### Backend Development
+- **Language**: Python 3.10+
+- **Framework**: FastAPI with SQLAlchemy ORM
+- **Dependencies**: See `requirements.txt`
+- **Run**: `uvicorn backend.main:app --reload --port 8000`
+- **Tests**: `pytest -q` or `pytest path/to/test_file.py`
+- **Lint**: `black .`, `isort .`, `flake8 .`
+
+### Frontend Development
+- **Language**: TypeScript + React 18
+- **Build Tool**: Vite
+- **Styling**: Tailwind CSS
+- **State**: Zustand
+- **Dependencies**: See `frontend/package.json`
+- **Run**: `npm run dev` (from `frontend/`)
+- **Build**: `npm run build`
+- **Tests**: `npm run test` or `npm run test -- path/to/test.tsx`
+- **Lint**: `npm run lint:fix` and `npm run format`
+
+### Full App (Both Services)
+Run `run_full_app.bat` on Windows or equivalent shell script on other platforms.
+
+## Testing Credentials
+
+For development & testing:
+- Email: `demo@example.com`
+- Password: `1234567890`
+
+## Key Features
+
+### Backend
+- Multi-provider LLM support with automatic fallback (OpenRouter → OpenAI → Gemini)
+- SSE streaming for real-time token output
+- Thread-based conversation persistence
+- User authentication with 7-day session tokens
+- Cost tracking and usage analytics
+- Modular agent architecture for pricing, alerts, and data collection
+
+### Frontend
+- Real-time streaming chat with visual feedback
+- Thread management (create, rename, delete, export/import)
+- Message branching and editing
+- Theme support (light/dark)
+- Settings persistence per user
+- Responsive design with Tailwind CSS
+
+## Contributors
+
+- **Sasindu** - Project Lead, Backend Architecture & Agent Development
+- **Team Members** - Frontend Development, Testing, Documentation
+
+(Verify with team for accurate contributor list)
+
 ## License
 
 This repository does not include an explicit license file. Treat as proprietary unless a license is added.

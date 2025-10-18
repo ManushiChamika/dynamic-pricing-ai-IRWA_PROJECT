@@ -147,7 +147,13 @@ def list_threads(owner_id: Optional[int] = None) -> list[Thread]:
         q = db.query(Thread)
         if owner_id is not None:
             q = q.filter(Thread.owner_id == owner_id)
-        return q.order_by(Thread.created_at.desc()).all()
+        threads = q.order_by(Thread.created_at.desc()).all()
+        filtered = []
+        for t in threads:
+            msg_count = db.query(func.count(Message.id)).filter(Message.thread_id == t.id).scalar() or 0
+            if msg_count > 0:
+                filtered.append(t)
+        return filtered
 
 
 def update_thread(thread_id: int, **fields) -> Optional[Thread]:
@@ -168,11 +174,27 @@ def delete_thread(thread_id: int) -> bool:
         t = db.get(Thread, thread_id)
         if not t:
             return False
-        # Remove summaries explicitly (no relationship defined)
         db.query(Summary).filter(Summary.thread_id == thread_id).delete(synchronize_session=False)
-        db.delete(t)  # cascades to messages via relationship
+        db.delete(t)
         db.commit()
         return True
+
+
+def cleanup_empty_threads(owner_id: Optional[int] = None) -> int:
+    with SessionLocal() as db:
+        q = db.query(Thread)
+        if owner_id is not None:
+            q = q.filter(Thread.owner_id == owner_id)
+        threads = q.all()
+        deleted = 0
+        for t in threads:
+            msg_count = db.query(func.count(Message.id)).filter(Message.thread_id == t.id).scalar() or 0
+            if msg_count == 0:
+                db.query(Summary).filter(Summary.thread_id == t.id).delete(synchronize_session=False)
+                db.delete(t)
+                deleted += 1
+        db.commit()
+        return deleted
 
 
 # Summaries helpers

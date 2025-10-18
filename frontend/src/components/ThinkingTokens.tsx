@@ -1,15 +1,15 @@
-import { useState } from "react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
+import { useState } from 'react'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible'
 
 interface ThinkingTokensProps {
-  thinking: string;
+  thinking: string
 }
 
 export function ThinkingTokens({ thinking }: ThinkingTokensProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false)
 
   if (!thinking || thinking.trim() === '') {
-    return null;
+    return null
   }
 
   return (
@@ -36,5 +36,5 @@ export function ThinkingTokens({ thinking }: ThinkingTokensProps) {
         <pre className="whitespace-pre-wrap font-mono text-xs">{thinking}</pre>
       </CollapsibleContent>
     </Collapsible>
-  );
+  )
 }
