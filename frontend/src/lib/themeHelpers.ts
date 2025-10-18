@@ -89,3 +89,21 @@ export function getFooterThemeClasses(isDark: boolean) {
     textHover: isDark ? 'hover:text-white' : 'hover:text-slate-900',
   }
 }
+
+export function getSecondaryCta(isDark: boolean) {
+  return isDark
+    ? 'text-lg h-14 px-10 border border-white/20 text-white hover:bg-white/10 hover:border-white/40'
+    : 'text-lg h-14 px-10 border border-slate-300 bg-white/85 text-slate-800 hover:bg-slate-100 hover:border-slate-400'
+}
+
+export function getFeatureCardBase(isDark: boolean) {
+  return isDark
+    ? 'relative rounded-2xl border border-white/10 bg-gradient-to-br'
+    : 'relative rounded-2xl border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.12)]'
+}
+
+export function getPlanCardBase(isDark: boolean) {
+  return isDark
+    ? 'relative rounded-2xl border transition-all duration-300'
+    : 'relative rounded-2xl border border-slate-200 bg-white shadow-[0_20px_45px_rgba(15,23,42,0.12)] transition-all duration-300'
+}

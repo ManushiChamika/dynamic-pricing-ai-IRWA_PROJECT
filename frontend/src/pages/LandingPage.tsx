@@ -3,7 +3,12 @@ import { Button } from '../components/ui/button'
 import { MessageSquare, BarChart3, Bell, ArrowRight } from 'lucide-react'
 import { Navigation } from '../components/Navigation'
 import { Footer } from '../components/Footer'
-import { getHowItWorksCard, getPageThemeClasses } from '../lib/themeHelpers'
+import {
+  getHowItWorksCard,
+  getPageThemeClasses,
+  getSecondaryCta,
+  getFeatureCardBase,
+} from '../lib/themeHelpers'
 import { useTheme } from '../contexts/ThemeContext'
 
 export function LandingPage() {
@@ -13,13 +18,8 @@ export function LandingPage() {
 
   const { pageClasses, mutedText, softMutedText, heroGradient, dottedOverlay, secondarySurface } =
     getPageThemeClasses(isDark)
-  const secondaryCta = isDark
-    ? 'text-lg h-14 px-10 border border-white/20 text-white hover:bg-white/10 hover:border-white/40'
-    : 'text-lg h-14 px-10 border border-slate-300 bg-white/85 text-slate-800 hover:bg-slate-100 hover:border-slate-400'
-
-  const featureCardBase = isDark
-    ? 'relative rounded-2xl border border-white/10 bg-gradient-to-br'
-    : 'relative rounded-2xl border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.12)]'
+  const secondaryCta = getSecondaryCta(isDark)
+  const featureCardBase = getFeatureCardBase(isDark)
 
   return (
     <div className={pageClasses}>

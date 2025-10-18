@@ -4,7 +4,7 @@ import { Navigation } from '../components/Navigation'
 import { Footer } from '../components/Footer'
 import { ArrowRight, Check } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
-import { getPageThemeClasses } from '../lib/themeHelpers'
+import { getPageThemeClasses, getPlanCardBase } from '../lib/themeHelpers'
 
 export function PricingPage() {
   const navigate = useNavigate()
@@ -12,9 +12,7 @@ export function PricingPage() {
   const isDark = theme === 'dark'
   const { pageClasses, mutedText, helperText, heroGradient, dottedOverlay, secondarySurface } =
     getPageThemeClasses(isDark)
-  const planCardBase = isDark
-    ? 'relative rounded-2xl border transition-all duration-300'
-    : 'relative rounded-2xl border border-slate-200 bg-white shadow-[0_20px_45px_rgba(15,23,42,0.12)] transition-all duration-300'
+  const planCardBase = getPlanCardBase(isDark)
 
   const plans = [
     {
