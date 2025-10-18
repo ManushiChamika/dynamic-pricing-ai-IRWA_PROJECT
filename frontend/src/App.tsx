@@ -649,15 +649,15 @@ function MessageView({
           ) : null}
         </div>
       ) : null}
-      <div className={`${bubbleBase} ${m.role === 'user' ? userBubble : assistantBubble}`}>
-        {m.role === 'assistant' ? (
-          <div className="prose max-w-none dark:prose-invert">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content || ''}</ReactMarkdown>
-          </div>
-        ) : (
-          m.content
-        )}
-      </div>
+       <div className={`${bubbleBase} ${m.role === 'user' ? userBubble : assistantBubble}`}>
+         {m.role === 'assistant' ? (
+           <div className="prose max-w-none dark:prose-invert prose-p:my-1 prose-li:my-0.5 prose-ul:my-1 prose-ol:my-1">
+             <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content || ''}</ReactMarkdown>
+           </div>
+         ) : (
+           m.content
+         )}
+       </div>
       {showThinking && m.thinking && m.role === 'assistant' ? (
         <ThinkingTokens thinking={m.thinking} />
       ) : null}
