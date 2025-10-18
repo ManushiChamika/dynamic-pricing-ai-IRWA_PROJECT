@@ -1,7 +1,7 @@
 import React from 'react'
 import { Mail, Phone, MapPin } from 'lucide-react'
 
-export function ContactInfoCards({ theme, cardSurface }: { theme: string; cardSurface: string }) {
+function ContactInfoCardsComponent({ theme, cardSurface }: { theme: string; cardSurface: string }) {
   const isDark = theme === 'dark'
 
   return (
@@ -86,3 +86,5 @@ export function ContactInfoCards({ theme, cardSurface }: { theme: string; cardSu
     </div>
   )
 }
+
+export const ContactInfoCards = React.memo(ContactInfoCardsComponent)

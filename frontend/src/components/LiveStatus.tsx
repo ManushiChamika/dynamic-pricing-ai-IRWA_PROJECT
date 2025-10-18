@@ -1,6 +1,6 @@
 import React from 'react'
 
-export function LiveStatus({
+function LiveStatusComponent({
   liveActiveAgent,
   liveTool,
 }: {
@@ -30,3 +30,5 @@ export function LiveStatus({
     </div>
   )
 }
+
+export const LiveStatus = React.memo(LiveStatusComponent)

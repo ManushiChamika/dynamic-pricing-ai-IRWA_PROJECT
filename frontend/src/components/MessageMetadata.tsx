@@ -2,7 +2,7 @@ import React from 'react'
 import { MetadataTooltip } from './MetadataTooltip'
 import { type Message } from '../stores/messageStore'
 
-export function MessageMetadata({
+function MessageMetadataComponent({
   m,
   showTimestamps,
   showMeta,
@@ -38,3 +38,5 @@ export function MessageMetadata({
     </div>
   )
 }
+
+export const MessageMetadata = React.memo(MessageMetadataComponent)

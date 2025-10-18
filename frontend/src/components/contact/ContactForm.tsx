@@ -11,7 +11,7 @@ interface FormData {
   message: string
 }
 
-export function ContactForm({
+function ContactFormComponent({
   inputSurface,
   isDark,
 }: {
@@ -128,3 +128,5 @@ export function ContactForm({
     </div>
   )
 }
+
+export const ContactForm = React.memo(ContactFormComponent)

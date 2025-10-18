@@ -6,7 +6,7 @@ interface FAQ {
   answer: string
 }
 
-export function FAQSection({ theme }: { theme: string }) {
+function FAQSectionComponent({ theme }: { theme: string }) {
   const isDark = theme === 'dark'
 
   return (
@@ -30,3 +30,5 @@ export function FAQSection({ theme }: { theme: string }) {
     </section>
   )
 }
+
+export const FAQSection = React.memo(FAQSectionComponent)

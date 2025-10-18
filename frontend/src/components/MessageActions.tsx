@@ -11,7 +11,7 @@ import { useConfirm } from '../stores/confirmStore'
 import { useToasts } from '../stores/toastStore'
 import { useThreads } from '../stores/threadStore'
 
-export function MessageActions({ m }: { m: Message }) {
+function MessageActionsComponent({ m }: { m: Message }) {
   const { del, edit, branch, fork, refresh } = useMessagesActions()
   const streamingActive = useMessages((state) => state.streamingActive)
   const currentId = useCurrentThread()
@@ -132,3 +132,5 @@ export function MessageActions({ m }: { m: Message }) {
     </div>
   )
 }
+
+export const MessageActions = React.memo(MessageActionsComponent)
