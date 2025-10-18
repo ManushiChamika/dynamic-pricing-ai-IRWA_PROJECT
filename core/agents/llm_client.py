@@ -1,13 +1,3 @@
-"""
-Lightweight LLM client wrapper for the Dynamic Pricing AI agents.
-
-Supports:
-- OpenRouter (preferred if OPENROUTER_API_KEY is set)
-- OpenAI (fallback if OPENAI_API_KEY is set)
-- Gemini via Google OpenAI-compatible endpoint (fallback if GEMINI_API_KEY is set)
-
-No external dotenv dependency; we do a small .env load like in core agents.
-"""
 from __future__ import annotations
 
 import os
@@ -18,39 +8,10 @@ from typing import Optional, Any, Dict, List, Callable
 import json
 from datetime import datetime
 
-
-_GEMINI_WORKING_KEY_CACHE: Optional[str] = None
-
-
-def _get_gemini_working_key_file() -> Path:
-    """Return path to cache file for the last working Gemini key."""
-    root = Path(__file__).resolve().parents[2]
-    cache_dir = root / ".llm_cache"
-    cache_dir.mkdir(exist_ok=True)
-    return cache_dir / "gemini_working_key.txt"
-
-
-def _load_gemini_working_key() -> Optional[str]:
-    """Load the last working Gemini key from cache."""
-    try:
-        cache_file = _get_gemini_working_key_file()
-        if cache_file.exists():
-            key = cache_file.read_text(encoding="utf-8").strip()
-            return key if key else None
-    except Exception as e:
-        logging.getLogger("core.agents.llm").debug("Failed to load Gemini working key: %s", e)
-    return None
-
-
-def _save_gemini_working_key(key: str) -> None:
-    """Save the working Gemini key to cache."""
-    try:
-        if not key:
-            return
-        cache_file = _get_gemini_working_key_file()
-        cache_file.write_text(key, encoding="utf-8")
-    except Exception as e:
-        logging.getLogger("core.agents.llm").debug("Failed to save Gemini working key: %s", e)
+from .llm_provider_manager import (
+    ProviderManager,
+    _save_gemini_working_key,
+)
 
 
 def _load_dotenv_if_present() -> None:
@@ -82,7 +43,6 @@ def _load_dotenv_if_present() -> None:
 
 
 class LLMClient:
-    """Tiny wrapper around OpenAI-compatible SDKs with multi-provider fallback."""
 
     def __init__(
         self,
@@ -115,112 +75,9 @@ class LLMClient:
             self._log.debug("LLM unavailable: %s", self._unavailable_reason)
             return
 
-        def _prepare_headers(provider_name: str, key: str) -> Dict[str, str]:
-            if provider_name == "openrouter":
-                return {
-                    "HTTP-Referer": os.getenv("OPENROUTER_REFERRER", "https://dynamic-pricing-ai.local"),
-                    "X-Title": os.getenv("OPENROUTER_TITLE", "Dynamic Pricing AI"),
-                }
-            if provider_name == "gemini":
-                # Google accepts bearer token auth, but including API key header avoids conflicts.
-                return {"x-goog-api-key": key}
-            return {}
-
-        def _register_provider(
-            provider_name: str,
-            provider_api_key: Optional[str],
-            provider_model: Optional[str],
-            provider_base_url: Optional[str],
-        ) -> None:
-            if not provider_api_key:
-                return
-
-            model_name = provider_model or "gpt-4o-mini"
-            headers = _prepare_headers(provider_name, provider_api_key)
-            kwargs: Dict[str, Any] = {"api_key": provider_api_key}
-            if provider_base_url:
-                kwargs["base_url"] = provider_base_url
-            if headers:
-                kwargs["default_headers"] = headers
-
-            try:
-                client = openai_mod.OpenAI(**kwargs)
-            except TypeError:
-                # Older SDKs may not accept default_headers in constructor.
-                headers_payload = kwargs.pop("default_headers", None)
-                client = openai_mod.OpenAI(**kwargs)
-                if headers_payload:
-                    try:
-                        client.default_headers = headers_payload  # type: ignore[attr-defined]
-                    except Exception:
-                        pass
-            except Exception as exc:
-                self._log.error("Failed to initialize %s client: %s", provider_name, exc)
-                return
-
-            self._providers.append(
-                {
-                    "name": provider_name,
-                    "client": client,
-                    "model": model_name,
-                    "base_url": provider_base_url,
-                    "api_key": provider_api_key,
-                }
-            )
-            self._log.debug(
-                "Registered provider %s | model=%s base_url=%s",
-                provider_name,
-                model_name,
-                provider_base_url or "<default>",
-            )
-
-        # Resolve environment defaults
-        explicit_key = api_key
-        explicit_base = base_url
-        explicit_model = model
-
-        or_key = os.getenv("OPENROUTER_API_KEY")
-        or_base = base_url if (explicit_key and explicit_base) else os.getenv("OPENROUTER_BASE_URL")
-        if not or_base and or_key:
-            or_base = "https://openrouter.ai/api/v1"
-        or_model = os.getenv("OPENROUTER_MODEL") or "z-ai/glm-4.5-air:free"
-
-        oa_key = os.getenv("OPENAI_API_KEY")
-        oa_model = os.getenv("OPENAI_MODEL") or "gpt-4o-mini"
-
-        gemini_base = os.getenv("GEMINI_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta/openai/"
-        if gemini_base and not gemini_base.endswith("/"):
-            gemini_base = gemini_base + "/"
-        gemini_model = os.getenv("GEMINI_MODEL") or "gemini-2.5-flash"
-        
-        gemini_keys = []
-        gemini_key_1 = os.getenv("GEMINI_API_KEY")
-        if gemini_key_1:
-            gemini_keys.append(("gemini", gemini_key_1))
-        gemini_key_2 = os.getenv("GEMINI_API_KEY_2")
-        if gemini_key_2:
-            gemini_keys.append(("gemini_2", gemini_key_2))
-        gemini_key_3 = os.getenv("GEMINI_API_KEY_3")
-        if gemini_key_3:
-            gemini_keys.append(("gemini_3", gemini_key_3))
-        
-        try:
-            working_gemini_key = _load_gemini_working_key()
-            if working_gemini_key and gemini_keys and any(key == working_gemini_key for _, key in gemini_keys):
-                original_order = {item: idx for idx, item in enumerate(gemini_keys)}
-                gemini_keys.sort(key=lambda x: (x[1] != working_gemini_key, original_order.get(x, 999)))
-        except Exception as e:
-            self._log.debug("Failed to sort Gemini keys by working key: %s", e)
-
-        # Registration priority: explicit args > OpenRouter > OpenAI > Gemini(s)
-        if explicit_key:
-            custom_model = explicit_model or or_model or oa_model or gemini_model
-            _register_provider("custom", explicit_key, custom_model, explicit_base)
-        else:
-            _register_provider("openrouter", or_key, or_model, or_base)
-            _register_provider("openai", oa_key, oa_model, None)
-            for gemini_name, gemini_key in gemini_keys:
-                _register_provider(gemini_name, gemini_key, gemini_model, gemini_base)
+        provider_manager = ProviderManager(self._log)
+        provider_manager.load_providers_from_env(openai_mod, api_key, base_url, model)
+        self._providers = provider_manager.get_providers()
 
         if not self._providers:
             self._unavailable_reason = "no API key configured"
@@ -250,6 +107,20 @@ class LLMClient:
             self._log.debug("Active provider set to: %s (model: %s)", self._provider, self.model)
         except Exception as e:
             self._log.error("Failed to set active provider: %s", e)
+
+    def _capture_usage(self, resp: Any, provider_name: str, provider_model: str) -> None:
+        try:
+            usage = getattr(resp, "usage", None)
+            if usage:
+                self.last_usage = {
+                    "provider": provider_name,
+                    "model": provider_model,
+                    "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                    "completion_tokens": getattr(usage, "completion_tokens", None),
+                    "total_tokens": getattr(usage, "total_tokens", None),
+                }
+        except Exception:
+            pass
 
     def _provider_indices(self) -> List[int]:
         if not self._providers:
@@ -295,19 +166,7 @@ class LLMClient:
                 if not resp or not resp.choices:
                     raise RuntimeError("Empty response from LLM")
                 content = (resp.choices[0].message.content or "").strip()
-                # capture usage metadata if available
-                try:
-                    usage = getattr(resp, "usage", None)
-                    if usage:
-                        self.last_usage = {
-                            "provider": provider["name"],
-                            "model": provider["model"],
-                            "prompt_tokens": getattr(usage, "prompt_tokens", None),
-                            "completion_tokens": getattr(usage, "completion_tokens", None),
-                            "total_tokens": getattr(usage, "total_tokens", None),
-                        }
-                except Exception:
-                    pass
+                self._capture_usage(resp, provider["name"], provider["model"])
                 self._set_active_provider(idx)
                 return content
             except Exception as exc:
@@ -350,19 +209,9 @@ class LLMClient:
                     full: List[str] = []
                     for event in stream:
                         try:
-                            # usage (final chunk)
                             usage = getattr(event, "usage", None)
                             if usage:
-                                try:
-                                    self.last_usage = {
-                                        "provider": provider["name"],
-                                        "model": provider["model"],
-                                        "prompt_tokens": getattr(usage, "prompt_tokens", None),
-                                        "completion_tokens": getattr(usage, "completion_tokens", None),
-                                        "total_tokens": getattr(usage, "total_tokens", None),
-                                    }
-                                except Exception:
-                                    pass
+                                self._capture_usage(event, provider["name"], provider["model"])
                             # token delta
                             choices = getattr(event, "choices", None) or []
                             if choices:
@@ -440,19 +289,7 @@ class LLMClient:
                         max_tokens=max_tokens,
                         temperature=temperature,
                     )
-                    # capture usage per round if available
-                    try:
-                        usage = getattr(resp, "usage", None)
-                        if usage:
-                            self.last_usage = {
-                                "provider": provider["name"],
-                                "model": provider["model"],
-                                "prompt_tokens": getattr(usage, "prompt_tokens", None),
-                                "completion_tokens": getattr(usage, "completion_tokens", None),
-                                "total_tokens": getattr(usage, "total_tokens", None),
-                            }
-                    except Exception:
-                        pass
+                    self._capture_usage(resp, provider["name"], provider["model"])
 
                     choice = resp.choices[0]
                     msg = choice.message
@@ -652,19 +489,9 @@ class LLMClient:
 
                     for event in stream:
                         try:
-                            # usage (final chunk)
                             usage = getattr(event, "usage", None)
                             if usage:
-                                try:
-                                    self.last_usage = {
-                                        "provider": provider["name"],
-                                        "model": provider["model"],
-                                        "prompt_tokens": getattr(usage, "prompt_tokens", None),
-                                        "completion_tokens": getattr(usage, "completion_tokens", None),
-                                        "total_tokens": getattr(usage, "total_tokens", None),
-                                    }
-                                except Exception:
-                                    pass
+                                self._capture_usage(event, provider["name"], provider["model"])
                             choices = getattr(event, "choices", None) or []
                             if not choices:
                                 continue
