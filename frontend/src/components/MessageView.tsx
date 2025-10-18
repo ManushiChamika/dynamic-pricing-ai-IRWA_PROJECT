@@ -21,16 +21,16 @@ import { useToasts } from '../stores/toastStore'
 
 const markdownComponents = {
   li: ({ children }: any) => (
-    <li className="my-0 py-0">{children}</li>
+    <li className="my-0 py-0 leading-normal">{children}</li>
   ),
   ul: ({ children }: any) => (
-    <ul className="list-disc list-inside my-0 space-y-0">{children}</ul>
+    <ul className="list-disc list-inside my-0 py-0 space-y-1">{children}</ul>
   ),
   ol: ({ children }: any) => (
-    <ol className="list-decimal list-inside my-0 space-y-0">{children}</ol>
+    <ol className="list-decimal list-inside my-0 py-0 space-y-1">{children}</ol>
   ),
   p: ({ children }: any) => (
-    <p className="my-0 py-0">{children}</p>
+    <p className="my-0 py-0 leading-normal inline">{children}</p>
   ),
 }
 
