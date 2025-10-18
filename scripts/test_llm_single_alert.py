@@ -61,9 +61,16 @@ async def test_single_anomaly():
         ts=datetime.now(timezone.utc)
     )
     
-    await bus.publish(Topic.PRICE_PROPOSAL, extreme_proposal)
+    await bus.publish(Topic.PRICE_PROPOSAL.value, extreme_proposal)
     
-    print("\nWaiting for LLM processing (10 seconds)...")
+    print("\nWaiting for event to be received...")
+    try:
+        await asyncio.wait_for(event_received.wait(), timeout=2.0)
+        print("[DEBUG] Event was received by AlertEngine")
+    except asyncio.TimeoutError:
+        print("[DEBUG] WARNING: Event was NOT received by AlertEngine!")
+    
+    print("Waiting for LLM processing (10 seconds)...")
     await asyncio.sleep(10)
     
     print("\nChecking for LLM-created alerts...")

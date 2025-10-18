@@ -21,20 +21,22 @@ async def api_prices_stream(sku: Optional[str] = None, token: Optional[str] = No
     if not sess:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     
-    owner_id = int(sess["user_id"])
+    owner_id = str(sess["user_id"])
 
     if sku:
         symbols = [sku]
     else:
         conn = sqlite3.connect('app/data.db')
         cursor = conn.cursor()
-        cursor.execute('SELECT DISTINCT product_name FROM market_data WHERE owner_id = ? LIMIT 50', (owner_id,))
-        symbols = [row[0] for row in cursor.fetchall()]
+        cursor.execute('SELECT sku, current_price FROM product_catalog WHERE owner_id = ? LIMIT 50', (owner_id,))
+        rows = cursor.fetchall()
         conn.close()
-        if not symbols:
+        if not rows:
             symbols = ["SKU-1", "SKU-2", "SKU-3"]
-    
-    bases = {s: 100.0 + random.random() * 10.0 for s in symbols}
+            bases = {s: 100.0 + random.random() * 10.0 for s in symbols}
+        else:
+            symbols = [row[0] for row in rows]
+            bases = {row[0]: float(row[1]) for row in rows}
 
     async def _aiter():
         yield "event: ping\n" + "data: {}\n\n"
