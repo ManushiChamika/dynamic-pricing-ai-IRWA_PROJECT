@@ -25,22 +25,39 @@ const SEVERITY_CONFIG = {
   crit: { bg: 'bg-red-500/20', text: 'text-red-400', label: 'Critical', icon: '🚨' },
 }
 
-const PriceCardComponent = ({ k, data, viewMode, theme }: { 
+const PriceCardComponent = ({ 
+  k, 
+  data, 
+  viewMode, 
+  theme,
+  alert,
+  onAlertClick,
+  onAcknowledge,
+  onResolve
+}: { 
   k: string, 
   data: { ts: number; price: number }[], 
   viewMode: 'sparkline' | 'chart',
-  theme: string 
+  theme: 'dark' | 'light',
+  alert?: Incident,
+  onAlertClick?: (alert: Incident) => void,
+  onAcknowledge?: (id: string) => void,
+  onResolve?: (id: string) => void
 }) => {
   const vals = data.map((x) => x.price)
   const last = vals[vals.length - 1]
   const first = vals[0]
   const change = last && first ? ((last - first) / first) * 100 : 0
   const changeColor = change >= 0 ? '#10b981' : '#ef4444'
+  const severity = alert ? SEVERITY_CONFIG[alert.severity] : null
+  const isLLM = alert?.rule_id === 'llm_agent'
 
   return (
     <div
       key={k}
-      className="border border-border rounded-2xl p-4 bg-panel backdrop-blur-xl shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+      className={`border rounded-2xl p-4 bg-panel backdrop-blur-xl shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
+        alert ? `border-2 ${severity?.text.replace('text-', 'border-')}` : 'border-border'
+      }`}
     >
       <div
         className={`flex justify-between items-center ${viewMode === 'chart' ? 'mb-3' : 'mb-2'}`}
@@ -69,6 +86,46 @@ const PriceCardComponent = ({ k, data, viewMode, theme }: {
           <PriceChart data={data} sku={k} theme={theme} />
         </Suspense>
       )}
+      {alert && (
+        <div className={`mt-3 pt-3 border-t ${severity?.text.replace('text-', 'border-')}`}>
+          <div className="flex items-start gap-2 mb-2">
+            <span className="text-base">{severity?.icon}</span>
+            <div className="flex-1">
+              <div className="font-semibold text-xs">{alert.title}</div>
+              {isLLM && (
+                <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-purple-500/30 text-purple-300 text-[10px] font-medium border border-purple-400/30 mt-1">
+                  <span>🤖</span>
+                  <span>AI</span>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-1">
+            <button
+              onClick={() => onAlertClick?.(alert)}
+              className="px-2 py-1 text-[10px] rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-colors flex-1"
+            >
+              Details
+            </button>
+            {alert.status === 'OPEN' && (
+              <>
+                <button
+                  onClick={() => onAcknowledge?.(alert.id)}
+                  className="px-2 py-1 text-[10px] rounded bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-colors flex-1"
+                >
+                  Ack
+                </button>
+                <button
+                  onClick={() => onResolve?.(alert.id)}
+                  className="px-2 py-1 text-[10px] rounded bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors flex-1"
+                >
+                  Resolve
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -81,10 +138,55 @@ export function PricesPanel() {
   const [sku, setSku] = useState('')
   const [prices, setPrices] = useState<Record<string, { ts: number; price: number }[]>>({})
   const [viewMode, setViewMode] = useState<'sparkline' | 'chart'>('sparkline')
+  const [incidents, setIncidents] = useState<Incident[]>([])
+  const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
   const esRef = useRef<EventSource | null>(null)
-  const throttleRef = useRef<NodeJS.Timeout>()
+  const throttleRef = useRef<ReturnType<typeof setTimeout>>()
   const theme = useTheme()
   const token = useAuthToken()
+
+  const fetchIncidents = async () => {
+    try {
+      const response = await fetch('/api/alerts/incidents?status=OPEN')
+      if (!response.ok) throw new Error('Failed to fetch incidents')
+      const data = await response.json()
+      setIncidents(data)
+    } catch (err) {
+      console.error('Error fetching incidents:', err)
+    }
+  }
+
+  const acknowledgeIncident = async (incidentId: string) => {
+    try {
+      const response = await fetch(`/api/alerts/incidents/${incidentId}/ack`, { method: 'POST' })
+      if (!response.ok) throw new Error('Failed to acknowledge incident')
+      await fetchIncidents()
+    } catch (err) {
+      console.error('Error acknowledging incident:', err)
+    }
+  }
+
+  const resolveIncident = async (incidentId: string) => {
+    try {
+      const response = await fetch(`/api/alerts/incidents/${incidentId}/resolve`, { method: 'POST' })
+      if (!response.ok) throw new Error('Failed to resolve incident')
+      await fetchIncidents()
+    } catch (err) {
+      console.error('Error resolving incident:', err)
+    }
+  }
+
+  const handleAlertClick = (incident: Incident) => {
+    setSelectedIncident(incident)
+    setModalOpen(true)
+  }
+
+  useEffect(() => {
+    fetchIncidents()
+    const interval = setInterval(fetchIncidents, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   useEffect(() => {
     if (!running || !token) {
@@ -143,6 +245,16 @@ export function PricesPanel() {
   }, [running, sku, token])
 
   const keys = useMemo(() => Object.keys(prices).sort(), [prices])
+  
+  const incidentsBySku = useMemo(() => {
+    const map: Record<string, Incident> = {}
+    incidents.forEach((inc) => {
+      if (!map[inc.sku] || map[inc.sku].severity === 'info') {
+        map[inc.sku] = inc
+      }
+    })
+    return map
+  }, [incidents])
 
   return (
     <aside
@@ -202,10 +314,27 @@ export function PricesPanel() {
             <div className="text-center py-12 px-6 text-muted text-base">Waiting for prices…</div>
           ) : null}
           {keys.map((k) => (
-            <PriceCard key={k} k={k} data={prices[k] || []} viewMode={viewMode} theme={theme} />
+            <PriceCard 
+              key={k} 
+              k={k} 
+              data={prices[k] || []} 
+              viewMode={viewMode} 
+              theme={theme}
+              alert={incidentsBySku[k]}
+              onAlertClick={handleAlertClick}
+              onAcknowledge={acknowledgeIncident}
+              onResolve={resolveIncident}
+            />
           ))}
         </div>
       ) : null}
+      <AlertDetailModal
+        incident={selectedIncident}
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        onAcknowledge={acknowledgeIncident}
+        onResolve={resolveIncident}
+      />
     </aside>
   )
 }
