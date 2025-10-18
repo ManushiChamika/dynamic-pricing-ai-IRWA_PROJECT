@@ -58,6 +58,7 @@ class Alert(BaseModel):
     severity: Severity
     ts: AwareDatetime
     fingerprint: str
+    owner_id: Optional[str] = None
 
 class Incident(BaseModel):
     id: str
@@ -69,3 +70,4 @@ class Incident(BaseModel):
     severity: Severity
     title: str
     group_key: str
+    owner_id: Optional[str] = None

@@ -147,8 +147,9 @@ export function PricesPanel() {
   const token = useAuthToken()
 
   const fetchIncidents = async () => {
+    if (!token) return
     try {
-      const response = await fetch('/api/alerts/incidents?status=OPEN')
+      const response = await fetch(`/api/alerts/incidents?status=OPEN&token=${token}`)
       if (!response.ok) throw new Error('Failed to fetch incidents')
       const data = await response.json()
       setIncidents(data)
@@ -158,8 +159,9 @@ export function PricesPanel() {
   }
 
   const acknowledgeIncident = async (incidentId: string) => {
+    if (!token) return
     try {
-      const response = await fetch(`/api/alerts/incidents/${incidentId}/ack`, { method: 'POST' })
+      const response = await fetch(`/api/alerts/incidents/${incidentId}/ack?token=${token}`, { method: 'POST' })
       if (!response.ok) throw new Error('Failed to acknowledge incident')
       await fetchIncidents()
     } catch (err) {
@@ -168,8 +170,9 @@ export function PricesPanel() {
   }
 
   const resolveIncident = async (incidentId: string) => {
+    if (!token) return
     try {
-      const response = await fetch(`/api/alerts/incidents/${incidentId}/resolve`, { method: 'POST' })
+      const response = await fetch(`/api/alerts/incidents/${incidentId}/resolve?token=${token}`, { method: 'POST' })
       if (!response.ok) throw new Error('Failed to resolve incident')
       await fetchIncidents()
     } catch (err) {
@@ -186,7 +189,7 @@ export function PricesPanel() {
     fetchIncidents()
     const interval = setInterval(fetchIncidents, 30000)
     return () => clearInterval(interval)
-  }, [])
+  }, [token])
 
   useEffect(() => {
     if (!running || !token) {
