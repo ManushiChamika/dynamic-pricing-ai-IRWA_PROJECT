@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState, lazy, Suspense } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { create } from 'zustand'
 import { useSpring, animated } from '@react-spring/web'
 const SettingsModal = lazy(() =>
@@ -648,7 +650,13 @@ function MessageView({
         </div>
       ) : null}
       <div className={`${bubbleBase} ${m.role === 'user' ? userBubble : assistantBubble}`}>
-        {m.content}
+        {m.role === 'assistant' ? (
+          <div className="prose max-w-none dark:prose-invert">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content || ''}</ReactMarkdown>
+          </div>
+        ) : (
+          m.content
+        )}
       </div>
       {showThinking && m.thinking && m.role === 'assistant' ? (
         <ThinkingTokens thinking={m.thinking} />
