@@ -62,15 +62,14 @@ async def api_prices_stream(sku: Optional[str] = None, token: Optional[str] = No
     bases = await _fetch_products(owner_id, sku)
     
     if not bases:
-        logger.info(f"No catalog products found for owner_id={owner_id}, using demo data")
-        bases = {
-            "SKU-1": 100.0 + random.random() * 10.0,
-            "SKU-2": 100.0 + random.random() * 10.0,
-            "SKU-3": 100.0 + random.random() * 10.0
-        }
-    else:
-        logger.info(f"Streaming {len(bases)} products for owner_id={owner_id}")
+        logger.info(f"No catalog products found for owner_id={owner_id}")
+        async def _empty_iter():
+            yield "event: ping\n" + "data: {}\n\n"
+            while True:
+                await asyncio.sleep(10.0)
+        return StreamingResponse(_empty_iter(), media_type="text/event-stream")
     
+    logger.info(f"Streaming {len(bases)} products for owner_id={owner_id}")
     symbols = list(bases.keys())
 
     async def _aiter():
@@ -79,9 +78,6 @@ async def api_prices_stream(sku: Optional[str] = None, token: Optional[str] = No
             
             while True:
                 try:
-                    if not symbols:
-                        await asyncio.sleep(1.0)
-                        continue
                     
                     sym = random.choice(symbols)
                     drift = random.uniform(-1.2, 1.2)

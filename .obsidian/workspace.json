@@ -171,6 +171,7 @@
   },
   "active": "a6db50ab45cab173",
   "lastOpenFiles": [
+    "data/market.db",
     "app/data.db-wal",
     "data/auth.db-journal",
     "frontend/vite.config.ts.timestamp-1760822286041-94e5280b6d24f.mjs",
@@ -181,7 +182,6 @@
     "backend/routers/alerts.py",
     "core/agents/alert_service/__pycache__/api.cpython-313.pyc",
     "app/data.db-shm",
-    "data/alerts.db",
     "docs/LLM_ALERT_AGENT_TEST_REPORT.md",
     "_legacy_mcp_archive/README.md",
     "docs/MCP_IMPLEMENTATION_ANALYSIS.md",
