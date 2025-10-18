@@ -12,12 +12,21 @@ from starlette.responses import JSONResponse
 
 from backend.routers import auth, settings, threads, messages, streaming, prices, catalog
 
+from core.agents.alert_service.repo import Repo
+from core.agents.alert_service.engine import AlertEngine
+
+alert_repo = Repo()
+alert_engine = AlertEngine(alert_repo)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     init_chat_db()
     cleanup_empty_threads()
+    
+    await alert_engine.start()
+    
     yield
 
 

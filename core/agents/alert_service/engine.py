@@ -1,5 +1,5 @@
-# core/agents/alert_service/engine.py
 import json
+import logging
 from datetime import datetime, timezone
 from typing import Dict, Any
 from types import SimpleNamespace
@@ -9,17 +9,44 @@ from .rules import RuleRuntime
 from .detectors import DetectorRegistry
 from .schemas import Alert
 from .sinks import get_sinks
+from .tools import Tools, get_llm_tools, execute_tool_call
 from core.agents.agent_sdk.protocol import Topic
 from core.agents.agent_sdk.bus_factory import get_bus
 
 bus = get_bus()
+
+SYSTEM_PROMPT = """You are a vigilant Security and Anomaly Detection Agent for a dynamic pricing system. Your primary goal is to monitor system events and identify potential risks. You must evaluate every event against known rules and general best practices to find anomalies like unusual price jumps, margin breaches, or system errors. Use your tools to investigate and report on these issues by creating clear, actionable alerts.
+
+When analyzing events:
+1. Check existing alert rules using list_rules() to understand configured thresholds
+2. Check current alerts using list_alerts() to avoid duplicate alerts
+3. Look for anomalies such as:
+   - Price changes > 20%
+   - Margins below minimum thresholds
+   - Unusual patterns in pricing data
+   - Competitor pricing significantly lower than ours
+4. If you detect an anomaly, create a detailed alert with create_alert()
+5. Be proactive but avoid false positives - only alert on genuine issues"""
 
 class AlertEngine:
     def __init__(self, repo: Repo):
         self.repo = repo
         self.detectors = DetectorRegistry()
         self._rules: Dict[str, RuleRuntime] = {}
-        self.sinks = get_sinks(repo)  # preload once
+        self.sinks = get_sinks(repo)
+        self.tools = Tools(repo)
+        self.llm = None
+        self.logger = logging.getLogger("alert_engine")
+        
+        try:
+            from core.agents.llm_client import get_llm_client
+            self.llm = get_llm_client()
+            if self.llm and self.llm.is_available():
+                self.logger.info("LLM brain initialized successfully")
+            else:
+                self.logger.warning("LLM unavailable, AlertEngine will use rule-based mode only")
+        except Exception as e:
+            self.logger.warning(f"Failed to initialize LLM: {e}")
 
     async def start(self):
         await self.repo.init()
@@ -32,7 +59,7 @@ class AlertEngine:
             ts=datetime.now(timezone.utc),
             sku="SYS",
             severity="info",
-            title=f"AlertEngine ready ({len(self._rules)} rules)",
+            title=f"AlertEngine ready ({len(self._rules)} rules, LLM={'enabled' if self.llm and self.llm.is_available() else 'disabled'})",
         )
         await bus.publish(Topic.ALERT.value, ready)
 
@@ -48,6 +75,7 @@ class AlertEngine:
         await self._evaluate("MARKET_TICK", tick, alias="tick")
 
     async def on_pp(self, pp):
+        await self._evaluate_with_llm("PRICE_PROPOSAL", pp)
         await self._evaluate("PRICE_PROPOSAL", pp, alias="pp")
 
     @staticmethod
@@ -72,8 +100,56 @@ class AlertEngine:
                 pass
         return getattr(obj, "__dict__", {}) or {}
 
+    async def _evaluate_with_llm(self, source: str, payload: Any):
+        if not self.llm or not self.llm.is_available():
+            return
+
+        try:
+            payload_dict = self._to_dict(payload)
+            
+            event_summary = json.dumps(payload_dict, indent=2)
+            
+            prompt = f"""{SYSTEM_PROMPT}
+
+A new {source} event has just been published:
+
+```json
+{event_summary}
+```
+
+Based on your goal, what action, if any, should you take? You have tools to list existing rules, check current alerts, or create a new alert if you detect an anomaly.
+
+Analyze the event carefully and decide if any action is needed."""
+
+            messages = [{"role": "user", "content": prompt}]
+            
+            tools_schema = get_llm_tools()
+            
+            try:
+                result = self.llm.chat_with_tools(messages=messages, tools=tools_schema)
+                
+                if result.get("tool_calls"):
+                    for tool_call in result["tool_calls"]:
+                        tool_name = tool_call.get("name")
+                        tool_args = tool_call.get("arguments", {})
+                        
+                        self.logger.info(f"LLM decided to call tool: {tool_name} with args: {tool_args}")
+                        
+                        tool_result = await execute_tool_call(tool_name, tool_args, self.tools)
+                        self.logger.info(f"Tool {tool_name} result: {tool_result}")
+                
+                reasoning = result.get("content", "")
+                if reasoning:
+                    self.logger.info(f"LLM reasoning: {reasoning}")
+                    
+            except Exception as e:
+                self.logger.error(f"LLM tool call failed: {e}")
+                
+        except Exception as e:
+            self.logger.error(f"LLM evaluation failed: {e}")
+
     async def _evaluate(self, source: str, payload: Any, alias: str):
-        now = datetime.now(timezone.utc)  # aware
+        now = datetime.now(timezone.utc)
         for rid, rule in self._rules.items():
             if (rule.spec.source or "").strip().upper() != source.strip().upper():
                 continue
