@@ -13,3 +13,4 @@ class Topic(Enum):
     PRICE_UPDATE = "price.update"
     CHAT_PROMPT = "chat.prompt"
     CHAT_TOOL_CALL = "chat.tool_call"
+    OPTIMIZATION_REQUEST = "optimization.request"

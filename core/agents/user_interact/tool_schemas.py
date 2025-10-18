@@ -76,6 +76,21 @@ TOOL_SCHEMAS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "optimize_price",
+            "description": "Request autonomous price optimization for a product SKU. The Price Optimizer Agent will analyze market data, run pricing algorithms, validate constraints, and publish a price proposal.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sku": {"type": "string", "description": "Product SKU to optimize pricing for"},
+                },
+                "required": ["sku"],
+                "additionalProperties": False,
+            },
+        },
+    },
 ]
 
 AGENT_TOOL_MAPPING: Dict[str, str] = {

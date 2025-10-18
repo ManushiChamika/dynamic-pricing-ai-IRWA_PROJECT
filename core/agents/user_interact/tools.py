@@ -136,11 +136,26 @@ def list_proposals(sku: str = "", limit: int = 10) -> Dict[str, Any]:
 
 
 def optimize_price(sku: str) -> Dict[str, Any]:
-    return {"info": f"Price optimization for {sku} would use the pricing optimizer agent"}
+    try:
+        import asyncio
+        from core.agents.agent_sdk.bus_factory import get_bus
+        from core.agents.agent_sdk.protocol import Topic
+        
+        bus = get_bus()
+        payload = {"sku": sku, "strategy": "maximize profit"}
+        asyncio.create_task(bus.publish(Topic.OPTIMIZATION_REQUEST.value, payload))
+        
+        return {
+            "ok": True,
+            "message": f"Autonomous price optimization requested for {sku}. The Price Optimizer Agent will handle this request and publish results to the event bus.",
+            "sku": sku
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 
 def run_pricing_workflow(sku: str) -> Dict[str, Any]:
-    return {"info": f"Running pricing workflow for {sku}"}
+    return optimize_price(sku)
 
 
 def collect_market_data() -> Dict[str, Any]:

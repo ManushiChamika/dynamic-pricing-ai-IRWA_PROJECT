@@ -14,9 +14,11 @@ from backend.routers import auth, settings, threads, messages, streaming, prices
 
 from core.agents.alert_service.repo import Repo
 from core.agents.alert_service.engine import AlertEngine
+from core.agents.price_optimizer.agent import PricingOptimizerAgent
 
 alert_repo = Repo()
 alert_engine = AlertEngine(alert_repo)
+pricing_optimizer = PricingOptimizerAgent()
 
 
 @asynccontextmanager
@@ -26,6 +28,7 @@ async def lifespan(app: FastAPI):
     cleanup_empty_threads()
     
     await alert_engine.start()
+    await pricing_optimizer.start()
     
     yield
 
