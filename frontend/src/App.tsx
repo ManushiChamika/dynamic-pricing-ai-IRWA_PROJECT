@@ -1,6 +1,7 @@
 import React, { useEffect, lazy, Suspense } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { PricesPanel } from './components/PricesPanel'
+import { AlertsPanel } from './components/AlertsPanel'
 import { ChatPane } from './components/ChatPane'
 import { Sidebar } from './components/Sidebar'
 import { PromptModal } from './components/PromptModal'
@@ -46,6 +47,7 @@ export default function App() {
         <Sidebar />
         <ChatPane />
         <PricesPanel />
+        <AlertsPanel />
         <PromptModal />
         <ConfirmModal />
         <HelpModal />
