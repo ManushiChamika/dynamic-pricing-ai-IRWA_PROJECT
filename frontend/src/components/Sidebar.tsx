@@ -1,7 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { Button } from './ui/button'
 import { ThreadItem } from './sidebar/ThreadItem'
-import { useThreadList, useCurrentThread, useThreadActions, useDraftId } from '../stores/threadStore'
+import {
+  useThreadList,
+  useCurrentThread,
+  useThreadActions,
+  useDraftId,
+} from '../stores/threadStore'
 import { useConfirm } from '../stores/confirmStore'
 import { useAuthUser, useAuthActions } from '../stores/authStore'
 import { useSettings } from '../stores/settingsStore'

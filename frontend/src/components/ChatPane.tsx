@@ -72,27 +72,27 @@ export function ChatPane() {
         aria-live="polite"
         aria-relevant="additions text"
         aria-label="Chat messages"
-       >
-         {currentId ? (
-           (() => {
-             const isDraft = String(currentId).startsWith('draft_')
-             return messages.length || isDraft ? (
-               <>
-                 {isDraft && <DraftMessageView />}
-                 <MessageList
-                   messages={messages}
-                   showModel={displaySettings.showModel}
-                   showTimestamps={displaySettings.showTimestamps}
-                   showMeta={displaySettings.showMeta}
-                 />
-               </>
-             ) : (
-               <EmptyState message="No messages yet. Say hello!" />
-             )
-           })()
-         ) : (
-           <EmptyState message="Select or create a thread to begin." />
-         )}
+      >
+        {currentId ? (
+          (() => {
+            const isDraft = String(currentId).startsWith('draft_')
+            return messages.length || isDraft ? (
+              <>
+                {isDraft && <DraftMessageView />}
+                <MessageList
+                  messages={messages}
+                  showModel={displaySettings.showModel}
+                  showTimestamps={displaySettings.showTimestamps}
+                  showMeta={displaySettings.showMeta}
+                />
+              </>
+            ) : (
+              <EmptyState message="No messages yet. Say hello!" />
+            )
+          })()
+        ) : (
+          <EmptyState message="Select or create a thread to begin." />
+        )}
       </div>
       <ChatComposer currentId={currentId} streaming={streaming} />
     </main>

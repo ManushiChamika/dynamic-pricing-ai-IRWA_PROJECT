@@ -9,12 +9,7 @@ interface MessageListProps {
   showMeta: boolean
 }
 
-function MessageListComponent({
-  messages,
-  showModel,
-  showTimestamps,
-  showMeta,
-}: MessageListProps) {
+function MessageListComponent({ messages, showModel, showTimestamps, showMeta }: MessageListProps) {
   return (
     <>
       {messages.map((m) => (
