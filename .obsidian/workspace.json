@@ -173,6 +173,7 @@
   "lastOpenFiles": [
     "app/data.db-shm",
     "app/data.db-wal",
+    "frontend/vite.config.ts.timestamp-1760818591082-3088eb73d7dfc.mjs",
     "frontend/vite.config.ts.timestamp-1760818399056-a9688e9024ce.mjs",
     "scripts/test_llm_alert_agent.py",
     "frontend/vite.config.ts.timestamp-1760817898380-ca1ac2b47b3f5.mjs",
@@ -181,7 +182,6 @@
     "app/alert.db",
     "core/agents/alert_service/sinks/__pycache__/webhook.cpython-313.pyc",
     "core/agents/alert_service/sinks/__pycache__/slack.cpython-313.pyc",
-    "core/agents/alert_service/__pycache__/config.cpython-313.pyc",
     "_legacy_mcp_archive/README.md",
     "docs/MCP_IMPLEMENTATION_ANALYSIS.md",
     "docs/LLM_TESTING_GUIDE.md",
