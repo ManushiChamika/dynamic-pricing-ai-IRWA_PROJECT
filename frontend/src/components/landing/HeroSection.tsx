@@ -60,12 +60,12 @@ export function HeroSection({
             </span>
           </h1>
 
-          <p className={`mb-12 text-xl md:text-2xl leading-relaxed max-w-3xl mx-auto text-center ${mutedText}`}>
+          <p className={`mb-3 text-xl md:text-2xl leading-relaxed max-w-3xl mx-auto text-center ${mutedText}`}>
             Let AI agents optimize your pricing in real-time. Control everything through natural
             language—no coding required.
           </p>
 
-          <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center mb-10">
+          <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center mb-3">
             {user ? (
               <Button
                 className="text-lg h-14 px-10 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0 shadow-[0_18px_40px_rgba(79,70,229,0.25)]"
