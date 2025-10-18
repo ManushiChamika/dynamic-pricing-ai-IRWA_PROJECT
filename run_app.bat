@@ -47,8 +47,9 @@ echo.
 echo Starting server on port %PORT%...
 echo.
 echo Once started, open your browser to:
-echo   http://127.0.0.1:%PORT%/ui/index.html
+echo   http://127.0.0.1:%PORT%
 echo.
+echo NOTE: For hot-reload dev mode, use run_full_app.bat
 echo Press Ctrl+C to stop the server
 echo ========================================
 echo.

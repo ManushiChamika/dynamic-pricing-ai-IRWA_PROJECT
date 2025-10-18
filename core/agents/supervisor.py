@@ -10,7 +10,7 @@ from core.agents.data_collector.repo import DataRepo
 from core.agents.data_collector.collector import DataCollector
 from core.agents.agent_sdk.mcp_client import get_data_collector_client
 import uuid
-from core.agents.pricing_optimizer import PricingOptimizerAgent
+from core.agents.price_optimizer.agent import PricingOptimizerAgent
 from core.agents.agent_sdk.bus_factory import get_bus
 from core.agents.agent_sdk.protocol import Topic
 
@@ -87,20 +87,16 @@ class Supervisor:
                     # Ensure market.db has some data for optimizer to read
                     self._seed_market_if_needed(sku)
 
-                    # 4) Run optimizer synchronously in executor
-                    loop = asyncio.get_running_loop()
-                    opt_res = await loop.run_in_executor(
-                        None,
-                        lambda: self.optimizer.process_full_workflow(
-                            "maximize profit", sku
-                        ),
+                    # 4) Run optimizer (folder-based version is async)
+                    opt_res = await self.optimizer.process_full_workflow(
+                        "maximize profit", sku
                     )
                     summary["optimizer"] = opt_res
-                    if not isinstance(opt_res, dict) or opt_res.get("status") != "success":
+                    if not isinstance(opt_res, dict) or opt_res.get("status") != "ok":
                         results[sku] = summary
                         return
 
-                    price = opt_res.get("price")
+                    price = opt_res.get("recommended_price") or opt_res.get("price")
                     algorithm = opt_res.get("algorithm")
                     if price is None:
                         results[sku] = summary

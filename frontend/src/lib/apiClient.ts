@@ -5,8 +5,34 @@ export function setUnauthorizedHandler(fn: (() => void) | null) {
   unauthorizedHandler = fn
 }
 
-// Centralized API helper that appends the token as a query param (backend expects this)
-// and handles JSON body/response ergonomics.
+const MAX_RETRIES = 2
+const RETRY_DELAY = 1000
+
+async function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function fetchWithRetry(
+  url: string,
+  opts: RequestInit,
+  retries = 0
+): Promise<Response> {
+  try {
+    const response = await fetch(url, opts)
+    if (response.status >= 500 && retries < MAX_RETRIES) {
+      await delay(RETRY_DELAY * (retries + 1))
+      return fetchWithRetry(url, opts, retries + 1)
+    }
+    return response
+  } catch (error) {
+    if (retries < MAX_RETRIES) {
+      await delay(RETRY_DELAY * (retries + 1))
+      return fetchWithRetry(url, opts, retries + 1)
+    }
+    throw error
+  }
+}
+
 export async function api<T = any>(
   url: string,
   init?: RequestInit & { json?: any }
@@ -25,7 +51,8 @@ export async function api<T = any>(
   } else if (init?.body !== undefined) {
     opts.body = init.body
   }
-  const r = await fetch(full, opts)
+  
+  const r = await fetchWithRetry(full, opts)
   const ct = r.headers.get('content-type') || ''
   const data = ct.includes('application/json') ? await r.json().catch(() => null) : null
   if (r.status === 401 && unauthorizedHandler) {

@@ -1,9 +1,16 @@
 import { create } from 'zustand'
-import { api } from '../lib/apiClient'
+import * as authApi from '../lib/authApi'
+
+export interface User {
+  email: string
+  username?: string
+  full_name?: string
+  id?: string
+}
 
 export type AuthState = {
   token: string | null
-  user: any | null
+  user: User | null
   setToken: (t: string | null) => void
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>
   register: (
@@ -24,44 +31,38 @@ export const useAuth = create<AuthState>((set, get) => ({
     set({ token: t })
   },
   login: async (email, password) => {
-    const res = await api('/api/login', { method: 'POST', json: { email, password } })
-    if (res.ok && res.data?.token) {
-      get().setToken(res.data.token)
-      set({ user: res.data.user || null })
+    const result = await authApi.login(email, password)
+    if (result.ok && result.token) {
+      get().setToken(result.token)
+      set({ user: result.user || null })
       return { ok: true }
     }
-    const error =
-      (res.data && (res.data.detail || res.data.error)) || `Login failed (${res.status})`
-    return { ok: false, error }
+    return { ok: false, error: result.error }
   },
   register: async (email, password, username) => {
-    const res = await api('/api/register', { method: 'POST', json: { email, password, username } })
-    if (res.ok && res.data?.token) {
-      get().setToken(res.data.token)
-      set({ user: res.data.user || null })
+    const result = await authApi.register(email, password, username)
+    if (result.ok && result.token) {
+      get().setToken(result.token)
+      set({ user: result.user || null })
       return { ok: true }
     }
-    const error =
-      (res.data && (res.data.detail || res.data.error)) || `Register failed (${res.status})`
-    return { ok: false, error }
+    return { ok: false, error: result.error }
   },
   logout: async () => {
     const t = get().token
-    if (t) await api('/api/logout', { method: 'POST', json: { token: t } })
+    if (t) await authApi.logout(t)
     get().setToken(null)
     set({ user: null })
   },
   fetchMe: async () => {
     const t = get().token || localStorage.getItem('token')
     if (!t) return { ok: false, error: 'No token' }
-    const res = await api('/api/me')
-    if (res.ok && res.data?.user) {
-      set({ user: res.data.user })
+    const result = await authApi.fetchMe()
+    if (result.ok && result.user) {
+      set({ user: result.user })
       return { ok: true }
     }
-    const error =
-      (res.data && (res.data.detail || res.data.error)) || `Auth check failed (${res.status})`
-    return { ok: false, error }
+    return { ok: false, error: result.error }
   },
 }))
 

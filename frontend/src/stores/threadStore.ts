@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { api } from '../lib/apiClient'
+import * as threadApi from '../lib/threadApi'
 
 export type Thread = { id: number; title: string }
 
@@ -37,29 +37,26 @@ export const useThreads = create<ThreadsState>((set, get) => ({
     set({ currentId: newDraftId, draftId: newDraftId })
   },
   refresh: async () => {
-    const { ok, data } = await api('/api/threads')
-    if (ok && Array.isArray(data)) set({ threads: data })
+    const threads = await threadApi.loadThreads()
+    set({ threads })
   },
   createThread: async (title?: string) => {
-    const { ok, data } = await api('/api/threads', {
-      method: 'POST',
-      json: { title: title || 'New Thread' },
-    })
-    if (ok && data) {
+    const id = await threadApi.createThread(title)
+    if (id) {
       await get().refresh()
       set({ draftId: null })
-      return data.id
+      return id
     }
     return null
   },
   deleteThread: async (id: number) => {
-    await api(`/api/threads/${id}`, { method: 'DELETE' })
+    await threadApi.deleteThread(id)
     await get().refresh()
     const cur = get().currentId
     if (cur === id) set({ currentId: null })
   },
   renameThread: async (id: number, title: string) => {
-    await api(`/api/threads/${id}`, { method: 'PATCH', json: { title } })
+    await threadApi.renameThread(id, title)
     await get().refresh()
   },
 }))

@@ -87,6 +87,14 @@ BRANCH_DIFFERENCES_README.md
 _staged_diff_full.txt
 /files.txt
 /all_code_files_pricing_optimizer1_default.txt
+PRICING_OPTIMIZER_CAPABILITIES.md
+
+# Newly generated documentation (auto-ignore)
+SIMPLE_PRICE_OPTIMIZER_MAP.md
+GOVERNANCE_AGENT_EXPLAINED_FOR_KIDS.md
+FRONTEND_PRICE_OPTIMIZER_MAP.md
+PRICE_OPTIMIZER_IMPROVEMENTS.md
+LLM_IMPROVEMENTS_FOR_PRICE_OPTIMIZER.md
 
 # Local working notes (root-only)
  /imasha_compare_restore_vs_backup.txt

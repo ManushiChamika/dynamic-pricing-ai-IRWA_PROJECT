@@ -1,15 +1,13 @@
 import { useNavigate } from 'react-router-dom'
 import { Zap, Github, Linkedin, Twitter, Mail, MapPin, Phone } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
+import { getFooterThemeClasses } from '../lib/themeHelpers'
 
 export function Footer() {
   const navigate = useNavigate()
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-
-  const footerBg = isDark ? 'bg-[#0F172A] border-white/10' : 'bg-white border-slate-200'
-  const textMuted = isDark ? 'text-gray-400' : 'text-slate-600'
-  const textHover = isDark ? 'hover:text-white' : 'hover:text-slate-900'
+  const { footerBg, textMuted, textHover } = getFooterThemeClasses(isDark)
   const linkStyle = `${textMuted} ${textHover} transition-colors cursor-pointer`
 
   const currentYear = new Date().getFullYear()

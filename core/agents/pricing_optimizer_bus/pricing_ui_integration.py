@@ -7,7 +7,8 @@ import time
 import re
 from core.agents.pricing_optimizer_bus.bus_iface import bus
 from core.agents.pricing_optimizer_bus.bus_events import PricingOptimizerEvents
-from core.agents.pricing_optimizer import PricingOptimizerAgent
+import asyncio
+from core.agents.price_optimizer.agent import PricingOptimizerAgent
 
 def handle_pricing_request(user_input):
     """Handle pricing request with real-time status updates"""
@@ -27,14 +28,14 @@ def handle_pricing_request(user_input):
     # Subscribe to bus events
     bus.subscribe(status_listener)
     
-    # Run pricing optimizer in background thread
+    # Run pricing optimizer in background thread (need to handle async)
     def run_pricing():
         try:
             agent = PricingOptimizerAgent()
-            result = agent.process_full_workflow(user_input, product_name)
+            result = asyncio.run(agent.process_full_workflow(user_input, product_name))
             # Store result in session state
             st.session_state["pricing_result"] = result
-            if result.get("status") == "success":
+            if result.get("status") == "ok":
                 st.session_state["pricing_status"] = f"✅ Pricing complete for {product_name}: ${result.get('price', 'N/A')} using {result.get('algorithm', 'unknown')} algorithm"
             else:
                 st.session_state["pricing_status"] = f"❌ Error: {result.get('message', 'Unknown error')}"

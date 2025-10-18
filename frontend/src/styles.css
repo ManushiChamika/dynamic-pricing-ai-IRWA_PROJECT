@@ -395,9 +395,28 @@
 }
 
 .agent-badges-container {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  animation: fadeIn 0.3s ease-in-out;
+   display: flex;
+   align-items: center;
+   gap: 0.5rem;
+   flex-wrap: wrap;
+   animation: fadeIn 0.3s ease-in-out;
+}
+
+ul, ol {
+   margin: 0 !important;
+   padding: 0 !important;
+   padding-left: 1.5rem !important;
+   line-height: 1 !important;
+}
+
+li {
+   margin: 0 !important;
+   margin-bottom: 0.25rem !important;
+   padding: 0 !important;
+   line-height: 1.2 !important;
+}
+
+p {
+   margin: 0 !important;
+   padding: 0 !important;
 }

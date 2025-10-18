@@ -6,7 +6,8 @@ from typing import List
 from core.agents.data_collector.repo import DataRepo
 from core.agents.alert_notifier import AlertNotifier, Thresholds
 from core.agents.data_collector import mcp_server as svc
-import core.agents.pricing_optimizer as po_mod
+import asyncio
+from core.agents.price_optimizer.agent import PricingOptimizerAgent
 import sqlite3
 from datetime import datetime
 
@@ -74,10 +75,9 @@ async def main() -> int:
     notifier = AlertNotifier(Thresholds(undercut_delta=0.01, demand_spike=0.5, min_margin=0.95), sinks=[ui_sink])
     await notifier.start()
 
-    # Run pricing optimizer workflow in executor (sync API)
-    agent = po_mod.PricingOptimizerAgent()
-    loop = asyncio.get_running_loop()
-    res = await loop.run_in_executor(None, lambda: agent.process_full_workflow("maximize profit", "SKU-123"))
+    # Run pricing optimizer workflow (now async)
+    agent = PricingOptimizerAgent()
+    res = await agent.process_full_workflow("maximize profit", "SKU-123")
     print("optimizer_result:", res)
 
     # Allow background publish/persist time to complete
@@ -88,7 +88,7 @@ async def main() -> int:
     print("features:", feats)
 
     # Decide pass/fail
-    ok_res = isinstance(res, dict) and res.get("status") == "success"
+    ok_res = isinstance(res, dict) and res.get("status") == "ok"
     ok_alerts = len(alerts) >= 1  # preferably MARGIN_BREACH; accept any alert present
     ok_feats = int(feats.get("count") or 0) >= 1
     if ok_res and ok_alerts and ok_feats:

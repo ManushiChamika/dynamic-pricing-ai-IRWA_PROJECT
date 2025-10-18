@@ -1,6 +1,7 @@
+import React from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
-import { Switch } from './ui/switch'
 import { Settings } from '../lib/types'
+import { SettingToggle } from './settings/SettingToggle'
 
 interface SettingsModalProps {
   open: boolean
@@ -9,7 +10,7 @@ interface SettingsModalProps {
   onSettingsChange: (settings: Settings) => void
 }
 
-export function SettingsModal({
+function SettingsModalComponent({
   open,
   onOpenChange,
   settings,
@@ -28,73 +29,43 @@ export function SettingsModal({
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>Configure your chat experience</DialogDescription>
         </DialogHeader>
-        <div className="space-y-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <label className="text-sm font-medium">Theme</label>
-              <p className="text-sm text-muted-foreground">
-                {settings.theme === 'dark' ? 'Dark mode' : 'Light mode'}
-              </p>
-            </div>
-            <Switch
-              checked={settings.theme === 'dark'}
-              onCheckedChange={(checked) => updateSetting('theme', checked ? 'dark' : 'light')}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <label className="text-sm font-medium">Show Model Name</label>
-              <p className="text-sm text-muted-foreground">Display model name in messages</p>
-            </div>
-            <Switch
-              checked={settings.showModel}
-              onCheckedChange={(checked) => updateSetting('showModel', checked)}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <label className="text-sm font-medium">Show Timestamps</label>
-              <p className="text-sm text-muted-foreground">Display message timestamps</p>
-            </div>
-            <Switch
-              checked={settings.showTimestamps}
-              onCheckedChange={(checked) => updateSetting('showTimestamps', checked)}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <label className="text-sm font-medium">Show Info Icon</label>
-              <p className="text-sm text-muted-foreground">
-                Display metadata info icon on messages
-              </p>
-            </div>
-            <Switch
-              checked={settings.showMeta}
-              onCheckedChange={(checked) => updateSetting('showMeta', checked)}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <label className="text-sm font-medium">Show Thinking</label>
-              <p className="text-sm text-muted-foreground">Display extended thinking process</p>
-            </div>
-            <Switch
-              checked={settings.showThinking}
-              onCheckedChange={(checked) => updateSetting('showThinking', checked)}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <label className="text-sm font-medium">Streaming Mode</label>
-              <p className="text-sm text-muted-foreground">
-                {settings.streaming === 'sse' ? 'Server-Sent Events' : 'No streaming'}
-              </p>
-            </div>
-            <Switch
-              checked={settings.streaming === 'sse'}
-              onCheckedChange={(checked) => updateSetting('streaming', checked ? 'sse' : 'none')}
-            />
-          </div>
+         <div className="space-y-6 py-4">
+           <SettingToggle
+             label="Theme"
+             description={settings.theme === 'dark' ? 'Dark mode' : 'Light mode'}
+             checked={settings.theme === 'dark'}
+             onCheckedChange={(checked) => updateSetting('theme', checked ? 'dark' : 'light')}
+           />
+           <SettingToggle
+             label="Show Model Name"
+             description="Display model name in messages"
+             checked={settings.showModel}
+             onCheckedChange={(checked) => updateSetting('showModel', checked)}
+           />
+           <SettingToggle
+             label="Show Timestamps"
+             description="Display message timestamps"
+             checked={settings.showTimestamps}
+             onCheckedChange={(checked) => updateSetting('showTimestamps', checked)}
+           />
+           <SettingToggle
+             label="Show Info Icon"
+             description="Display metadata info icon on messages"
+             checked={settings.showMeta}
+             onCheckedChange={(checked) => updateSetting('showMeta', checked)}
+           />
+           <SettingToggle
+             label="Show Thinking"
+             description="Display extended thinking process"
+             checked={settings.showThinking}
+             onCheckedChange={(checked) => updateSetting('showThinking', checked)}
+           />
+           <SettingToggle
+             label="Streaming Mode"
+             description={settings.streaming === 'sse' ? 'Server-Sent Events' : 'No streaming'}
+             checked={settings.streaming === 'sse'}
+             onCheckedChange={(checked) => updateSetting('streaming', checked ? 'sse' : 'none')}
+           />
           {settings.mode === 'developer' && (
             <div className="rounded-lg border border-border bg-muted/50 p-3">
               <div className="text-sm font-medium">Developer Mode</div>
@@ -102,7 +73,9 @@ export function SettingsModal({
             </div>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
-  )
-}
+       </DialogContent>
+     </Dialog>
+   )
+ }
+ 
+ export const SettingsModal = React.memo(SettingsModalComponent)

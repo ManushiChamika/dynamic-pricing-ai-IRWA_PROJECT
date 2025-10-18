@@ -1,7 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { Button } from './ui/button'
-import { SummaryIndicator } from './SummaryIndicator'
-import { useThreadList, useCurrentThread, useThreadActions } from '../stores/threadStore'
+import { ThreadItem } from './sidebar/ThreadItem'
+import {
+  useThreadList,
+  useCurrentThread,
+  useThreadActions,
+  useDraftId,
+} from '../stores/threadStore'
 import { useConfirm } from '../stores/confirmStore'
 import { useAuthUser, useAuthActions } from '../stores/authStore'
 import { useSettings } from '../stores/settingsStore'
@@ -9,6 +14,7 @@ import { useSettings } from '../stores/settingsStore'
 export function Sidebar() {
   const threads = useThreadList()
   const currentId = useCurrentThread()
+  const draftId = useDraftId()
   const { setCurrent, refresh, createDraftThread } = useThreadActions()
   const [collapsed, setCollapsed] = useState(localStorage.getItem('sidebarCollapsed') === '1')
   const user = useAuthUser()
@@ -75,40 +81,23 @@ export function Sidebar() {
 
         <div className="flex-1 overflow-y-auto mb-[var(--space-4)]">
           <ul id="thread-list" className="list-none m-0 p-0">
+            {draftId && (
+              <ThreadItem
+                id={draftId}
+                title="New Chat (unsaved)"
+                isActive={currentId === draftId}
+                isDraft
+                onSelect={() => setCurrent(draftId)}
+              />
+            )}
             {threads.map((t) => (
-              <li
+              <ThreadItem
                 key={t.id}
-                className="px-3 py-2.5 rounded-lg cursor-pointer mb-1.5 transition-all duration-200 border"
-                style={{
-                  background: currentId === t.id ? 'var(--accent-color)' : 'transparent',
-                  color: currentId === t.id ? 'white' : 'var(--fg)',
-                  fontWeight: currentId === t.id ? 500 : 400,
-                  borderColor: currentId === t.id ? 'transparent' : 'transparent',
-                }}
-                onClick={() => setCurrent(t.id)}
-                aria-current={currentId === t.id ? 'true' : undefined}
-                onMouseEnter={(e) => {
-                  if (currentId !== t.id) {
-                    ;(e.currentTarget as HTMLElement).style.background = 'var(--accent-light)'
-                    ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--border-color)'
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (currentId !== t.id) {
-                    ;(e.currentTarget as HTMLElement).style.background = 'transparent'
-                    ;(e.currentTarget as HTMLElement).style.borderColor = 'transparent'
-                  }
-                }}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--font-sm)]">
-                    {t.title || `Thread #${t.id}`}
-                  </span>
-                  <span onClick={(e) => e.stopPropagation()}>
-                    <SummaryIndicator threadId={t.id} />
-                  </span>
-                </div>
-              </li>
+                id={t.id}
+                title={t.title || `Thread #${t.id}`}
+                isActive={currentId === t.id}
+                onSelect={() => setCurrent(t.id)}
+              />
             ))}
           </ul>
         </div>

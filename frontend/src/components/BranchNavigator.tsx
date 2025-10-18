@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip'
+import { analyzeBranches } from '../lib/branchUtils'
 
 export type Message = {
   id: number
@@ -8,42 +9,6 @@ export type Message = {
   created_at?: string
   parent_id?: number | null
   [key: string]: any
-}
-
-interface BranchInfo {
-  hasChildren: boolean
-  childCount: number
-  children: Message[]
-  siblingIndex: number
-  siblingCount: number
-  siblings: Message[]
-}
-
-/**
- * Analyze message tree to find branches
- */
-export function analyzeBranches(messages: Message[], currentMessageId: number): BranchInfo {
-  // Find children of current message
-  const children = messages.filter((m) => m.parent_id === currentMessageId)
-
-  // Find current message
-  const current = messages.find((m) => m.id === currentMessageId)
-
-  // Find siblings (messages with same parent)
-  const siblings = current?.parent_id
-    ? messages.filter((m) => m.parent_id === current.parent_id).sort((a, b) => a.id - b.id)
-    : []
-
-  const siblingIndex = siblings.findIndex((m) => m.id === currentMessageId)
-
-  return {
-    hasChildren: children.length > 1,
-    childCount: children.length,
-    children: children.sort((a, b) => a.id - b.id),
-    siblingIndex: siblingIndex >= 0 ? siblingIndex : 0,
-    siblingCount: siblings.length,
-    siblings,
-  }
 }
 
 interface BranchNavigatorProps {
@@ -175,41 +140,4 @@ export function BranchNavigator({ message, allMessages, onNavigate }: BranchNavi
       )}
     </div>
   )
-}
-
-/**
- * Hook to build a filtered conversation path based on currently selected branches
- */
-export function buildConversationPath(
-  messages: Message[],
-  selectedBranches: Map<number, number> = new Map()
-): Message[] {
-  if (!messages.length) return []
-
-  const result: Message[] = []
-  const messageMap = new Map(messages.map((m) => [m.id, m]))
-
-  // Start with root messages (no parent)
-  let current = messages.find((m) => !m.parent_id)
-
-  while (current) {
-    result.push(current)
-
-    // Find children
-    const children = messages.filter((m) => m.parent_id === current?.id).sort((a, b) => a.id - b.id)
-
-    if (children.length === 0) {
-      break
-    } else if (children.length === 1) {
-      // No branch, just continue
-      current = children[0]
-    } else {
-      // Multiple branches - check if we have a selection
-      const selectedId = selectedBranches.get(current.id)
-      const selected = selectedId ? children.find((c) => c.id === selectedId) : null
-      current = selected || children[0] // Default to first branch
-    }
-  }
-
-  return result
 }

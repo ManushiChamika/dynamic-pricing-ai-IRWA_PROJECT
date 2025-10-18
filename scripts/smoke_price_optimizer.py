@@ -12,7 +12,7 @@ _root0 = _Path0(__file__).resolve().parents[1]
 if str(_root0) not in _sys0.path:
     _sys0.path.insert(0, str(_root0))
 
-from core.agents.pricing_optimizer import PricingOptimizerAgent
+from core.agents.price_optimizer.agent import PricingOptimizerAgent
 from core.agents.agent_sdk.bus_factory import get_bus
 from core.agents.agent_sdk.protocol import Topic
 from core.agents.data_collector.repo import DataRepo
@@ -67,8 +67,8 @@ async def run_smoke() -> int:
     res = await agent.process_full_workflow("maximize profit", SKU, db_path="app/data.db")
     print("optimizer_result:", res)
 
-    if not isinstance(res, dict) or res.get("status") != "proposed":
-        print("FAIL: optimizer did not produce a proposal:", res)
+    if not isinstance(res, dict) or res.get("status") != "ok":
+        print("FAIL: optimizer did not produce a successful result:", res)
         return 1
 
     # Verify at least one price.proposal event captured

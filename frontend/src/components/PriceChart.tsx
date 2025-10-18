@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useMemo } from 'react'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -10,6 +10,7 @@ import {
   Legend,
   Filler,
   ChartOptions,
+  ScriptableContext,
 } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 
@@ -54,100 +55,106 @@ export function PriceChart({ data, sku, theme = 'dark' }: PriceChartProps) {
     return i % 5 === 0 || i === data.length - 1 ? `${minutes}:${seconds}` : ''
   })
 
-  const chartData = {
-    labels,
-    datasets: [
-      {
-        label: sku,
-        data: prices,
-        borderColor: lineColor,
-        backgroundColor: (context: any) => {
-          const ctx = context.chart.ctx
-          const gradient = ctx.createLinearGradient(0, 0, 0, context.chart.height)
-          gradient.addColorStop(0, gradientColor)
-          gradient.addColorStop(1, 'rgba(0, 0, 0, 0)')
-          return gradient
+  const chartData = useMemo(
+    () => ({
+      labels,
+      datasets: [
+        {
+          label: sku,
+          data: prices,
+          borderColor: lineColor,
+          backgroundColor: (context: ScriptableContext<'line'>) => {
+            const ctx = context.chart.ctx
+            const gradient = ctx.createLinearGradient(0, 0, 0, context.chart.height)
+            gradient.addColorStop(0, gradientColor)
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)')
+            return gradient
+          },
+          fill: true,
+          tension: 0.4,
+          pointRadius: 0,
+          pointHoverRadius: 6,
+          pointHoverBackgroundColor: lineColor,
+          pointHoverBorderColor: '#fff',
+          pointHoverBorderWidth: 2,
+          borderWidth: 2,
         },
-        fill: true,
-        tension: 0.4,
-        pointRadius: 0,
-        pointHoverRadius: 6,
-        pointHoverBackgroundColor: lineColor,
-        pointHoverBorderColor: '#fff',
-        pointHoverBorderWidth: 2,
-        borderWidth: 2,
-      },
-    ],
-  }
+      ],
+    }),
+    [labels, prices, sku, lineColor, gradientColor]
+  )
 
-  const options: ChartOptions<'line'> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    animation: {
-      duration: 750,
-      easing: 'easeInOutQuart',
-    },
-    interaction: {
-      mode: 'index',
-      intersect: false,
-    },
-    plugins: {
-      legend: {
-        display: false,
+  const options: ChartOptions<'line'> = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: {
+        duration: 750,
+        easing: 'easeInOutQuart',
       },
-      tooltip: {
-        enabled: true,
-        backgroundColor: isDark ? 'rgba(0, 0, 0, 0.9)' : 'rgba(255, 255, 255, 0.9)',
-        titleColor: textColor,
-        bodyColor: textColor,
-        borderColor: gridColor,
-        borderWidth: 1,
-        padding: 12,
-        displayColors: false,
-        callbacks: {
-          label: (context) => `$${context.parsed.y.toFixed(2)}`,
-        },
+      interaction: {
+        mode: 'index',
+        intersect: false,
       },
-    },
-    scales: {
-      x: {
-        display: true,
-        grid: {
-          display: true,
-          color: gridColor,
-          drawTicks: false,
-        },
-        ticks: {
-          color: textColor,
-          font: { size: 10 },
-          maxRotation: 0,
-          autoSkip: true,
-          maxTicksLimit: 6,
-        },
-        border: {
+      plugins: {
+        legend: {
           display: false,
         },
+        tooltip: {
+          enabled: true,
+          backgroundColor: isDark ? 'rgba(0, 0, 0, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+          titleColor: textColor,
+          bodyColor: textColor,
+          borderColor: gridColor,
+          borderWidth: 1,
+          padding: 12,
+          displayColors: false,
+          callbacks: {
+            label: (context) => `$${context.parsed.y.toFixed(2)}`,
+          },
+        },
       },
-      y: {
-        display: true,
-        position: 'right',
-        grid: {
+      scales: {
+        x: {
           display: true,
-          color: gridColor,
-          drawTicks: false,
+          grid: {
+            display: true,
+            color: gridColor,
+            drawTicks: false,
+          },
+          ticks: {
+            color: textColor,
+            font: { size: 10 },
+            maxRotation: 0,
+            autoSkip: true,
+            maxTicksLimit: 6,
+          },
+          border: {
+            display: false,
+          },
         },
-        ticks: {
-          color: textColor,
-          font: { size: 10 },
-          callback: (value) => `$${Number(value).toFixed(0)}`,
-          maxTicksLimit: 5,
-        },
-        border: {
-          display: false,
+        y: {
+          display: true,
+          position: 'right',
+          grid: {
+            display: true,
+            color: gridColor,
+            drawTicks: false,
+          },
+          ticks: {
+            color: textColor,
+            font: { size: 10 },
+            callback: (value) => `$${Number(value).toFixed(0)}`,
+            maxTicksLimit: 5,
+          },
+          border: {
+            display: false,
+          },
         },
       },
-    },
-  }
+    }),
+    [isDark, textColor, gridColor]
+  )
 
   useEffect(() => {
     const chart = chartRef.current
@@ -156,7 +163,7 @@ export function PriceChart({ data, sku, theme = 'dark' }: PriceChartProps) {
     chart.data = chartData
     chart.options = options
     chart.update('none')
-  }, [data, theme])
+  }, [chartData, options])
 
   return (
     <div style={{ height: '180px', width: '100%', position: 'relative' }}>

@@ -26,10 +26,10 @@ if errorlevel 1 (
 echo [OK] Node.js found
 echo.
 
-REM Kill existing processes
+REM Kill existing app windows from previous run
 echo Cleaning up old processes...
-taskkill /F /IM node.exe >nul 2>&1
-taskkill /F /IM python.exe >nul 2>&1
+taskkill /F /T /FI "WINDOWTITLE eq Backend API" /IM cmd.exe >nul 2>&1
+taskkill /F /T /FI "WINDOWTITLE eq Frontend Dev" /IM cmd.exe >nul 2>&1
 timeout /t 1 /nobreak >nul
 echo [OK] Cleanup complete
 echo.
@@ -53,12 +53,12 @@ echo.
 
 REM Start servers
 echo Starting Backend API (port 8000)...
-start "Backend API" cmd /k "python -m uvicorn backend.main:app --reload --port 8000 --host 127.0.0.1"
+start "Backend API" /MIN cmd /k "python -m uvicorn backend.main:app --reload --port 8000 --host 127.0.0.1"
 
 timeout /t 3 /nobreak >nul
 
 echo Starting Frontend Dev Server (port 5173)...
-start "Frontend Dev" cmd /k "cd frontend && npm run dev"
+start "Frontend Dev" /MIN cmd /k "cd frontend && npm run dev"
 
 timeout /t 3 /nobreak >nul
 
@@ -74,4 +74,23 @@ echo.
 echo ================================================
 echo.
 
-pause
+echo Press S then Enter to stop both servers...
+set /p STOP_INPUT=""
+if /I not "%STOP_INPUT%"=="S" goto :WAITSTOP
+
+:STOPALL
+
+echo Stopping servers...
+taskkill /F /T /FI "WINDOWTITLE eq Backend API" /IM cmd.exe >nul 2>&1
+taskkill /F /T /FI "WINDOWTITLE eq Frontend Dev" /IM cmd.exe >nul 2>&1
+timeout /t 1 /nobreak >nul
+echo Done. Closing...
+timeout /t 2 /nobreak >nul
+exit /b 0
+
+:WAITSTOP
+echo Type S and press Enter anytime to stop.
+:LOOP
+choice /c SQ /n /t 1 /d Q >nul
+if errorlevel 2 goto :LOOP
+if errorlevel 1 goto :STOPALL

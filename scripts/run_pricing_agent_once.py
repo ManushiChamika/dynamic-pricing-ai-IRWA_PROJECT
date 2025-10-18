@@ -8,7 +8,8 @@ import sqlite3
 import os
 import traceback
 
-from core.agents.pricing_optimizer import PricingOptimizerAgent
+import asyncio
+from core.agents.price_optimizer.agent import PricingOptimizerAgent
 
 
 def main():
@@ -20,7 +21,7 @@ def main():
 
     try:
         agent = PricingOptimizerAgent()
-        res = agent.process_full_workflow("maximize profit", "iphone15")
+        res = asyncio.run(agent.process_full_workflow("maximize profit", "iphone15"))
     except Exception as e:
         res = {"status": "error", "message": str(e), "trace": traceback.format_exc()}
 

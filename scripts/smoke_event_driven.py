@@ -15,7 +15,7 @@ _root0 = _Path0(__file__).resolve().parents[1]
 if str(_root0) not in _sys0.path:
     _sys0.path.insert(0, str(_root0))
 
-from core.agents.pricing_optimizer import PricingOptimizerAgent
+from core.agents.price_optimizer.agent import PricingOptimizerAgent
 from core.agents.data_collector.collector import DataCollector
 from core.agents.data_collector.repo import DataRepo
 from core.agents.agent_sdk.bus_factory import get_bus
@@ -91,9 +91,9 @@ async def run_smoke() -> int:
             print("FAIL: optimizer returned non-dict:", res)
             return 1
         
-        # Check if it's a proposal (new governance-enabled flow)
-        if res.get("status") == "proposed":
-            print("SUCCESS: Got price proposal")
+        # Check if it's a successful result (folder-based version returns "ok")
+        if res.get("status") == "ok":
+            print("SUCCESS: Got price recommendation")
         elif res.get("status") == "error":
             print("FAIL: optimizer returned error:", res.get("message"))
             return 1
