@@ -406,13 +406,14 @@ ul, ol {
    margin: 0 !important;
    padding: 0 !important;
    padding-left: 1.5rem !important;
+   line-height: 1 !important;
 }
 
 li {
    margin: 0 !important;
-   padding: 0 !important;
-   line-height: 1 !important;
    margin-bottom: 0.25rem !important;
+   padding: 0 !important;
+   line-height: 1.2 !important;
 }
 
 p {

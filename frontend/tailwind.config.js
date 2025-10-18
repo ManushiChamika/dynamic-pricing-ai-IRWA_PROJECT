@@ -63,5 +63,9 @@ export default {
       },
     },
   },
-  plugins: [require('@tailwindcss/typography')],
+  plugins: [
+    require('@tailwindcss/typography')({
+      className: 'prose-custom',
+    })
+  ],
 }
