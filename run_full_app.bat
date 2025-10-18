@@ -83,8 +83,9 @@ if /I not "%STOP_INPUT%"=="S" goto :WAITSTOP
 echo Stopping servers...
 taskkill /F /T /FI "WINDOWTITLE eq Backend API" /IM cmd.exe >nul 2>&1
 taskkill /F /T /FI "WINDOWTITLE eq Frontend Dev" /IM cmd.exe >nul 2>&1
-echo Done. Press any key to close this window.
-pause >nul
+timeout /t 1 /nobreak >nul
+echo Done. Closing...
+timeout /t 2 /nobreak >nul
 exit /b 0
 
 :WAITSTOP
