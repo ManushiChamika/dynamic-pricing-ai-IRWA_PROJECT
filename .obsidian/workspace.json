@@ -171,6 +171,8 @@
   },
   "active": "a6db50ab45cab173",
   "lastOpenFiles": [
+    "data/auth.db-journal",
+    "frontend/vite.config.ts.timestamp-1760799693950-6e16431802a73.mjs",
     "frontend/vite.config.ts.timestamp-1760796702011-666e337298dfb.mjs",
     "frontend/vite.config.ts.timestamp-1760796632241-7ee69e21e1c28.mjs",
     "frontend/vite.config.ts.timestamp-1760796519239-e635593eb3cbf.mjs",
@@ -180,8 +182,6 @@
     "frontend/src/components/CatalogUpload.tsx",
     "backend/routers/__pycache__/catalog.cpython-313.pyc",
     "backend/routers/catalog.py",
-    "app/data.db-shm",
-    "app/data.db-wal",
     "WORKFLOW_ANALYSIS.md",
     "PRICING_OPTIMIZER_LLM_UPDATE.md",
     "LLM_CONNECTION_ANALYSIS_CORRECTED.md",
