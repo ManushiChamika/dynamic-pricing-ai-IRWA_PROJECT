@@ -12,11 +12,7 @@ async function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-async function fetchWithRetry(
-  url: string,
-  opts: RequestInit,
-  retries = 0
-): Promise<Response> {
+async function fetchWithRetry(url: string, opts: RequestInit, retries = 0): Promise<Response> {
   try {
     const response = await fetch(url, opts)
     if (response.status >= 500 && retries < MAX_RETRIES) {
@@ -51,7 +47,7 @@ export async function api<T = any>(
   } else if (init?.body !== undefined) {
     opts.body = init.body
   }
-  
+
   const r = await fetchWithRetry(full, opts)
   const ct = r.headers.get('content-type') || ''
   const data = ct.includes('application/json') ? await r.json().catch(() => null) : null

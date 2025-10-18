@@ -15,7 +15,6 @@ const SettingsModal = lazy(() =>
   import('./components/SettingsModal').then((m) => ({ default: m.SettingsModal }))
 )
 
-
 export default function App() {
   const { theme, settingsOpen, setSettingsOpen, ...settings } = useSettings()
   const { catalogOpen, setCatalogOpen } = useCatalogStore()
@@ -40,10 +39,7 @@ export default function App() {
             onSettingsChange={(newSettings) => useSettings.getState().set(newSettings)}
           />
         </Suspense>
-        <CatalogModal
-          open={catalogOpen}
-          onOpenChange={setCatalogOpen}
-        />
+        <CatalogModal open={catalogOpen} onOpenChange={setCatalogOpen} />
         <Toasts />
       </div>
     </ErrorBoundary>

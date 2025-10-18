@@ -21,16 +21,24 @@ import { useToasts } from '../stores/toastStore'
 
 const MARKDOWN_COMPONENTS = {
   li: ({ children, ...props }: React.LiHTMLAttributes<HTMLLIElement>) => (
-    <li className="my-0 py-0 leading-normal" {...props}>{children}</li>
+    <li className="my-0 py-0 leading-normal" {...props}>
+      {children}
+    </li>
   ),
   ul: ({ children, ...props }: React.HTMLAttributes<HTMLUListElement>) => (
-    <ul className="list-disc list-inside my-0 py-0 space-y-1" {...props}>{children}</ul>
+    <ul className="list-disc list-inside my-0 py-0 space-y-1" {...props}>
+      {children}
+    </ul>
   ),
   ol: ({ children, ...props }: React.OlHTMLAttributes<HTMLOListElement>) => (
-    <ol className="list-decimal list-inside my-0 py-0 space-y-1" {...props}>{children}</ol>
+    <ol className="list-decimal list-inside my-0 py-0 space-y-1" {...props}>
+      {children}
+    </ol>
   ),
   p: ({ children, ...props }: React.HTMLAttributes<HTMLParagraphElement>) => (
-    <p className="my-0 py-0 leading-normal inline" {...props}>{children}</p>
+    <p className="my-0 py-0 leading-normal inline" {...props}>
+      {children}
+    </p>
   ),
 }
 
@@ -79,9 +87,12 @@ export function MessageView({
       if (e.key === 'c' || (e.ctrlKey && e.key.toLowerCase() === 'c')) {
         navigator.clipboard.writeText(m.content || '')
       } else if (e.key.toLowerCase() === 'e' && m.role === 'user') {
-        useMessages.getState().edit(m.id, m.content).then(() => {
-          if (currentId) refresh(currentId)
-        })
+        useMessages
+          .getState()
+          .edit(m.id, m.content)
+          .then(() => {
+            if (currentId) refresh(currentId)
+          })
       } else if (e.key === 'Delete') {
         useConfirm.getState().openConfirm({
           title: 'Delete message?',
@@ -122,18 +133,13 @@ export function MessageView({
           />
         </div>
       ) : null}
-      {m.id === -1 ? (
-        <LiveStatus liveActiveAgent={liveActiveAgent} liveTool={liveTool} />
-      ) : null}
+      {m.id === -1 ? <LiveStatus liveActiveAgent={liveActiveAgent} liveTool={liveTool} /> : null}
       <div
         className={`${m.role === 'user' ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white border-0 shadow-[0_4px_12px_rgba(99,102,241,0.3),0_2px_4px_rgba(99,102,241,0.2)]' : 'bg-gradient-to-br from-slate-800/70 to-slate-900/80 backdrop-blur-3xl border-indigo-500/20'} border rounded-2xl px-5 py-4 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-[0_4px_12px_rgba(0,0,0,0.4),0_2px_4px_rgba(0,0,0,0.3)] leading-normal relative`}
       >
         {m.role === 'assistant' ? (
           <div className="max-w-none leading-normal">
-            <ReactMarkdown 
-              remarkPlugins={[remarkGfm]}
-              components={MARKDOWN_COMPONENTS}
-            >
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
               {m.content || ''}
             </ReactMarkdown>
           </div>

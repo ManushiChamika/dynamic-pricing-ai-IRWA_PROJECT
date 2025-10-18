@@ -1,10 +1,6 @@
 import React from 'react'
 import { Button } from './ui/button'
-import {
-  useMessages,
-  useMessagesActions,
-  type Message,
-} from '../stores/messageStore'
+import { useMessages, useMessagesActions, type Message } from '../stores/messageStore'
 import { useCurrentThread } from '../stores/threadStore'
 import { usePrompt } from '../stores/promptStore'
 import { useConfirm } from '../stores/confirmStore'
@@ -59,8 +55,6 @@ function MessageActionsComponent({ m }: { m: Message }) {
       },
     })
   }
-
-
 
   return (
     <div className="flex gap-1.5 mt-2 opacity-0 transition-opacity duration-200 hover:opacity-100">

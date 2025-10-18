@@ -2,15 +2,15 @@ import React, { useState, useRef } from 'react'
 import { Button } from './ui/button'
 import { useAuthToken } from '../stores/authStore'
 import { useTheme } from '../stores/settingsStore'
-import { 
-  Upload, 
-  FileText, 
-  X, 
-  CheckCircle2, 
-  AlertCircle, 
+import {
+  Upload,
+  FileText,
+  X,
+  CheckCircle2,
+  AlertCircle,
   Loader2,
   File,
-  Package
+  Package,
 } from 'lucide-react'
 
 interface UploadResponse {
@@ -79,20 +79,17 @@ export function CatalogUpload() {
     setUploadProgress(0)
 
     const progressInterval = setInterval(() => {
-      setUploadProgress(prev => Math.min(prev + 10, 90))
+      setUploadProgress((prev) => Math.min(prev + 10, 90))
     }, 150)
 
     try {
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await fetch(
-        `/api/catalog/upload?token=${encodeURIComponent(token)}`,
-        {
-          method: 'POST',
-          body: formData
-        }
-      )
+      const response = await fetch(`/api/catalog/upload?token=${encodeURIComponent(token)}`, {
+        method: 'POST',
+        body: formData,
+      })
 
       clearInterval(progressInterval)
       setUploadProgress(100)
@@ -132,11 +129,12 @@ export function CatalogUpload() {
         onDrop={handleDrop}
         className={`
           relative overflow-hidden rounded-xl border-2 border-dashed transition-all duration-300
-          ${dragActive 
-            ? 'border-indigo-500 bg-indigo-500/10 scale-[1.02]' 
-            : isDark 
-              ? 'border-gray-700 hover:border-gray-600 bg-gray-900/50' 
-              : 'border-gray-300 hover:border-gray-400 bg-gray-50/50'
+          ${
+            dragActive
+              ? 'border-indigo-500 bg-indigo-500/10 scale-[1.02]'
+              : isDark
+                ? 'border-gray-700 hover:border-gray-600 bg-gray-900/50'
+                : 'border-gray-300 hover:border-gray-400 bg-gray-50/50'
           }
         `}
       >
@@ -148,24 +146,27 @@ export function CatalogUpload() {
           className="hidden"
           disabled={loading}
         />
-        
+
         <div className="p-12 text-center">
-          <div className={`
+          <div
+            className={`
             mx-auto w-20 h-20 rounded-full flex items-center justify-center mb-6 transition-all duration-300
-            ${dragActive 
-              ? 'bg-indigo-500/20 scale-110' 
-              : isDark 
-                ? 'bg-gray-800' 
-                : 'bg-white shadow-sm'
+            ${
+              dragActive
+                ? 'bg-indigo-500/20 scale-110'
+                : isDark
+                  ? 'bg-gray-800'
+                  : 'bg-white shadow-sm'
             }
-          `}>
+          `}
+          >
             <Upload className={`w-10 h-10 ${dragActive ? 'text-indigo-500' : 'text-gray-400'}`} />
           </div>
 
           <h3 className="text-lg font-semibold mb-2">
             {dragActive ? 'Drop your file here' : 'Upload Product Catalog'}
           </h3>
-          
+
           <p className={`text-sm mb-6 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
             {dragActive ? 'Release to upload' : 'Drag and drop your file, or click to browse'}
           </p>
@@ -187,21 +188,22 @@ export function CatalogUpload() {
       </div>
 
       {file && (
-        <div className={`
+        <div
+          className={`
           p-5 rounded-xl border transition-all duration-300 animate-in slide-in-from-top-2
-          ${isDark 
-            ? 'bg-gray-900/80 border-gray-700' 
-            : 'bg-white border-gray-200 shadow-sm'
-          }
-        `}>
+          ${isDark ? 'bg-gray-900/80 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}
+        `}
+        >
           <div className="flex items-start gap-4">
-            <div className={`
+            <div
+              className={`
               p-3 rounded-lg
               ${isDark ? 'bg-indigo-500/10' : 'bg-indigo-50'}
-            `}>
+            `}
+            >
               <File className="w-6 h-6 text-indigo-500" />
             </div>
-            
+
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
@@ -210,7 +212,7 @@ export function CatalogUpload() {
                     {formatFileSize(file.size)}
                   </p>
                 </div>
-                
+
                 <button
                   onClick={() => {
                     setFile(null)
@@ -219,9 +221,10 @@ export function CatalogUpload() {
                   disabled={loading}
                   className={`
                     p-1 rounded-lg transition-colors
-                    ${isDark 
-                      ? 'hover:bg-gray-800 text-gray-400 hover:text-gray-200' 
-                      : 'hover:bg-gray-100 text-gray-500 hover:text-gray-700'
+                    ${
+                      isDark
+                        ? 'hover:bg-gray-800 text-gray-400 hover:text-gray-200'
+                        : 'hover:bg-gray-100 text-gray-500 hover:text-gray-700'
                     }
                     disabled:opacity-50 disabled:cursor-not-allowed
                   `}
@@ -232,8 +235,10 @@ export function CatalogUpload() {
 
               {loading && (
                 <div className="mt-4">
-                  <div className={`h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-gray-800' : 'bg-gray-200'}`}>
-                    <div 
+                  <div
+                    className={`h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-gray-800' : 'bg-gray-200'}`}
+                  >
+                    <div
                       className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all duration-300 ease-out"
                       style={{ width: `${uploadProgress}%` }}
                     />
@@ -249,33 +254,29 @@ export function CatalogUpload() {
       )}
 
       {error && (
-        <div className={`
+        <div
+          className={`
           p-4 rounded-xl border flex items-start gap-3 animate-in slide-in-from-top-2
-          ${isDark 
-            ? 'bg-red-950/50 border-red-900/50' 
-            : 'bg-red-50 border-red-200'
-          }
-        `}>
+          ${isDark ? 'bg-red-950/50 border-red-900/50' : 'bg-red-50 border-red-200'}
+        `}
+        >
           <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
           <div className="flex-1">
             <p className={`text-sm font-medium ${isDark ? 'text-red-200' : 'text-red-900'}`}>
               Upload Failed
             </p>
-            <p className={`text-sm mt-1 ${isDark ? 'text-red-300' : 'text-red-700'}`}>
-              {error}
-            </p>
+            <p className={`text-sm mt-1 ${isDark ? 'text-red-300' : 'text-red-700'}`}>{error}</p>
           </div>
         </div>
       )}
 
       {success && (
-        <div className={`
+        <div
+          className={`
           p-4 rounded-xl border flex items-start gap-3 animate-in slide-in-from-top-2
-          ${isDark 
-            ? 'bg-green-950/50 border-green-900/50' 
-            : 'bg-green-50 border-green-200'
-          }
-        `}>
+          ${isDark ? 'bg-green-950/50 border-green-900/50' : 'bg-green-50 border-green-200'}
+        `}
+        >
           <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
           <div className="flex-1">
             <p className={`text-sm font-medium ${isDark ? 'text-green-200' : 'text-green-900'}`}>
@@ -284,7 +285,9 @@ export function CatalogUpload() {
             <p className={`text-sm mt-1 ${isDark ? 'text-green-300' : 'text-green-700'}`}>
               {success.filename}
             </p>
-            <div className={`flex items-center gap-4 mt-2 text-xs ${isDark ? 'text-green-400' : 'text-green-600'}`}>
+            <div
+              className={`flex items-center gap-4 mt-2 text-xs ${isDark ? 'text-green-400' : 'text-green-600'}`}
+            >
               <span>Processed: {success.rows_processed}</span>
               <span>•</span>
               <span>Inserted: {success.rows_inserted}</span>
@@ -313,13 +316,12 @@ export function CatalogUpload() {
         </Button>
       </div>
 
-      <div className={`
+      <div
+        className={`
         p-5 rounded-xl border
-        ${isDark 
-          ? 'bg-gray-900/50 border-gray-800' 
-          : 'bg-gray-50 border-gray-200'
-        }
-      `}>
+        ${isDark ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-50 border-gray-200'}
+      `}
+      >
         <div className="flex items-start gap-3 mb-4">
           <Package className={`w-5 h-5 ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`} />
           <div>
@@ -329,7 +331,7 @@ export function CatalogUpload() {
             </p>
           </div>
         </div>
-        
+
         <div className="grid grid-cols-2 gap-3 mt-4">
           {[
             { field: 'sku', desc: 'Unique product ID' },
@@ -339,7 +341,7 @@ export function CatalogUpload() {
             { field: 'cost', desc: 'Product cost' },
             { field: 'stock', desc: 'Available quantity' },
           ].map(({ field, desc }) => (
-            <div 
+            <div
               key={field}
               className={`
                 p-3 rounded-lg
@@ -347,9 +349,7 @@ export function CatalogUpload() {
               `}
             >
               <code className="text-xs font-mono text-indigo-500">{field}</code>
-              <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                {desc}
-              </p>
+              <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{desc}</p>
             </div>
           ))}
         </div>

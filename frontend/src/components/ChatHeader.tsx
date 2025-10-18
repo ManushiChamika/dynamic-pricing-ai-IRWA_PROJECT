@@ -26,9 +26,7 @@ export function ChatHeader() {
           if (!currentId) return
           const isDraft = String(currentId).startsWith('draft_')
           if (isDraft) {
-            useToasts
-              .getState()
-              .push({ type: 'error', text: 'Cannot rename draft threads' })
+            useToasts.getState().push({ type: 'error', text: 'Cannot rename draft threads' })
             return
           }
           const t =
@@ -53,9 +51,7 @@ export function ChatHeader() {
           if (!currentId) return
           const isDraft = String(currentId).startsWith('draft_')
           if (isDraft) {
-            useToasts
-              .getState()
-              .push({ type: 'error', text: 'Cannot delete draft threads' })
+            useToasts.getState().push({ type: 'error', text: 'Cannot delete draft threads' })
             return
           }
           const t =
@@ -85,9 +81,7 @@ export function ChatHeader() {
           if (!currentId) return
           const isDraft = String(currentId).startsWith('draft_')
           if (isDraft) {
-            useToasts
-              .getState()
-              .push({ type: 'error', text: 'Cannot export draft threads' })
+            useToasts.getState().push({ type: 'error', text: 'Cannot export draft threads' })
             return
           }
           const { ok, data } = await api(`/api/threads/${currentId}/export`)

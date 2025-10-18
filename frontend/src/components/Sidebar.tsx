@@ -11,7 +11,14 @@ import { useConfirm } from '../stores/confirmStore'
 import { useAuthUser, useAuthActions } from '../stores/authStore'
 import { useSettings } from '../stores/settingsStore'
 import { useCatalogStore } from '../stores/catalogStore'
-import { Package, Settings, LogOut, MessageSquarePlus, ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  Package,
+  Settings,
+  LogOut,
+  MessageSquarePlus,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react'
 
 export function Sidebar() {
   const threads = useThreadList()
@@ -108,25 +115,25 @@ export function Sidebar() {
         </div>
 
         <div className="border-t border-[var(--border-color)] pt-[var(--space-3)] flex flex-col gap-[var(--space-2)]">
-           <Button
-             variant="outline"
-             onClick={() => useCatalogStore.getState().setCatalogOpen(true)}
-             className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2'} hover:bg-indigo-500/10 hover:border-indigo-500/30 transition-colors`}
-             aria-label="Open catalog"
-           >
-             <Package className="w-4 h-4" />
-             {!collapsed && <span>Catalog</span>}
-           </Button>
+          <Button
+            variant="outline"
+            onClick={() => useCatalogStore.getState().setCatalogOpen(true)}
+            className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2'} hover:bg-indigo-500/10 hover:border-indigo-500/30 transition-colors`}
+            aria-label="Open catalog"
+          >
+            <Package className="w-4 h-4" />
+            {!collapsed && <span>Catalog</span>}
+          </Button>
 
-           <Button
-             variant="outline"
-             onClick={() => useSettings.getState().setSettingsOpen(true)}
-             className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2'}`}
-             aria-label="Open settings"
-           >
-             <Settings className="w-4 h-4" />
-             {!collapsed && <span>Settings</span>}
-           </Button>
+          <Button
+            variant="outline"
+            onClick={() => useSettings.getState().setSettingsOpen(true)}
+            className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2'}`}
+            aria-label="Open settings"
+          >
+            <Settings className="w-4 h-4" />
+            {!collapsed && <span>Settings</span>}
+          </Button>
 
           {user && !collapsed && (
             <div className="px-3 py-2.5 bg-[var(--panel)] border border-[var(--border-color)] rounded-lg text-[var(--font-sm)]">

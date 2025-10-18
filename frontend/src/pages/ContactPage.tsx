@@ -9,14 +9,8 @@ import { getPageThemeClasses } from '../lib/themeHelpers'
 export function ContactPage() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const {
-    pageClasses,
-    heroGradient,
-    dottedOverlay,
-    secondarySurface,
-    cardSurface,
-    inputSurface,
-  } = getPageThemeClasses(isDark)
+  const { pageClasses, heroGradient, dottedOverlay, secondarySurface, cardSurface, inputSurface } =
+    getPageThemeClasses(isDark)
 
   return (
     <div className={pageClasses}>
@@ -44,9 +38,11 @@ export function ContactPage() {
                 </span>
               </h1>
 
-              <p className={`mb-12 text-xl md:text-2xl leading-relaxed max-w-3xl mx-auto ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Have questions? We&apos;re here to help. Reach out to our team and we&apos;ll get back
-                to you as soon as possible.
+              <p
+                className={`mb-12 text-xl md:text-2xl leading-relaxed max-w-3xl mx-auto ${isDark ? 'text-gray-400' : 'text-gray-600'}`}
+              >
+                Have questions? We&apos;re here to help. Reach out to our team and we&apos;ll get
+                back to you as soon as possible.
               </p>
             </div>
           </div>

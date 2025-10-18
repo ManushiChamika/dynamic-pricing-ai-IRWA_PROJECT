@@ -125,8 +125,8 @@ export function HeroSection({
                     <div className="flex items-start gap-3">
                       <span className="text-purple-500 font-semibold">AI:</span>
                       <span className={mutedText}>
-                        Analyzing 47 laptops... Found 3 competitors pricing below you. Recommend
-                        8% decrease on Dell models.
+                        Analyzing 47 laptops... Found 3 competitors pricing below you. Recommend 8%
+                        decrease on Dell models.
                       </span>
                     </div>
                   </div>

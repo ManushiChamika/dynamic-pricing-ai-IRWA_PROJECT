@@ -17,8 +17,7 @@ function MessageMetadataComponent({
     m.role === 'assistant' &&
     showModel &&
     ((m.model && m.model.length > 0) ||
-      (m.metadata?.provider &&
-        (m.token_in != null || m.token_out != null || m.cost_usd != null)))
+      (m.metadata?.provider && (m.token_in != null || m.token_out != null || m.cost_usd != null)))
 
   return (
     <div className="mt-2 opacity-70 text-xs flex gap-2 flex-wrap">
@@ -30,9 +29,7 @@ function MessageMetadataComponent({
       {showMeta ? <MetadataTooltip message={m as any} /> : null}
       {hasModelInfo ? (
         <span className="opacity-60 text-[11px] ml-auto" title={m.model || ''}>
-          {m.metadata?.provider
-            ? `${m.metadata.provider}${m.model ? ':' + m.model : ''}`
-            : m.model}
+          {m.metadata?.provider ? `${m.metadata.provider}${m.model ? ':' + m.model : ''}` : m.model}
         </span>
       ) : null}
     </div>
