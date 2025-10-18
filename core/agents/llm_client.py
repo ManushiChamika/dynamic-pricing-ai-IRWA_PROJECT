@@ -153,20 +153,31 @@ class LLMClient:
         oa_key = os.getenv("OPENAI_API_KEY")
         oa_model = os.getenv("OPENAI_MODEL") or "gpt-4o-mini"
 
-        gemini_key = os.getenv("GEMINI_API_KEY")
         gemini_base = os.getenv("GEMINI_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta/openai/"
         if gemini_base and not gemini_base.endswith("/"):
             gemini_base = gemini_base + "/"
-        gemini_model = os.getenv("GEMINI_MODEL") or "gemini-2.0-flash"
+        gemini_model = os.getenv("GEMINI_MODEL") or "gemini-2.5-flash"
+        
+        gemini_keys = []
+        gemini_key_1 = os.getenv("GEMINI_API_KEY")
+        if gemini_key_1:
+            gemini_keys.append(("gemini", gemini_key_1))
+        gemini_key_2 = os.getenv("GEMINI_API_KEY_2")
+        if gemini_key_2:
+            gemini_keys.append(("gemini_2", gemini_key_2))
+        gemini_key_3 = os.getenv("GEMINI_API_KEY_3")
+        if gemini_key_3:
+            gemini_keys.append(("gemini_3", gemini_key_3))
 
-        # Registration priority: explicit args > OpenRouter > OpenAI > Gemini
+        # Registration priority: explicit args > OpenRouter > OpenAI > Gemini(s)
         if explicit_key:
             custom_model = explicit_model or or_model or oa_model or gemini_model
             _register_provider("custom", explicit_key, custom_model, explicit_base)
         else:
             _register_provider("openrouter", or_key, or_model, or_base)
             _register_provider("openai", oa_key, oa_model, None)
-            _register_provider("gemini", gemini_key, gemini_model, gemini_base if gemini_key else None)
+            for gemini_name, gemini_key in gemini_keys:
+                _register_provider(gemini_name, gemini_key, gemini_model, gemini_base)
 
         if not self._providers:
             self._unavailable_reason = "no API key configured"
