@@ -107,7 +107,12 @@ class AlertEngine:
         try:
             payload_dict = self._to_dict(payload)
             
-            event_summary = json.dumps(payload_dict, indent=2)
+            def json_serializer(obj):
+                if isinstance(obj, datetime):
+                    return obj.isoformat()
+                raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+            
+            event_summary = json.dumps(payload_dict, indent=2, default=json_serializer)
             
             prompt = f"""{SYSTEM_PROMPT}
 
@@ -125,22 +130,37 @@ Analyze the event carefully and decide if any action is needed."""
             
             tools_schema = get_llm_tools()
             
+            import asyncio
+            loop = asyncio.get_event_loop()
+            
+            def create_alert_wrapper(name: str, description: str, severity: str, details: dict):
+                return loop.run_until_complete(execute_tool_call("create_alert", {
+                    "name": name, "description": description, 
+                    "severity": severity, "details": details
+                }, self.tools))
+            
+            def list_alerts_wrapper(status: str = None):
+                return loop.run_until_complete(execute_tool_call("list_alerts", {"status": status}, self.tools))
+            
+            def list_rules_wrapper():
+                return loop.run_until_complete(execute_tool_call("list_rules", {}, self.tools))
+            
+            functions_map = {
+                "create_alert": create_alert_wrapper,
+                "list_alerts": list_alerts_wrapper,
+                "list_rules": list_rules_wrapper
+            }
+            
             try:
-                result = self.llm.chat_with_tools(messages=messages, tools=tools_schema)
+                result = self.llm.chat_with_tools(
+                    messages=messages, 
+                    tools=tools_schema,
+                    functions_map=functions_map,
+                    max_rounds=2,
+                    max_tokens=512
+                )
                 
-                if result.get("tool_calls"):
-                    for tool_call in result["tool_calls"]:
-                        tool_name = tool_call.get("name")
-                        tool_args = tool_call.get("arguments", {})
-                        
-                        self.logger.info(f"LLM decided to call tool: {tool_name} with args: {tool_args}")
-                        
-                        tool_result = await execute_tool_call(tool_name, tool_args, self.tools)
-                        self.logger.info(f"Tool {tool_name} result: {tool_result}")
-                
-                reasoning = result.get("content", "")
-                if reasoning:
-                    self.logger.info(f"LLM reasoning: {reasoning}")
+                self.logger.info(f"LLM response: {result}")
                     
             except Exception as e:
                 self.logger.error(f"LLM tool call failed: {e}")
