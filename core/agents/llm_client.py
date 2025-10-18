@@ -369,21 +369,8 @@ class LLMClient:
                     local_msgs.append(assistant_msg)
 
                     if not tool_calls:
-                        # record tools_used if present
-                        try:
-                            tools_used = []
-                            try:
-                                if assistant_msg.get("tool_calls"):
-                                    for tc in assistant_msg["tool_calls"]:
-                                        fn = (tc.get("function") or {}).get("name")
-                                        if fn and fn not in tools_used:
-                                            tools_used.append(fn)
-                            except Exception:
-                                pass
-                            if tools_used:
-                                self.last_usage = {**(self.last_usage or {}), "tools_used": tools_used}
-                        except Exception:
-                            pass
+                        if tools_used:
+                            self.last_usage = {**(self.last_usage or {}), "tools_used": tools_used}
                         self._set_active_provider(idx)
                         return (content or "").strip()
 
