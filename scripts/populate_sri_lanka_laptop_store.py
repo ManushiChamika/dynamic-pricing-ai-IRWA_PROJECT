@@ -179,7 +179,7 @@ def create_realistic_laptop_data():
     
     return laptops
 
-def populate_database(db_path='data/market.db'):
+def populate_database(db_path='app/data.db'):
     """Populate the database with laptop data"""
     
     # Generate laptop data

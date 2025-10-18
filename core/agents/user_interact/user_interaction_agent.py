@@ -45,7 +45,7 @@ class UserInteractionAgent:
         # Resolve DB paths
         root = Path(__file__).resolve().parents[3]
         self.app_db = root / "app" / "data.db"
-        self.market_db = root / "data" / "market.db"
+        self.market_db = root / "app" / "data.db"
         # Last-inference metadata (populated on LLM calls)
         self.last_model = None
         self.last_provider = None
@@ -247,7 +247,7 @@ class UserInteractionAgent:
                             "type": "function",
                             "function": {
                                 "name": "list_pricing_list",
-                                "description": "List current market pricing entries from market.db/pricing_list.",
+                                "description": "List current market pricing entries from app/data.db/pricing_list.",
                                 "parameters": {
                                     "type": "object",
                                     "properties": {
@@ -277,7 +277,7 @@ class UserInteractionAgent:
                             "type": "function",
                             "function": {
                                 "name": "list_market_data",
-                                "description": "List products from market.db (market research data). Use this to find products by brand or name in market data.",
+                                "description": "List products from app/data.db (market research data). Use this to find products by brand or name in market data.",
                                 "parameters": {
                                     "type": "object",
                                     "properties": {

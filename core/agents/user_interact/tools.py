@@ -7,7 +7,7 @@ def get_db_paths():
     root = Path(__file__).resolve().parents[3]
     return {
         "app": root / "app" / "data.db",
-        "market": root / "data" / "market.db"
+        "market": root / "app" / "data.db"
     }
 
 

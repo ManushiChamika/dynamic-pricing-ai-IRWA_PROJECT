@@ -108,7 +108,7 @@ class PerformanceMonitor:
     """Real-time performance monitoring system"""
     
     def __init__(self, 
-                 db_path: str = "data/market.db",
+                 db_path: str = "app/data.db",
                  monitoring_interval: int = 60,
                  thresholds: Optional[AlertThresholds] = None):
         self.db_path = db_path

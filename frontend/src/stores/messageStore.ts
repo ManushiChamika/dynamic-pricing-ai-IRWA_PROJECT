@@ -113,7 +113,6 @@ export const useMessages = create<MessagesState>((set, get) => ({
        return
      }
 
-     await get().refresh(actualThreadId)
      const userMsg: Message = { id: -1, role: 'user', content }
      const live: Message = { id: -2, role: 'assistant', content: '' }
      let thinkingShown = false

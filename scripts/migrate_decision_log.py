@@ -1,7 +1,7 @@
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parents[1] / "data" / "market.db"
+DB_PATH = Path(__file__).resolve().parents[1] / "app" / "data.db"
 
 def ensure_decision_log(db_path: Path) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)

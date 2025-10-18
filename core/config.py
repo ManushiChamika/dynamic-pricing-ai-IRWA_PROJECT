@@ -46,7 +46,7 @@ class Config:
         self.bus_concurrency_limit = int(os.getenv("BUS_CONCURRENCY_LIMIT", "10"))
         
         # Database Configuration
-        self.database_url = os.getenv("DATABASE_URL", "sqlite:///./data/market.db")
+        self.database_url = os.getenv("DATABASE_URL", "sqlite:///./app/data.db")
         
         # OpenAI Configuration
         self.openai_api_key = os.getenv("OPENAI_API_KEY")

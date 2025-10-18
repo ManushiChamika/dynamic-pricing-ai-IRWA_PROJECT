@@ -177,7 +177,7 @@ class ABTestFramework:
 class EvaluationEngine:
     """Main evaluation engine orchestrating comprehensive system assessment"""
     
-    def __init__(self, db_path: str = "data/market.db"):
+    def __init__(self, db_path: str = "app/data.db"):
         self.metrics_calculator = MetricsCalculator(db_path)
         self.ab_framework = ABTestFramework(self.metrics_calculator)
         self.db_path = db_path

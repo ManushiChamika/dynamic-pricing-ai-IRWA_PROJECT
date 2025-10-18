@@ -26,7 +26,7 @@ def _utc_now_iso() -> str:
 
 def _paths():
     root = Path(__file__).resolve().parents[1]
-    return (root / "app" / "data.db").as_posix(), (root / "market.db").as_posix()
+    return (root / "app" / "data.db").as_posix(), (root / "app" / "data.db").as_posix()
 
 
 def _ensure_settings_enabled():

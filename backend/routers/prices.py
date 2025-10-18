@@ -16,7 +16,7 @@ async def api_prices_stream(sku: Optional[str] = None):
     if sku:
         symbols = [sku]
     else:
-        conn = sqlite3.connect('data/market.db')
+        conn = sqlite3.connect('app/data.db')
         cursor = conn.cursor()
         cursor.execute('SELECT product_name FROM market_data LIMIT 50')
         symbols = [row[0] for row in cursor.fetchall()]
