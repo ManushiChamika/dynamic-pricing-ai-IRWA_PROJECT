@@ -181,6 +181,10 @@ export const useMessages = create<MessagesState>((set, get) => ({
               useThreads
                 .getState()
                 .updateThreadTitleLocal(update.threadRenamed.thread_id, update.threadRenamed.title)
+              useToasts.getState().push({
+                type: 'success',
+                text: `✨ Thread titled: "${update.threadRenamed.title}"`,
+              })
               return s
             }
 
