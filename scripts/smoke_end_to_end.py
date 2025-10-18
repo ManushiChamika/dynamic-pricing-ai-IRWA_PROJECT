@@ -5,7 +5,8 @@ import asyncio
 from typing import List
 
 from core.agents.data_collector import mcp_server as svc
-from core.agents.alert_notifier import AlertNotifier, Thresholds
+from core.agents.alert_service.repo import Repo as AlertRepo
+from core.agents.alert_service.engine import AlertEngine
 
 
 async def smoke() -> int:
@@ -35,10 +36,10 @@ async def smoke() -> int:
         print("FAIL: import_product_catalog returned error")
         return 1
 
-    # 3) Start notifier before ingestion so we capture alerts
-    t = Thresholds(undercut_delta=0.01, demand_spike=0.5, min_margin=0.10)
-    notifier = AlertNotifier(t, sinks=[ui_sink])
-    await notifier.start()
+    # 3) Start alert engine before ingestion so we capture alerts
+    alert_repo = AlertRepo()
+    engine = AlertEngine(alert_repo)
+    await engine.start()
 
     # 4) Start collection job
     start = await svc.start_collection("SKU-123", market="DEFAULT", connector="mock", depth=5)
