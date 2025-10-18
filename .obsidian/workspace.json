@@ -171,6 +171,7 @@
   },
   "active": "a6db50ab45cab173",
   "lastOpenFiles": [
+    "app/data.db-shm",
     "app/data.db-wal",
     "frontend/vite.config.ts.timestamp-1760829330767-aef46b7b5ca83.mjs",
     "core/agents/price_optimizer/__pycache__/tools.cpython-313.pyc",
@@ -182,7 +183,6 @@
     "core/agents/price_optimizer/tools.py",
     "frontend/vite.config.ts.timestamp-1760827080486-c6c51363e532f.mjs",
     "scripts/test_end_to_end_pipeline.py",
-    "frontend/vitest.config.ts.timestamp-1760827073875-cbaec404934d7.mjs",
     "docs/LLM_ALERT_AGENT_TEST_REPORT.md",
     "_legacy_mcp_archive/README.md",
     "docs/MCP_IMPLEMENTATION_ANALYSIS.md",

@@ -141,10 +141,24 @@ export function PricesPanel() {
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const [products, setProducts] = useState<string[]>([])
   const esRef = useRef<EventSource | null>(null)
   const throttleRef = useRef<ReturnType<typeof setTimeout>>()
   const theme = useTheme()
   const token = useAuthToken()
+
+  const fetchProducts = async () => {
+    if (!token) return
+    try {
+      const response = await fetch(`/api/catalog/products?token=${token}`)
+      if (!response.ok) throw new Error('Failed to fetch products')
+      const data = await response.json()
+      const skus = data.products.map((p: any) => p.sku)
+      setProducts(skus)
+    } catch (err) {
+      console.error('Error fetching products:', err)
+    }
+  }
 
   const fetchIncidents = async () => {
     if (!token) return
@@ -186,9 +200,21 @@ export function PricesPanel() {
   }
 
   useEffect(() => {
+    fetchProducts()
     fetchIncidents()
-    const interval = setInterval(fetchIncidents, 30000)
+    const interval = setInterval(() => {
+      fetchProducts()
+      fetchIncidents()
+    }, 30000)
     return () => clearInterval(interval)
+  }, [token])
+
+  useEffect(() => {
+    const handleCatalogUpdate = () => {
+      fetchProducts()
+    }
+    window.addEventListener('catalog-updated', handleCatalogUpdate)
+    return () => window.removeEventListener('catalog-updated', handleCatalogUpdate)
   }, [token])
 
   useEffect(() => {
@@ -247,7 +273,11 @@ export function PricesPanel() {
     }
   }, [running, sku, token])
 
-  const keys = useMemo(() => Object.keys(prices).sort(), [prices])
+  const keys = useMemo(() => {
+    const priceKeys = Object.keys(prices)
+    const allKeys = [...new Set([...priceKeys, ...products])]
+    return allKeys.sort()
+  }, [prices, products])
   
   const incidentsBySku = useMemo(() => {
     const map: Record<string, Incident> = {}

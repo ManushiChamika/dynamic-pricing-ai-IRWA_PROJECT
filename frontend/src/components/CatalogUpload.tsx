@@ -107,6 +107,7 @@ export function CatalogUpload() {
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
+      window.dispatchEvent(new Event('catalog-updated'))
     } catch (err) {
       clearInterval(progressInterval)
       setError(err instanceof Error ? err.message : 'Upload failed')
@@ -154,6 +155,7 @@ export function CatalogUpload() {
         rows_inserted: 0,
         owner_id: '',
       })
+      window.dispatchEvent(new Event('catalog-updated'))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Delete failed')
     } finally {
