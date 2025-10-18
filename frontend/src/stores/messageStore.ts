@@ -96,7 +96,10 @@ export const useMessages = create<MessagesState>((set, get) => ({
      if (isDraft) {
        const newThreadId = await threadsState.createThread('New Thread')
        if (!newThreadId) {
-         useToasts.getState().push({ type: 'error', text: 'Failed to create thread' })
+         useToasts.getState().push({ 
+           type: 'error', 
+           text: 'Failed to create thread. Check console and ensure backend is running.' 
+         })
          return
        }
        actualThreadId = newThreadId
