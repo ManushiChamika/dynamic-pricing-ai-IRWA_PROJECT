@@ -113,7 +113,7 @@ def assemble_memory(thread_id: int) -> List[Dict[str, str]]:
 
 
 def should_summarize(thread_id: int, upto_message_id: int, token_in: Optional[int], token_out: Optional[int]) -> bool:
-    import random
+    import hashlib
     msgs = get_thread_messages(thread_id)
     latest = get_latest_summary(thread_id)
     since = [m for m in msgs if m.id <= upto_message_id and (latest is None or m.id > int(latest.upto_message_id))]
@@ -125,10 +125,18 @@ def should_summarize(thread_id: int, upto_message_id: int, token_in: Optional[in
 
     if len(since) >= min_msgs:
         return True
-    if (token_in or 0) + (token_out or 0) >= token_trigger:
+    
+    accumulated_tokens = 0
+    for m in since:
+        accumulated_tokens += (m.token_in or 0) + (m.token_out or 0)
+    if accumulated_tokens >= token_trigger:
         return True
-    if len(msgs) >= long_thread and random.random() < prob:
-        return True
+    
+    if len(msgs) >= long_thread:
+        seed = int(hashlib.md5(f"{thread_id}:{upto_message_id}".encode()).hexdigest()[:8], 16)
+        pseudo_random = (seed % 10000) / 10000.0
+        if pseudo_random < prob:
+            return True
     return False
 
 

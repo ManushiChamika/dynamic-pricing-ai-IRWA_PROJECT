@@ -12,6 +12,8 @@ from sqlalchemy import (
     Text,
     ForeignKey,
     func,
+    Index,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 import json
@@ -63,10 +65,15 @@ class Summary(Base):
     __tablename__ = "summaries"
 
     id = Column(Integer, primary_key=True)
-    thread_id = Column(Integer, ForeignKey("threads.id"), index=True, nullable=False)
-    upto_message_id = Column(Integer, nullable=False)  # covers messages <= this id
+    thread_id = Column(Integer, ForeignKey("threads.id"), nullable=False)
+    upto_message_id = Column(Integer, nullable=False)
     content = Column(Text, nullable=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("thread_id", "upto_message_id", name="uq_thread_upto_message"),
+        Index("ix_thread_upto_desc", "thread_id", "upto_message_id"),
+    )
 
 
 def _json_or_none(value: Any) -> Optional[str]:

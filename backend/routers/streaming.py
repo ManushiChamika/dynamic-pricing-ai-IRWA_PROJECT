@@ -5,9 +5,13 @@ from core.chat_db import (
     add_message,
     update_message,
     get_thread_messages,
+    get_message,
 )
 from core.agents.user_interact.user_interaction_agent import UserInteractionAgent
 from core.payloads import PostMessageRequest, MessageOut
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/api/threads", tags=["streaming"])
@@ -45,8 +49,24 @@ def _generate_summary(thread_id: int, upto_message_id: int) -> Optional[str]:
 
 
 def db_add_summary(thread_id: int, upto_message_id: int, content: str):
-    from core.chat_db import add_summary as _add_summary
-    return _add_summary(thread_id, upto_message_id, content)
+    from core.chat_db import add_summary as _add_summary, get_latest_summary
+    from sqlalchemy.exc import IntegrityError
+    
+    msg = get_message(upto_message_id)
+    if not msg or msg.thread_id != thread_id:
+        logger.warning(f"Invalid upto_message_id {upto_message_id} for thread {thread_id}")
+        return None
+    
+    latest = get_latest_summary(thread_id)
+    if latest and int(latest.upto_message_id) >= upto_message_id:
+        logger.warning(f"Attempted to create summary with upto_message_id {upto_message_id} <= latest {latest.upto_message_id}")
+        return None
+    
+    try:
+        return _add_summary(thread_id, upto_message_id, content)
+    except IntegrityError as e:
+        logger.warning(f"Duplicate summary prevented for thread {thread_id}, message {upto_message_id}: {e}")
+        return None
 
 
 def _should_auto_rename_thread(thread_id: int) -> bool:
@@ -140,8 +160,8 @@ def api_post_message(thread_id: int, req: PostMessageRequest, token: Optional[st
             summary = _generate_summary(thread_id, am.id)
             if summary:
                 db_add_summary(thread_id=thread_id, upto_message_id=am.id, content=summary)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.exception(f"Summarization failed for thread {thread_id}, message {am.id}: {e}")
 
     try:
         if _should_auto_rename_thread(thread_id):
@@ -288,8 +308,8 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
                     summary = _generate_summary(thread_id, am.id)
                     if summary:
                         db_add_summary(thread_id=thread_id, upto_message_id=am.id, content=summary)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.exception(f"Summarization failed for thread {thread_id}, message {am.id}: {e}")
 
             try:
                 if _should_auto_rename_thread(thread_id):
