@@ -50,6 +50,7 @@ app/*.db
 auth.db
 app/alert.db
 user_data.json
+.llm_cache/
 
 # ---------- Patches / diffs ----------
 # Local patch/diff files created during development should not be tracked.

@@ -19,6 +19,38 @@ import json
 from datetime import datetime
 
 
+_GEMINI_WORKING_KEY_CACHE: Optional[str] = None
+
+
+def _get_gemini_working_key_file() -> Path:
+    """Return path to cache file for the last working Gemini key."""
+    root = Path(__file__).resolve().parents[2]
+    cache_dir = root / ".llm_cache"
+    cache_dir.mkdir(exist_ok=True)
+    return cache_dir / "gemini_working_key.txt"
+
+
+def _load_gemini_working_key() -> Optional[str]:
+    """Load the last working Gemini key from cache."""
+    try:
+        cache_file = _get_gemini_working_key_file()
+        if cache_file.exists():
+            key = cache_file.read_text(encoding="utf-8").strip()
+            return key if key else None
+    except Exception:
+        pass
+    return None
+
+
+def _save_gemini_working_key(key: str) -> None:
+    """Save the working Gemini key to cache."""
+    try:
+        cache_file = _get_gemini_working_key_file()
+        cache_file.write_text(key, encoding="utf-8")
+    except Exception:
+        pass
+
+
 def _load_dotenv_if_present() -> None:
     """Minimal .env loader from project root if env vars not already present."""
     # If any of the keys are explicitly present in the environment (even empty),
@@ -130,6 +162,7 @@ class LLMClient:
                     "client": client,
                     "model": model_name,
                     "base_url": provider_base_url,
+                    "api_key": provider_api_key,
                 }
             )
             self._log.debug(
@@ -153,7 +186,7 @@ class LLMClient:
         oa_key = os.getenv("OPENAI_API_KEY")
         oa_model = os.getenv("OPENAI_MODEL") or "gpt-4o-mini"
 
-        gemini_base = os.getenv("GEMINI_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta/openai/"
+         gemini_base = os.getenv("GEMINI_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta/openai/"
         if gemini_base and not gemini_base.endswith("/"):
             gemini_base = gemini_base + "/"
         gemini_model = os.getenv("GEMINI_MODEL") or "gemini-2.5-flash"
@@ -168,6 +201,10 @@ class LLMClient:
         gemini_key_3 = os.getenv("GEMINI_API_KEY_3")
         if gemini_key_3:
             gemini_keys.append(("gemini_3", gemini_key_3))
+        
+        working_gemini_key = _load_gemini_working_key()
+        if working_gemini_key and any(key == working_gemini_key for _, key in gemini_keys):
+            gemini_keys.sort(key=lambda x: (x[1] != working_gemini_key, gemini_keys.index(x)))
 
         # Registration priority: explicit args > OpenRouter > OpenAI > Gemini(s)
         if explicit_key:
@@ -186,12 +223,17 @@ class LLMClient:
 
         self._set_active_provider(0)
 
-    def _set_active_provider(self, index: int) -> None:
+     def _set_active_provider(self, index: int) -> None:
         provider = self._providers[index]
         self._active_index = index
         self.model = provider["model"]
         self._provider = provider["name"]
-        # preserve existing usage fields; just update provider/model
+        
+        if self._provider.startswith("gemini"):
+            api_key = provider.get("api_key")
+            if api_key:
+                _save_gemini_working_key(api_key)
+        
         prior = self.last_usage or {}
         self.last_usage = {**prior, "provider": self._provider, "model": self.model}
 
