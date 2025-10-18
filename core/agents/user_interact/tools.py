@@ -123,7 +123,7 @@ def list_market_data(search: Optional[str] = None, limit: int = 50) -> Dict[str,
         return {"error": str(e)}
 
 
-def list_inventory(search: str = "", limit: int = 10) -> Dict[str, Any]:
+def list_inventory(search: str = "", limit: int = 100) -> Dict[str, Any]:
     return list_inventory_items(search=search or None, limit=limit)
 
 
