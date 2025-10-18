@@ -51,14 +51,14 @@ if not exist "frontend\node_modules" (
 echo [OK] Dependencies ready
 echo.
 
-REM Start servers
+REM Start servers and capture PIDs
 echo Starting Backend API (port 8000)...
-start "Backend API" /MIN cmd /k "python -m uvicorn backend.main:app --reload --port 8000 --host 127.0.0.1"
+start "Backend API" /MIN cmd /c "python -m uvicorn backend.main:app --reload --port 8000 --host 127.0.0.1"
 
 timeout /t 3 /nobreak >nul
 
 echo Starting Frontend Dev Server (port 5173)...
-start "Frontend Dev" /MIN cmd /k "cd frontend && npm run dev"
+start "Frontend Dev" /MIN cmd /c "cd frontend && npm run dev"
 
 timeout /t 3 /nobreak >nul
 
@@ -81,11 +81,14 @@ if /I not "%STOP_INPUT%"=="S" goto :WAITSTOP
 :STOPALL
 
 echo Stopping servers...
-taskkill /F /T /FI "WINDOWTITLE eq Backend API" /IM cmd.exe >nul 2>&1
-taskkill /F /T /FI "WINDOWTITLE eq Frontend Dev" /IM cmd.exe >nul 2>&1
+taskkill /F /FI "WINDOWTITLE eq Backend API*" >nul 2>&1
+taskkill /F /FI "WINDOWTITLE eq Frontend Dev*" >nul 2>&1
+for /f "tokens=2" %%a in ('tasklist ^| findstr "uvicorn"') do taskkill /F /PID %%a >nul 2>&1
+for /f "tokens=2" %%a in ('netstat -ano ^| findstr ":8000.*LISTENING"') do taskkill /F /PID %%a >nul 2>&1
+for /f "tokens=2" %%a in ('netstat -ano ^| findstr ":5173.*LISTENING"') do taskkill /F /PID %%a >nul 2>&1
 timeout /t 1 /nobreak >nul
 echo Done. Closing...
-timeout /t 2 /nobreak >nul
+timeout /t 1 /nobreak >nul
 exit /b 0
 
 :WAITSTOP
