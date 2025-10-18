@@ -8,6 +8,8 @@ import { HelpModal } from './components/HelpModal'
 import { Toasts } from './components/Toasts'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { useSettings } from './stores/settingsStore'
+import { CatalogModal } from './components/CatalogModal'
+import { useCatalogStore } from './stores/catalogStore'
 
 const SettingsModal = lazy(() =>
   import('./components/SettingsModal').then((m) => ({ default: m.SettingsModal }))
@@ -16,6 +18,7 @@ const SettingsModal = lazy(() =>
 
 export default function App() {
   const { theme, settingsOpen, setSettingsOpen, ...settings } = useSettings()
+  const { catalogOpen, setCatalogOpen } = useCatalogStore()
   useEffect(() => {
     document.documentElement.classList.toggle('light', theme === 'light')
     localStorage.setItem('theme', theme)
@@ -37,6 +40,10 @@ export default function App() {
             onSettingsChange={(newSettings) => useSettings.getState().set(newSettings)}
           />
         </Suspense>
+        <CatalogModal
+          open={catalogOpen}
+          onOpenChange={setCatalogOpen}
+        />
         <Toasts />
       </div>
     </ErrorBoundary>

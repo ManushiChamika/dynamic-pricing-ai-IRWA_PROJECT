@@ -10,6 +10,7 @@ import {
 import { useConfirm } from '../stores/confirmStore'
 import { useAuthUser, useAuthActions } from '../stores/authStore'
 import { useSettings } from '../stores/settingsStore'
+import { useCatalogStore } from '../stores/catalogStore'
 
 export function Sidebar() {
   const threads = useThreadList()
@@ -103,15 +104,25 @@ export function Sidebar() {
         </div>
 
         <div className="border-t border-[var(--border-color)] pt-[var(--space-3)] flex flex-col gap-[var(--space-2)]">
-          <Button
-            variant="outline"
-            onClick={() => useSettings.getState().setSettingsOpen(true)}
-            className="flex items-center gap-2"
-            aria-label="Open settings"
-          >
-            <span>⚙️</span>
-            <span>Settings</span>
-          </Button>
+           <Button
+             variant="outline"
+             onClick={() => useCatalogStore.getState().setCatalogOpen(true)}
+             className="flex items-center gap-2"
+             aria-label="Open catalog"
+           >
+             <span>📦</span>
+             <span>Catalog</span>
+           </Button>
+
+           <Button
+             variant="outline"
+             onClick={() => useSettings.getState().setSettingsOpen(true)}
+             className="flex items-center gap-2"
+             aria-label="Open settings"
+           >
+             <span>⚙️</span>
+             <span>Settings</span>
+           </Button>
 
           {user && (
             <div className="px-3 py-2.5 bg-[var(--panel)] border border-[var(--border-color)] rounded-lg text-[var(--font-sm)]">

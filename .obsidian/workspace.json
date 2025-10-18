@@ -171,6 +171,8 @@
   },
   "active": "a6db50ab45cab173",
   "lastOpenFiles": [
+    "frontend/src/stores/catalogStore.ts",
+    "frontend/src/components/CatalogModal.tsx",
     "app/data.db",
     "frontend/src/components/CatalogUpload.tsx",
     "backend/routers/__pycache__/catalog.cpython-313.pyc",
@@ -180,8 +182,6 @@
     "temp_commit_diff.txt",
     "data/chat.db-journal",
     "frontend/vite.config.ts.timestamp-1760793289893-36918b6ca0796.mjs",
-    "data/market.db",
-    "data/market.db.backup",
     "WORKFLOW_ANALYSIS.md",
     "PRICING_OPTIMIZER_LLM_UPDATE.md",
     "LLM_CONNECTION_ANALYSIS_CORRECTED.md",
