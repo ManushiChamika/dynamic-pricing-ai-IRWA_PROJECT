@@ -1,10 +1,25 @@
 from datetime import datetime, timezone
+from typing import Optional
 from .repo import Repo
 from .schemas import RuleSpec, Alert
 from pydantic import ValidationError
 import logging
+import aiosqlite
 
 logger = logging.getLogger("alert_tools")
+
+async def _get_owner_id_for_sku(sku: str) -> Optional[str]:
+    try:
+        async with aiosqlite.connect("app/data.db") as db:
+            cur = await db.execute(
+                "SELECT owner_id FROM product_catalog WHERE sku=? LIMIT 1",
+                (sku,),
+            )
+            row = await cur.fetchone()
+            return str(row[0]) if row else None
+    except Exception as e:
+        logger.warning(f"Failed to fetch owner_id for SKU {sku}: {e}")
+        return None
 
 class Tools:
     def __init__(self, repo: Repo): self.repo = repo
@@ -155,18 +170,22 @@ async def execute_tool_call(tool_name: str, tool_args: dict, tools_instance: Too
         severity_map = {"LOW": "info", "MEDIUM": "warn", "HIGH": "crit"}
         severity = severity_map.get(severity_input, "warn")
         
-        logger.info(f"Creating alert: name={name}, severity={severity_input}->{severity}, sku={details.get('sku')}")
+        sku = details.get("sku", "UNKNOWN")
+        logger.info(f"Creating alert: name={name}, severity={severity_input}->{severity}, sku={sku}")
+        
+        owner_id = await _get_owner_id_for_sku(sku)
         
         now = datetime.now(timezone.utc)
         alert = Alert(
             id=f"a_{int(now.timestamp()*1000)}",
             rule_id="llm_agent",
-            sku=details.get("sku", "UNKNOWN"),
+            sku=sku,
             title=name,
             payload=details,
             severity=severity,
             ts=now,
-            fingerprint=f"llm_agent:{name}:{details.get('sku', 'UNKNOWN')}",
+            fingerprint=f"llm_agent:{name}:{sku}",
+            owner_id=owner_id,
         )
         
         incident = await tools_instance.repo.find_or_create_incident(alert)

@@ -1,8 +1,9 @@
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from types import SimpleNamespace
+import aiosqlite
 
 from .repo import Repo
 from .rules import RuleRuntime
@@ -182,6 +183,8 @@ Use your tools to investigate and take action."""
 
             sku = getattr(payload, "sku", "UNKNOWN")
             payload_dict = self._to_dict(payload)
+            
+            owner_id = await self._get_owner_id_for_sku(sku)
 
             alert = Alert(
                 id=f"a_{int(now.timestamp()*1000)}",
@@ -192,12 +195,26 @@ Use your tools to investigate and take action."""
                 severity=rule.spec.severity,
                 ts=now,
                 fingerprint=f"{rid}:{sku}",
+                owner_id=owner_id,
             )
 
             inc = await self._correlate(alert, rule)
             if not inc:
                 continue
             await self._deliver(inc, rule)
+    
+    async def _get_owner_id_for_sku(self, sku: str) -> Optional[str]:
+        try:
+            async with aiosqlite.connect("app/data.db") as db:
+                cur = await db.execute(
+                    "SELECT owner_id FROM product_catalog WHERE sku=? LIMIT 1",
+                    (sku,),
+                )
+                row = await cur.fetchone()
+                return str(row[0]) if row else None
+        except Exception as e:
+            self.logger.warning(f"Failed to fetch owner_id for SKU {sku}: {e}")
+            return None
 
     async def _correlate(self, alert, rule):
         from .correlate import Correlator

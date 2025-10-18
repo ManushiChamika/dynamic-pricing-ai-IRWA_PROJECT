@@ -313,7 +313,62 @@ export function PricesPanel() {
       </div>
       {!collapsed ? (
         <div className="grid gap-2">
-          {keys.length === 0 ? (
+          {incidents.filter(i => !incidentsBySku[i.sku] || keys.length === 0).length > 0 && (
+            <div className="space-y-2 mb-4">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Alerts
+              </div>
+              {incidents.filter(i => !incidentsBySku[i.sku] || keys.length === 0).map((incident) => {
+                const severity = SEVERITY_CONFIG[incident.severity]
+                const isLLM = incident.rule_id === 'llm_agent'
+                return (
+                  <div
+                    key={incident.id}
+                    className={`p-3 rounded-lg border-2 ${severity.bg} ${severity.text} border-current/40`}
+                  >
+                    <div className="flex items-start gap-2 mb-2">
+                      <span className="text-base">{severity.icon}</span>
+                      <div className="flex-1">
+                        <div className="font-semibold text-xs">{incident.title}</div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5">SKU: {incident.sku}</div>
+                        {isLLM && (
+                          <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-purple-500/30 text-purple-300 text-[10px] font-medium border border-purple-400/30 mt-1">
+                            <span>🤖</span>
+                            <span>AI</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => handleAlertClick(incident)}
+                        className="px-2 py-1 text-[10px] rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-colors flex-1"
+                      >
+                        Details
+                      </button>
+                      {incident.status === 'OPEN' && (
+                        <>
+                          <button
+                            onClick={() => acknowledgeIncident(incident.id)}
+                            className="px-2 py-1 text-[10px] rounded bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-colors flex-1"
+                          >
+                            Ack
+                          </button>
+                          <button
+                            onClick={() => resolveIncident(incident.id)}
+                            className="px-2 py-1 text-[10px] rounded bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors flex-1"
+                          >
+                            Resolve
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {keys.length === 0 && incidents.length === 0 ? (
             <div className="text-center py-12 px-6 text-muted text-base">Waiting for prices…</div>
           ) : null}
           {keys.map((k) => (
