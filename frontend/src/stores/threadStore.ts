@@ -7,7 +7,8 @@ export type ThreadsState = {
   threads: Thread[]
   currentId: number | string | null
   draftId: string | null
-  setCurrent: (id: number | string | null) => void
+  skipNextRefresh: boolean
+  setCurrent: (id: number | string | null, skipRefresh?: boolean) => void
   createDraftThread: () => void
   refresh: () => Promise<void>
   createThread: (title?: string) => Promise<number | null>
@@ -27,8 +28,9 @@ export const useThreads = create<ThreadsState>((set, get) => ({
   threads: [],
   currentId: null,
   draftId: null,
-  setCurrent: (id) => {
-    set({ currentId: id })
+  skipNextRefresh: false,
+  setCurrent: (id, skipRefresh = false) => {
+    set({ currentId: id, skipNextRefresh: skipRefresh })
     if (id && !String(id).startsWith(DRAFT_ID_PREFIX)) {
       localStorage.setItem('lastThreadId', String(id))
     }

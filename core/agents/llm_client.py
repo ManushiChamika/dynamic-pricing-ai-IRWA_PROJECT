@@ -204,7 +204,8 @@ class LLMClient:
         
         working_gemini_key = _load_gemini_working_key()
         if working_gemini_key and any(key == working_gemini_key for _, key in gemini_keys):
-            gemini_keys.sort(key=lambda x: (x[1] != working_gemini_key, gemini_keys.index(x)))
+            original_order = {item: idx for idx, item in enumerate(gemini_keys)}
+            gemini_keys.sort(key=lambda x: (x[1] != working_gemini_key, original_order[x]))
 
         # Registration priority: explicit args > OpenRouter > OpenAI > Gemini(s)
         if explicit_key:

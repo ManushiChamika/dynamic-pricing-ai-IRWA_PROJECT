@@ -118,7 +118,7 @@ export const useMessages = create<MessagesState>((set, get) => ({
         return
       }
       actualThreadId = newThreadId
-      threadsState.setCurrent(newThreadId)
+      threadsState.setCurrent(newThreadId, true)
     } else {
       actualThreadId = threadId as number
     }

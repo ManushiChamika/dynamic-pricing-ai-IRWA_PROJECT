@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { SCROLL_STICKY_THRESHOLD_PX } from '@/lib/constants'
 import { useMessages, useMessagesActions } from '../stores/messageStore'
-import { useCurrentThread } from '../stores/threadStore'
+import { useCurrentThread, useThreads } from '../stores/threadStore'
 import { useSettings, useDisplaySettings, useAppMode } from '../stores/settingsStore'
 import { useAuthToken } from '../stores/authStore'
 import { ChatHeader } from './ChatHeader'
@@ -41,7 +41,10 @@ export function ChatPane() {
   useEffect(() => {
     if (currentId) {
       const isDraft = String(currentId).startsWith('draft_')
-      if (!isDraft) {
+      const shouldSkip = useThreads.getState().skipNextRefresh
+      if (shouldSkip) {
+        useThreads.setState({ skipNextRefresh: false })
+      } else if (!isDraft) {
         refresh(currentId)
       } else {
         useMessages.setState({ messages: [] })

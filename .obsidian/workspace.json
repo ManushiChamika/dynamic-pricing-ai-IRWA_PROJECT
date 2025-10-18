@@ -171,6 +171,8 @@
   },
   "active": "a6db50ab45cab173",
   "lastOpenFiles": [
+    "frontend/vite.config.ts.timestamp-1760813614836-b66accfa4ea7d.mjs",
+    "frontend/vite.config.ts.timestamp-1760813356919-cd7fe1c703ec4.mjs",
     "frontend/vite.config.ts.timestamp-1760813194924-48dbe438f52b8.mjs",
     "frontend/vite.config.ts.timestamp-1760812882482-4e113f0d97486.mjs",
     "backend_test.log",
@@ -180,8 +182,6 @@
     "core/auth.db",
     "frontend/vite.config.ts.timestamp-1760810794384-a5df994941c1d.mjs",
     "frontend_dev.log",
-    "frontend/vite.config.ts.timestamp-1760810651053-09c087cdabe0f.mjs",
-    "frontend/vite.config.ts.timestamp-1760810083199-d920c1c5108a8.mjs",
     "WORKFLOW_ANALYSIS.md",
     "PRICING_OPTIMIZER_LLM_UPDATE.md",
     "LLM_CONNECTION_ANALYSIS_CORRECTED.md",
