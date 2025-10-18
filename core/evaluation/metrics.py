@@ -113,7 +113,7 @@ class BusinessImpactMetrics:
 class MetricsCalculator:
     """Main metrics calculation engine"""
     
-    def __init__(self, db_path: str = "data/market.db"):
+    def __init__(self, db_path: str = "app/data.db"):
         self.db_path = db_path
         self._ensure_database_schema()
     

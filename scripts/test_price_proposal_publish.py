@@ -30,9 +30,9 @@ async def main() -> int:
     ])
     print("import_product_catalog:", imp)
 
-    # Seed market.db with fresh competitor records for SKU-123 so optimizer can run
+    # Seed app/data.db with fresh competitor records for SKU-123 so optimizer can run
     try:
-        conn = sqlite3.connect("data/market.db")
+        conn = sqlite3.connect("app/data.db")
         cur = conn.cursor()
         cur.execute(
             "CREATE TABLE IF NOT EXISTS market_data (id INTEGER PRIMARY KEY AUTOINCREMENT, product_name TEXT NOT NULL, price REAL NOT NULL, update_time TEXT DEFAULT CURRENT_TIMESTAMP)"

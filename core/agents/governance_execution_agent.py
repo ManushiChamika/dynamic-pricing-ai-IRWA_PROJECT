@@ -19,8 +19,7 @@ def _utc_now_iso() -> str:
 
 
 def _market_db_path() -> Path:
-    # Standardize on data/market.db
-    return Path(__file__).resolve().parents[2] / "data" / "market.db"
+    return Path(__file__).resolve().parents[2] / "app" / "data.db"
 
 
 def _app_db_path() -> Path:

@@ -42,7 +42,7 @@ const streamingActive = useMessages(state => state.streamingActive)
 
 **Selectors Added:**
 - `useMessagesSelector` - Generic selector for custom state selection
-- `useMessagesActions()` - Returns only action methods (refresh, send, edit, del, branch, fork, stop)
+- `useMessagesActions()` - Returns only action methods (refresh, send, edit, del, branch, stop)
 - `useStreamingState()` - Returns streaming-related state (streamingActive, liveActiveAgent, liveTool, etc.)
 
 **Usage:**

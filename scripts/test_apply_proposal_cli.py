@@ -21,7 +21,7 @@ def _utc_now_iso() -> str:
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
     app_db = (root / "app" / "data.db").as_posix()
-    market_db = (root / "data" / "market.db").as_posix()
+    market_db = (root / "app" / "data.db").as_posix()
 
     # Find oldest pending proposal (no action row)
     conn = sqlite3.connect(app_db)
@@ -80,7 +80,7 @@ def main() -> int:
     )
     conn.commit()
 
-    # Upsert into market.db.pricing_list
+    # Upsert into app/data.db pricing_list
     mconn = sqlite3.connect(market_db)
     mcur = mconn.cursor()
     mcur.execute(

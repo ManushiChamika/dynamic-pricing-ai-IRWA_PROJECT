@@ -64,7 +64,7 @@ class PricingOptimizerAgent:
         root = Path(__file__).resolve().parents[3]
         self.db = _DBPaths(
             app_db=app_db or (root / "app" / "data.db"),
-            market_db=market_db or (root / "data" / "market.db"),
+            market_db=market_db or (root / "app" / "data.db"),
         )
         
         self.llm_brain = None

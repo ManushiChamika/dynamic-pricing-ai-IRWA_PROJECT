@@ -9,10 +9,9 @@ import { useCurrentThread } from '../stores/threadStore'
 import { usePrompt } from '../stores/promptStore'
 import { useConfirm } from '../stores/confirmStore'
 import { useToasts } from '../stores/toastStore'
-import { useThreads } from '../stores/threadStore'
 
 function MessageActionsComponent({ m }: { m: Message }) {
-  const { del, edit, branch, fork, refresh } = useMessagesActions()
+  const { del, edit, branch, refresh } = useMessagesActions()
   const streamingActive = useMessages((state) => state.streamingActive)
   const currentId = useCurrentThread()
 
@@ -61,24 +60,7 @@ function MessageActionsComponent({ m }: { m: Message }) {
     })
   }
 
-  const handleFork = async () => {
-    if (!currentId) return
-    usePrompt.getState().openPrompt({
-      title: 'Fork thread title',
-      defaultValue: `Fork of #${currentId} at message ${m.id}`,
-      textarea: false,
-      confirmText: 'Fork',
-      onSubmit: async (title) => {
-        if (!title.trim()) return
-        const newId = await fork(currentId, m, title)
-        if (newId) {
-          useThreads.getState().setCurrent(newId)
-          await useThreads.getState().refresh()
-          useToasts.getState().push({ type: 'success', text: `Forked to thread #${newId}` })
-        }
-      },
-    })
-  }
+
 
   return (
     <div className="flex gap-1.5 mt-2 opacity-0 transition-opacity duration-200 hover:opacity-100">
@@ -119,15 +101,6 @@ function MessageActionsComponent({ m }: { m: Message }) {
         aria-label="Branch conversation here"
       >
         Branch
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={handleFork}
-        disabled={streamingActive}
-        aria-label="Fork new thread from here"
-      >
-        Fork
       </Button>
     </div>
   )

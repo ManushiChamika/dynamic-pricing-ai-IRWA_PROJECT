@@ -39,7 +39,7 @@ class UserInteractionAgent:
         # Resolve DB paths
         root = Path(__file__).resolve().parents[3]
         self.app_db = root / "app" / "data.db"
-        self.market_db = root / "data" / "market.db"
+        self.market_db = root / "app" / "data.db"
         # Last-inference metadata (populated on LLM calls)
         self.last_model = None
         self.last_provider = None
@@ -887,15 +887,81 @@ class UserInteractionAgent:
 
                     # Minimal tool schema to enable agent/tool streaming awareness
                     tools = [
-                        {"type": "function", "function": {"name": "optimize_price", "parameters": {"type": "object", "properties": {"sku": {"type": "string"}}, "required": ["sku"]}}},
-                        {"type": "function", "function": {"name": "list_inventory", "parameters": {"type": "object", "properties": {"search": {"type": "string"}, "limit": {"type": "integer"}}}}},
-                        {"type": "function", "function": {"name": "list_market_prices", "parameters": {"type": "object", "properties": {"search": {"type": "string"}, "limit": {"type": "integer"}}}}},
-                        {"type": "function", "function": {"name": "list_proposals", "parameters": {"type": "object", "properties": {"sku": {"type": "string"}, "limit": {"type": "integer"}}}}},
-                        {"type": "function", "function": {"name": "execute_sql", "parameters": {"type": "object", "properties": {"database": {"type": "string"}, "query": {"type": "string"}}, "required": ["database", "query"]}}},
-                        {"type": "function", "function": {"name": "run_pricing_workflow", "parameters": {"type": "object", "properties": {"sku": {"type": "string"}}}}},
-                        {"type": "function", "function": {"name": "collect_market_data", "parameters": {"type": "object"}}},
-                        {"type": "function", "function": {"name": "scan_for_alerts", "parameters": {"type": "object"}}},
-                        {"type": "function", "function": {"name": "request_market_fetch", "parameters": {"type": "object"}}},
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "list_inventory_items",
+                                "description": "List items from the local product catalog (app/data.db). Use for inventory overviews.",
+                                "parameters": {
+                                    "type": "object",
+                                    "properties": {
+                                        "search": {"type": "string", "description": "Filter by substring in SKU or title."},
+                                        "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
+                                    },
+                                    "additionalProperties": False,
+                                },
+                            },
+                        },
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "get_inventory_item",
+                                "description": "Get a single inventory item by SKU from app/data.db/product_catalog.",
+                                "parameters": {
+                                    "type": "object",
+                                    "properties": {
+                                        "sku": {"type": "string", "description": "Item SKU (exact match)"},
+                                    },
+                                    "required": ["sku"],
+                                    "additionalProperties": False,
+                                },
+                            },
+                        },
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "list_pricing_list",
+                                "description": "List current market pricing entries from market.db/pricing_list.",
+                                "parameters": {
+                                    "type": "object",
+                                    "properties": {
+                                        "search": {"type": "string", "description": "Filter by substring in product_name."},
+                                        "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
+                                    },
+                                    "additionalProperties": False,
+                                },
+                            },
+                        },
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "list_price_proposals",
+                                "description": "List recent price proposals from app/data.db/price_proposals.",
+                                "parameters": {
+                                    "type": "object",
+                                    "properties": {
+                                        "sku": {"type": "string", "description": "Optional filter by SKU"},
+                                        "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
+                                    },
+                                    "additionalProperties": False,
+                                },
+                            },
+                        },
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "list_market_data",
+                                "description": "List products from market.db (market research data). Use this to find products by brand or name in market data.",
+                                "parameters": {
+                                    "type": "object",
+                                    "properties": {
+                                        "search": {"type": "string", "description": "Filter by substring in product_name or brand."},
+                                        "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
+                                    },
+                                    "additionalProperties": False,
+                                },
+                            },
+                        },
                     ]
 
                     # Map tool name to agent label for UI badges

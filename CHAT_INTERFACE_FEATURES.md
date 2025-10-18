@@ -55,7 +55,6 @@ Multi-agent LLM-powered dynamic pricing system with an advanced chat interface b
 - Keyboard shortcuts: Ctrl+[ (prev branch), Ctrl+] (next branch)
 - Highlight animation when navigating to messages
 - "Branch" button to create alternative conversation paths
-- "Fork" button to create new thread from a specific point
 
 ### ✅ 5. Agent Visualization
 - **AgentBadge Component** with color-coded badges
@@ -311,9 +310,7 @@ npm run build
 - [ ] Edit messages (creates branches)
 - [ ] Delete messages
 - [ ] Copy messages
-
-### Branching
-- [ ] Edit message to create branch
+- [ ] Branch from any message
 - [ ] Branch indicator appears
 - [ ] Navigate between branches with arrows
 - [ ] Quick jump to specific branches

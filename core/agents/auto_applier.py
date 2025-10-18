@@ -30,7 +30,7 @@ class AutoApplier:
 
     Behavior:
       - Always logs a decision into app/data.db `decision_log` before applying
-      - If auto-apply enabled and guardrails pass: apply to market.db/pricing_list
+      - If auto-apply enabled and guardrails pass: apply to app/data.db/pricing_list
         and publish price.update with actor="governance".
       - If not enabled or guardrails fail: log AWAITING_MANUAL_APPROVAL, no apply.
     """
@@ -61,7 +61,7 @@ class AutoApplier:
         return Path(__file__).resolve().parents[2] / "app" / "data.db"
 
     def _market_path(self) -> Path:
-        return Path(__file__).resolve().parents[2] / "market.db"
+        return Path(__file__).resolve().parents[2] / "app" / "data.db"
 
     def _load_settings(self, conn: sqlite3.Connection) -> tuple[bool, float, float]:
         cur = conn.cursor()

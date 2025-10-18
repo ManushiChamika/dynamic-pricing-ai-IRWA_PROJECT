@@ -8,12 +8,18 @@ export async function loadThreads(): Promise<Thread[]> {
 }
 
 export async function createThread(title?: string): Promise<number | null> {
-  const { ok, data } = await api('/api/threads', {
-    method: 'POST',
-    json: { title: title || 'New Thread' },
-  })
-  if (ok && data?.id) return data.id
-  return null
+  try {
+    const { ok, data, status } = await api('/api/threads', {
+      method: 'POST',
+      json: { title: title || 'New Thread' },
+    })
+    if (ok && data?.id) return data.id
+    console.error('Failed to create thread:', status, data)
+    return null
+  } catch (error) {
+    console.error('Network error creating thread:', error)
+    return null
+  }
 }
 
 export async function deleteThread(id: number): Promise<void> {
