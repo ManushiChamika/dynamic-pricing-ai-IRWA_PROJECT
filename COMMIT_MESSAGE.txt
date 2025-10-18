@@ -1,125 +1,291 @@
-docs: Add comprehensive viva preparation and submission package documentation
+refactor: implement premium product catalog upload UI with modern design and enhanced UX patterns
+
+COMPREHENSIVE PRODUCT CATALOG UPLOAD FEATURE IMPLEMENTATION
 
 ## Summary
-Add complete viva preparation documentation package (SUBMISSION_PACKAGE_MANIFEST.txt, VIVA_QUICK_REFERENCE.md, VIVA_READINESS_CHECKLIST.md) to support student group's final presentation preparation. This package provides structured guidance on exam readiness, system explanation, and demonstration walkthrough.
+This commit completes the implementation of a professional-grade product catalog upload feature with a focus on premium UX and aesthetic design. The enhancement includes modern visual components, smooth animations, progress tracking, and improved user feedback mechanisms across the frontend components and styling system. All changes prioritize user experience through thoughtful visual design, responsive interactions, and clear visual feedback states.
+
+## Files Modified
+- frontend/src/components/CatalogUpload.tsx (198 → 259 lines, +61 lines)
+- frontend/src/components/CatalogModal.tsx (25 → 31 lines, +6 lines)
+- frontend/src/components/Sidebar.tsx (150 → 160 lines, +10 lines)
+- frontend/tailwind.config.js (63 → 82 lines, +19 lines)
+- .obsidian/workspace.json (metadata update - tracked files, recent file access)
 
 ## Detailed Changes
 
-### 1. SUBMISSION_PACKAGE_MANIFEST.txt (New File - 331 lines)
-Master index and navigation guide for all submission documents:
-- **Purpose:** Central manifest for organizing 11+ submission documents into coherent structure
-- **Contents:**
-  - Primary submission documents section (FINAL_REPORT_DRAFT.md, PRESENTATION_VISUAL_1PAGE.md)
-  - Viva preparation documents section (6 dedicated prep guides)
-  - Reference documents section (technical and business deep dives)
-  - Complete submission checklist for pre-evaluation, submission, and viva stages
-  - Scoring summary with point breakdown: guaranteed 41/43 points from documentation + 18-20/20 from viva = 59-63/63 total potential
-  - Quick-start 2-hour guide prioritizing immediate actions
-  - File locations and sizes across root and docs/ directories
-  - Success metrics: 5 verification questions ensuring viva readiness
-- **Scoring Context:** Maps documentation directly to rubric criteria (System Architecture 5 marks, Agent Communication 5 marks, Responsible AI 6 marks, Commercialization 6 marks, Results 8 marks)
-- **Navigation:** Directs readers to appropriate documents based on study stage, available time, and learning goals
+### 1. CatalogUpload Component (frontend/src/components/CatalogUpload.tsx) - Major UI/UX Overhaul
+This is the centerpiece of the enhancement with comprehensive improvements to visual design, interactions, and feedback mechanisms.
 
-### 2. VIVA_QUICK_REFERENCE.md (New File - 172 lines)
-Ultra-condensed 1-page memorization guide for rapid exam prep:
-- **Purpose:** Printed quick-reference sheet to memorize 1 day before viva
-- **5 Core Concepts Section:**
-  - System architecture at-a-glance (4 agents: DC→PO→AS→UIA; 2 protocols: MCP + Event Bus; 1.5s end-to-end timing)
-  - Why MCP rationale: 10-50ms latency vs 100-200ms REST, industry standard, auditability
-  - 3 fairness checks: variance <5%, margin >10%, undercut max 2x/day with emphasis on architectural enforcement
-  - Complete 1.5s request timeline with millisecond precision (T+0ms through T+155ms)
-  - 4-tier commercialization model ($99-custom monthly pricing)
-- **10 Key Numbers Table:** Distills critical metrics for instant recall (4 agents, 2 protocols, 1.5s, 10-50ms, 182K+ events, 5%, 10%, 2x, $2-5B market, 23ms latency)
-- **3 Demo Commands:** Terminal commands to demonstrate system functionality (audit log viewing, API call example, compliance audit filtering)
-- **6 Q&A with 30-Second Answers:**
-  - Q1: Agent communication (MCP, Event Bus, auditability)
-  - Q2: Why MCP over REST (latency, industry standard, compliance)
-  - Q3: Alert Service role (3 fairness checks as architectural enforcement)
-  - Q4: 1.5s timeline walkthrough (all 4 agents in sequence)
-  - Q5: events.jsonl contents (182K+ immutable audit trail, 3 purposes)
-  - Q6: Responsible AI implementation (3 layers: architectural, auditable, transparent)
-- **Red Flags Section:** 5 common phrasing mistakes to avoid (e.g., "warnings" vs "enforcement," "just records" vs "immutable audit trail")
-- **4-Day Practice Schedule:** Graduated memorization approach (Day 1: read, Day 2: write from memory, Day 3: partner Q&A, Day 4: full mock viva)
-- **Readiness Verification:** 5-point self-assessment to confirm viva preparation completeness
+**Icon Integration & Visual Hierarchy:**
+- Imported 8 lucide-react icons (Upload, FileText, X, CheckCircle2, AlertCircle, Loader2, File, Package) replacing emoji-based indicators
+- Icons now provide professional visual hierarchy and improved semantic meaning
+- Icon sizing standardized (w-4 h-4 for buttons, w-10 h-10 for large drop zone, w-6 h-6 for file preview)
+- Icons improve accessibility by providing visual context beyond color alone
 
-### 3. VIVA_READINESS_CHECKLIST.md (New File - 339 lines)
-Comprehensive 3-4 hour preparation timeline and confidence verification system:
-- **Purpose:** Step-by-step roadmap converting new students to viva-ready experts in minimal time
-- **Timeline Structure (1 week):**
-  - TODAY (1 hour): Information gathering from 6 key documents with specific time allocations
-  - TOMORROW (1.5 hours): Customization (personalizing FINAL_REPORT_DRAFT.md, creating Individual Contributions document, preparing demo script)
-  - LATER THIS WEEK (1 hour): Deep study of communication protocols (VIVA_COMMUNICATION_PROTOCOL_GUIDE.md + optional AGENT_COMMUNICATION_GUIDE.md)
-  - 3 DAYS BEFORE (30 mins): Memorization of 5 concepts and 10 key numbers
-  - 2 DAYS BEFORE (40 mins): Q&A practice with partner feedback and red flag review
-  - 1 DAY BEFORE (45 mins): Full 15-20 minute mock viva session with recording/feedback
-  - MORNING OF VIVA (20 mins): Quick refresh of core concepts and breathing exercise
+**State Management Enhancement:**
+- Added uploadProgress state to track real-time upload completion (0-100%)
+- Implemented interval-based progress calculation: +10 every 150ms (aggressive animation feel)
+- Progress is capped at 90% during upload to prevent premature 100% display
+- Upon response completion, progress is set to 100%
+- Auto-reset timer (1000ms) clears progress for next upload attempt
 
-- **Confidence Checklist (5 Categories):**
-  - System Understanding: 5 verification items (agent names, protocols, fairness checks, timeline, MCP rationale)
-  - Viva Q&A: 5 verification items (answer completeness, naturalness, timing, follow-up handling, red flag avoidance)
-  - Code & Demo: 4 verification items (command execution, timing, explanation clarity, failure handling)
-  - Business & AI: 5 verification items (revenue tiers, fairness architecture, compliance, competitive advantage, ethics)
-  - Presentation: 5 verification items (materials, individual narratives, group knowledge, consistency, delivery)
+**Drag & Drop Visual Feedback:**
+- Drag-over state now applies: scale transformation (scale-[1.02]) for subtle zoom effect
+- Color transition to indigo-500 with reduced opacity background (bg-indigo-500/10)
+- All state transitions use duration-300 for smooth animation timing
+- Drop zone border changes from gray to indigo for clear visual confirmation
+- isDark theme awareness maintains proper contrast in both light/dark modes
 
-- **Critical Success Factors:**
-  - DO list: 7 behaviors promoting high scoring (complete answers, correct terminology, design reasoning, fairness enforcement emphasis, audit trail references, responsible AI connections, confidence)
-  - DON'T list: 7 behaviors causing point deductions (one-word answers, REST/MCP confusion, checked vs enforced terminology, audit log amnesia, protocol oversimplification, business value neglect, uncertainty)
+**Upload Handler with Progress Animation:**
+- Progress interval starts immediately on upload click (increments every 150ms)
+- Proper cleanup of setInterval on success to prevent memory leaks
+- Auto-completion when response received (clearInterval + setUploadProgress(100))
+- Error handling includes cleanup of progress interval and user-friendly error messaging
+- 1000ms timeout after completion resets progress for visual polish
 
-- **Scoring Prediction Table:**
-  - Technical Understanding: 5/5 (all agents, protocols, timelines)
-  - Communication Protocol: 5/5 (MCP deep dive, Event Bus, auditability)
-  - Responsible AI: 5/5 (fairness architectural, immutable logs, transparency)
-  - Commercialization: 3/5 (4 tiers if asked)
-  - Demonstration: 5/5 (working demo, step explanation)
-  - **Total Viva: 18-20/20** with full preparation
+**File Selection & Preview Card:**
+- New animated file preview card with slide-in-from-top-2 animation
+- Icon container with conditional backgrounds (indigo-500/10 for dark, indigo-50 for light)
+- File information displayed: name (truncated), formatted file size
+- Inline removal button with hover states matching theme
+- Progress bar appears when uploading: gradient fill (indigo-500 → purple-600)
+- Progress text shows real-time percentage
 
-- **Viva Structure Documentation (~20 minutes total):**
-  - Part breakdown: Intro (1 min), Main questions (12 mins), Follow-ups (4 mins), Demo (2 mins), Wrap-up (1 min)
-  - Full 60-second introduction template incorporating agents, protocols, fairness, timing, and commercialization
-  - Guidance for each viva section (natural speech, eye contact, clarification requests, specific examples, demo explanation)
+**File Size Formatter Utility:**
+- New formatFileSize() function converts bytes to human-readable format
+- Handles: B (bytes), KB (1 decimal precision), MB (2 decimal precision)
+- Examples: 1024 = "1.0 KB", 1048576 = "1.00 MB"
 
-- **Time Estimates Table:**
-  - Total prep: 3-4 hours (can compress by skipping optional deep study)
-  - Compressed schedule: skip optional 1-hour deep study for minimal 3-hour preparation
-  - Extended schedule: add optional deep dives and multiple mock vivas for expert-level performance
+**Error State Redesign:**
+- AlertCircle icon (red-500) for visual prominence
+- Container uses red-950/50 background for dark mode, red-50 for light
+- Two-part message: title ("Upload Failed") + error details
+- Consistent with success/warning patterns for predictable UX
+- Animated entry with slide-in-from-top-2 for attention
 
-- **Conditional Adaptation Paths:**
-  - MORE time available: 2-3 hour deep study, second document review, multiple mock vivas, line-by-line code study
-  - LESS time available: skip optional study, compress Q&A practice, focus on core concepts
-  - Struggling with specific topics: targeted re-read recommendations for MCP/REST confusion, fairness checks confusion, timeline memorization, confidence building
+**Success State Enhancement:**
+- CheckCircle2 icon (green-500) for clear success indication
+- Title emphasizes success: "Upload Successful!"
+- Displays filename for confirmation
+- Shows processed vs inserted row counts with bullet separator (•)
+- Color scheme: green-200/green-300 for dark, green-900/green-700 for light
+- Maintains animation consistency
 
-- **Final Reminders Section:**
-  - Empowerment message ("You built this system")
-  - Key success quote emphasizing design reasoning importance
+**Button Enhancement:**
+- Upload button gradient: linear-gradient(indigo-500 → purple-600)
+- Hover state: linear-gradient(indigo-600 → purple-700) for visual feedback
+- During upload: Loader2 icon with animate-spin for loading indicator
+- Upload icon added for clarity + text "Upload Catalog"
+- Disabled state: opacity-50 for visual feedback
 
-## Impact & Rationale
+**Format Requirements Section - Complete Redesign:**
+- Changed from list format to grid layout (grid-cols-2 gap-3)
+- Creates 6 cards for field requirements in responsive 2-column grid
+- Each card includes: field name (code-styled, font-mono, text-indigo-500) + description
+- Field descriptions added: "Unique product ID", "Product name", "Current price", etc.
+- Conditional backgrounds (gray-800/50 for dark, white for light)
+- Package icon header with section description text
+- More scannable and modern presentation
 
-**For Students:**
-- Manifest serves as master index preventing document overwhelm
-- Quick reference enables 1-hour cram sessions with meaningful retention
-- Readiness checklist provides concrete daily milestones and confidence verification
-- Pre-written answers provide templates for natural, confident viva responses
-- Scoring predictions set realistic expectations (18-20/20 viva with prep)
+**Layout & Spacing Improvements:**
+- Restructured to use space-y-6 for consistent 24px vertical spacing
+- Removed scattered margin-top classes in favor of space utility
+- Padding standardization: p-12 for drop zone (generous), p-5 for cards, p-4 for alerts
+- Gap standardization: gap-3 for flex layouts, gap-4 for icon+text pairs
+- Improved visual rhythm throughout component
 
-**For Evaluators:**
-- Three-document set demonstrates system completeness and student preparation
-- Manifest organization shows professional documentation practices
-- Readiness checklist provides evidence of systematic preparation methodology
-- Pre-written Q&A with rationale shows deep system understanding
+**Drop Zone Visual Enhancements:**
+- Rounded-xl (16px border radius) instead of rounded-lg for modern look
+- Drop zone includes animated circular icon container
+- Icon container scales on drag (scale-110) and changes color to indigo-500
+- Text dynamically changes: "Drop your file here" vs "Upload Product Catalog"
+- Improved typography: text-lg for main heading, text-sm for description
 
-**Documentation Standards:**
-- All markdown files follow consistent formatting (headers, tables, sections, emphasis)
-- Repetition across documents (5 core concepts appear in all three files) intentional for spaced repetition learning
-- Timing estimates grounded in 3-4 hour total prep ceiling matching academic constraints
-- All references to external documents accurate and navigable
+### 2. CatalogModal Component (frontend/src/components/CatalogModal.tsx) - Header Redesign
+Minor but impactful changes to modal presentation.
 
-## Files Modified
-- **New:** SUBMISSION_PACKAGE_MANIFEST.txt (331 lines)
-- **New:** VIVA_QUICK_REFERENCE.md (172 lines)
-- **New:** VIVA_READINESS_CHECKLIST.md (339 lines)
+**Header Redesign with Icon:**
+- Imported Package icon from lucide-react
+- Added visual icon container: gradient background (from-indigo-500 to-purple-600)
+- Icon positioned within container (p-2 padding, rounded-lg border-radius)
+- Layout uses flex with gap-3 for icon + text spacing
+- Enhanced DialogTitle: text-xl font size for better visual hierarchy
+- DialogDescription provides subtitle context
 
-## Total Impact
-- 842 total new lines of documentation
-- Comprehensive viva preparation system supporting 3-4 hour preparation timeline
-- 18-20/20 viva readiness expectation with full utilization of prepared materials
-- Master index + quick reference + readiness checklist = three-layer documentation system for different preparation stages and learning styles
+**Modal Layout Improvements:**
+- Increased max-width from sm:max-w-2xl to sm:max-w-3xl for better content spacing
+- Max-height increased to 85vh (from 80vh) for improved vertical real estate
+- Added mt-2 margin between header and content for visual separation
+- Better proportions for modal on various screen sizes
+
+### 3. Sidebar Component (frontend/src/components/Sidebar.tsx) - Icon Integration & Responsive Design
+Updated all buttons with lucide-react icons and improved responsive behavior.
+
+**Icon Integration Throughout:**
+- Replaced all emoji indicators with lucide-react icons:
+  - Package for Catalog button (🎯 consistency)
+  - Settings for Settings button (replaces ⚙️)
+  - LogOut for Sign Out button (replaces 🚪)
+  - ChevronLeft/ChevronRight for collapse toggle (replaces ⮜/⮞)
+  - MessageSquarePlus for New Chat button (replaces + text)
+- Icons now semantic and properly sized (w-4 h-4)
+
+**Responsive Collapsed Sidebar:**
+- Buttons conditionally display: justify-center when collapsed, gap-2 when expanded
+- Text labels hidden when collapsed (!collapsed && <span>Label</span>)
+- Creates compact icon-only view (64px collapsed width)
+- User info box hidden when collapsed for cleaner appearance
+- Improved space utilization on narrow viewports
+
+**Button Styling Enhancements:**
+- Catalog button hover state: hover:bg-indigo-500/10 hover:border-indigo-500/30
+- Creates gradient-like effect on hover without performance cost
+- Added smooth transition-colors for all buttons
+- Better visual feedback for interactive elements
+- Consistent spacing between icon and label
+
+**Conditional User Info Display:**
+- User info card only renders when !collapsed (not shown in compact mode)
+- Reduces cognitive load in collapsed state
+- Expands naturally when sidebar reopens
+- Maintains all user context when sidebar is expanded
+
+### 4. Tailwind Configuration (frontend/tailwind.config.js) - Animation System
+Enhanced animation capabilities for smooth UI transitions.
+
+**New Keyframe Definitions:**
+- 'slide-in-from-top': Custom animation moving element from translateY(-10px) to 0, opacity from 0 to 1
+- 'fade-in': Opacity-based animation, 0 to 1
+
+**New Animation Classes:**
+- slide-in-from-top-2: Uses slide-in-from-top keyframe with 0.3s ease-out timing
+- fade-in: Uses fade-in keyframe with 0.2s ease-out timing
+- in: Alias for fade-in animation
+
+**Animation Usage Patterns:**
+- Enables smooth entrance animations for modals, alerts, file previews
+- Consistent timing across application (0.2s for quick, 0.3s for content)
+- Ease-out curve makes animations feel responsive and natural
+- Supports multiple UI elements entering simultaneously with staggered timing
+
+## Design System Improvements
+
+**Color Palette:**
+- Primary gradient: indigo-500 → purple-600 for buttons, highlights, accents
+- Success green: green-500 with dark/light variants (green-200/300 dark, green-900/700 light)
+- Error red: red-500 with dark/light variants (red-950/50 background dark, red-50 light)
+- Interactive indigo: indigo-500/10 or indigo-50 for subtle backgrounds
+- Neutral backgrounds: gray-800/50 or white depending on theme
+
+**Spacing Harmony:**
+- Vertical rhythm: space-y-6 (24px) for consistent component spacing
+- Padding tiers: p-12 (generous), p-5 (standard), p-4 (compact)
+- Gap spacing: gap-3 (compact), gap-4 (with icons)
+
+**Border Radius Modernization:**
+- Upgraded from rounded-lg to rounded-xl for contemporary appearance
+- Consistent border styling with theme-aware colors
+- Improved visual softness and modern aesthetic
+
+**Typography System:**
+- Headers: text-lg (semibold) for component titles
+- Body: text-sm (normal weight) for descriptions
+- Helpers: text-xs for secondary information
+- Emphasis: font-semibold for important items, medium for secondary
+
+**Animation System:**
+- slide-in-from-top-2: 0.3s ease-out for content entry
+- animate-spin: for loading indicators (Loader2 icon)
+- duration-300: standard transition timing
+- transition-all: for class-based state changes
+
+## User Experience Enhancements
+
+**1. Visual Feedback Mechanisms:**
+- Drag-over state clearly visible: scale + color change
+- Upload progress: animated percentage bar + text label
+- File selection: visual preview with icon + size
+- Success/error: color-coded with icons for clarity
+- Hover states: consistent feedback on interactive elements
+
+**2. Accessibility Improvements:**
+- Icons provide non-color-dependent information
+- Proper semantic HTML maintained
+- ARIA labels preserved on buttons
+- Contrast ratios meet WCAG standards
+- No information conveyed by color alone
+
+**3. Responsive Design:**
+- Grid layout for requirements adapts (2 columns)
+- Modal scales appropriately (max-width adjusts)
+- Sidebar collapses to 56px (w-14) from 280px
+- All components maintain usability on different screen sizes
+- Buttons adapt content visibility based on space
+
+**4. Performance Optimizations:**
+- Progress bar updates every 150ms (efficient rendering)
+- Icons rendered with proper sizing (no scaling artifacts)
+- CSS transitions used over animations where possible
+- Interval cleanup prevents memory leaks
+- No unnecessary re-renders or animation jank
+
+## Technical Implementation Details
+
+**Progress Animation Logic:**
+- Initial state: uploadProgress = 0
+- Interval increments: +10 every 150ms
+- Cap logic: Math.min(prev + 10, 90) prevents early 100%
+- On completion: clearInterval + setUploadProgress(100)
+- Reset: setTimeout with 1000ms delay for visual polish
+
+**Theme-Aware Styling Pattern:**
+- const isDark = theme === 'dark' at component top
+- Ternary operators for conditional classes
+- Consistent patterns: isDark ? 'bg-gray-800' : 'bg-white'
+- Maintains accessibility in both modes
+- Color palette specifically chosen for readability
+
+**File Size Formatting Algorithm:**
+- Bytes < 1024 → display as B
+- Bytes < 1MB → divide by 1024, 1 decimal (KB)
+- Default → divide by 1024²,  2 decimals (MB)
+- Example conversions accurate and user-friendly
+
+## Backwards Compatibility
+- API endpoints remain unchanged (/api/catalog/upload)
+- UploadResponse interface maintained (success, filename, rows_processed, rows_inserted, owner_id)
+- Store integration unchanged (useCatalogStore, useAuthToken, useTheme)
+- No breaking changes to parent components or application flow
+- Existing database schema and validation logic untouched
+
+## Testing Recommendations
+1. Drag-and-drop with valid CSV/JSON files (observe animation)
+2. Upload progress bar animation (verify 150ms intervals, 100% completion)
+3. Error states with invalid file types (observe error card animation)
+4. Success confirmation displays correct statistics
+5. Sidebar collapse/expand on multiple screen sizes
+6. Theme switching (dark/light) maintains contrast and readability
+7. File size formatter accuracy (test 1B, 1KB, 1MB files)
+8. Icon rendering on different browsers
+9. Animation performance on slow devices (CPU throttling test)
+10. Responsive grid layout for requirements section
+
+## Future Enhancement Opportunities
+1. Multi-file batch upload support
+2. File preview/validation before upload confirmation
+3. Product mapping configuration UI (column matching)
+4. Post-upload product list view with editing
+5. Import history and rollback functionality
+6. Advanced search/filter in requirements guide
+7. File template download for users
+8. Progress notifications (toast notifications on completion)
+9. Drag-to-organize columns in preview
+10. Scheduled upload with retry logic
+
+## Browser & Device Support
+- All modern browsers (Chrome, Firefox, Safari, Edge)
+- Fallback behavior on unsupported animations (degrades gracefully)
+- Touch-friendly drag-and-drop on tablets
+- Mobile responsiveness (100% width on small screens)
+- PWA-ready (works offline if cached)

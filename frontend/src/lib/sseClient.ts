@@ -17,6 +17,7 @@ export type SSEUpdateCallback = (update: {
     agents?: string[]
     tools?: string[]
   }
+  threadRenamed?: { thread_id: number; title: string }
   done?: boolean
 }) => void
 
@@ -102,7 +103,8 @@ export async function streamMessage(
             const tool = obj.name || obj.tool || ''
             const status = obj.status || ''
             if (tool) {
-              const toolStatus = status === 'start' ? 'running' : status === 'end' ? 'done' : 'running'
+              const toolStatus =
+                status === 'start' ? 'running' : status === 'end' ? 'done' : 'running'
               onUpdate({ tool: { name: tool, status: toolStatus } })
             }
           } catch {
@@ -161,6 +163,18 @@ export async function streamMessage(
           } catch {
             /* ignore */
           }
+        }
+
+        if (ev === 'thread_renamed' && data) {
+          try {
+            const obj = JSON.parse(data)
+            if (obj.thread_id && obj.title) {
+              onUpdate({ threadRenamed: { thread_id: obj.thread_id, title: obj.title } })
+            }
+          } catch {
+            /* ignore */
+          }
+          continue
         }
       }
     }

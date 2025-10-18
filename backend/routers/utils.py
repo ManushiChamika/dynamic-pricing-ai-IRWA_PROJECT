@@ -173,7 +173,114 @@ def generate_summary(thread_id: int, upto_message_id: int) -> Optional[str]:
         content = llm.chat([
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},
-        ], max_tokens=220, temperature=0.2)
-        return content
+         ], max_tokens=220, temperature=0.2)
+         return content
+     except Exception:
+         return None
+
+
+def count_user_messages_since(thread_id: int, since_message_id: Optional[int] = None) -> int:
+    msgs = get_thread_messages(thread_id)
+    if since_message_id is not None:
+        msgs = [m for m in msgs if m.id > since_message_id]
+    return len([m for m in msgs if m.role == "user"])
+
+
+def estimate_tokens(text: str) -> int:
+    return max(1, len(text.split()) // 0.75)
+
+
+def should_auto_rename_thread(thread_id: int) -> bool:
+    msgs = get_thread_messages(thread_id)
+    user_count = len([m for m in msgs if m.role == "user"])
+    rename_threshold = env_int("UI_THREAD_RENAME_THRESHOLD", 5)
+    return user_count >= rename_threshold
+
+
+def get_last_rename_message_id(thread_id: int) -> Optional[int]:
+    try:
+        from core.agents.llm_client import get_llm_client
+        msgs = get_thread_messages(thread_id)
+        if len(msgs) < 2:
+            return None
+        latest_msg = max((m.id for m in msgs if m.role == "assistant"), default=None)
+        return latest_msg
+    except Exception:
+        return None
+
+
+def summarize_assistant_response(content: str) -> str:
+    lines = content.split("\n")
+    summary_lines = []
+    for line in lines:
+        line = line.strip()
+        if len(line) > 150:
+            line = line[:150] + "..."
+        if line:
+            summary_lines.append(line)
+    return "\n".join(summary_lines[:8])
+
+
+def generate_thread_title(thread_id: int) -> Optional[str]:
+    try:
+        from core.agents.llm_client import get_llm_client
+    except Exception:
+        return None
+
+    msgs = get_thread_messages(thread_id)
+    if len(msgs) < 2:
+        return None
+
+    user_msgs = [m for m in msgs if m.role == "user"]
+    assistant_msgs = [m for m in msgs if m.role == "assistant"]
+
+    if not user_msgs:
+        return None
+
+    context_parts: List[str] = []
+    context_parts.append("User queries:")
+    for um in user_msgs[-5:]:
+        text = um.content.replace("\n", " ").strip()
+        if len(text) > 200:
+            text = text[:200] + "..."
+        context_parts.append(f"- {text}")
+
+    context_parts.append("\nAssistant responses (summarized):")
+    for am in assistant_msgs[-5:]:
+        summary = summarize_assistant_response(am.content)
+        if summary:
+            summary_preview = summary.split("\n")[0][:150]
+            context_parts.append(f"- {summary_preview}")
+
+    transcript = "\n".join(context_parts)
+
+    max_context_tokens = 8000
+    estimated_tokens = estimate_tokens(transcript)
+    if estimated_tokens > max_context_tokens:
+        lines = context_parts[::2] if len(context_parts) > 10 else context_parts
+        transcript = "\n".join(lines)
+
+    try:
+        llm = get_llm_client(model="gemini-2.0-flash")
+        if not llm.is_available():
+            return None
+
+        system = (
+            "You are a helpful assistant that creates concise, meaningful thread titles. "
+            "Analyze the conversation and generate a 4-6 word title that captures the main topic or goal. "
+            "Return ONLY the title text, nothing else."
+        )
+        prompt = f"Generate a thread title based on this conversation:\n\n{transcript}"
+        title = llm.chat([
+            {"role": "system", "content": system},
+            {"role": "user", "content": prompt},
+        ], max_tokens=50, temperature=0.3)
+
+        title = title.strip()
+        if title:
+            word_count = len(title.split())
+            if word_count <= 10:
+                return title
+        return None
     except Exception:
         return None

@@ -13,6 +13,7 @@ export type ThreadsState = {
   createThread: (title?: string) => Promise<number | null>
   deleteThread: (id: number) => Promise<void>
   renameThread: (id: number, title: string) => Promise<void>
+  updateThreadTitleLocal: (id: number, title: string) => void
 }
 
 const DRAFT_ID_PREFIX = 'draft_'
@@ -59,6 +60,11 @@ export const useThreads = create<ThreadsState>((set, get) => ({
     await threadApi.renameThread(id, title)
     await get().refresh()
   },
+  updateThreadTitleLocal: (id: number, title: string) => {
+    set((state) => ({
+      threads: state.threads.map((t) => (t.id === id ? { ...t, title } : t)),
+    }))
+  },
 }))
 
 export const useCurrentThread = () => useThreads((state) => state.currentId)
@@ -75,6 +81,7 @@ export const useThreadActions = () =>
     createDraftThread: state.createDraftThread,
     deleteThread: state.deleteThread,
     renameThread: state.renameThread,
+    updateThreadTitleLocal: state.updateThreadTitleLocal,
   }))
 
 export { isDraftThread }
