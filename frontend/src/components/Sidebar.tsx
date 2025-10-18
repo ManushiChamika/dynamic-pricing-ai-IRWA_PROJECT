@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from './ui/button'
 import { ThreadItem } from './sidebar/ThreadItem'
 import {
@@ -21,6 +22,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(localStorage.getItem('sidebarCollapsed') === '1')
   const user = useAuthUser()
   const { logout } = useAuthActions()
+  const navigate = useNavigate()
 
   useEffect(() => {
     refresh().then(() => {
@@ -108,6 +110,15 @@ export function Sidebar() {
         </div>
 
         <div className="border-t border-[var(--border-color)] pt-[var(--space-3)] flex flex-col gap-[var(--space-2)]">
+          <Button
+            variant="outline"
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2"
+            aria-label="Back to Home"
+          >
+            <span>↩️</span>
+            <span>Back to Home</span>
+          </Button>
            <Button
              variant="outline"
              onClick={() => useCatalogStore.getState().setCatalogOpen(true)}
