@@ -122,6 +122,57 @@ class LLMClient:
         except Exception:
             pass
 
+    def _execute_tool_call(
+        self,
+        fn_name: Optional[str],
+        raw_args: str,
+        functions_map: Dict[str, Callable[..., Any]],
+        tools_used: List[str],
+        trace_id: Optional[str] = None,
+    ) -> Any:
+        try:
+            if fn_name and fn_name not in tools_used:
+                tools_used.append(fn_name)
+        except Exception:
+            pass
+        
+        try:
+            args = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
+        except Exception:
+            args = {}
+
+        tool_start_time = datetime.now()
+        result: Any
+        error_occurred = False
+        
+        if fn_name in functions_map:
+            try:
+                result = functions_map[fn_name](**args)
+            except TypeError:
+                result = functions_map[fn_name](args)
+            except Exception as tool_exc:
+                result = {"error": str(tool_exc)}
+                error_occurred = True
+        else:
+            result = {"error": f"unknown tool: {fn_name}"}
+            error_occurred = True
+
+        try:
+            if trace_id:
+                duration_ms = int((datetime.now() - tool_start_time).total_seconds() * 1000)
+                status = "failed" if error_occurred else "completed"
+                self._log.debug(f"Tool call {status}: {fn_name} duration={duration_ms}ms")
+        except Exception:
+            pass
+
+        return result
+
+    def _serialize_tool_result(self, result: Any) -> str:
+        try:
+            return result if isinstance(result, str) else json.dumps(result, ensure_ascii=False)
+        except Exception:
+            return str(result)
+
     def _provider_indices(self) -> List[int]:
         if not self._providers:
             return []
@@ -340,60 +391,16 @@ class LLMClient:
                         fn_name = tc.get("function", {}).get("name")
                         raw_args = tc.get("function", {}).get("arguments") or "{}"
                         call_id = tc.get("id") or "tool_call"
-                        try:
-                            if fn_name and fn_name not in tools_used:
-                                tools_used.append(fn_name)
-                        except Exception:
-                            pass
-                        try:
-                            args = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
-                        except Exception:
-                            args = {}
                         
-                        # Log tool call start
-                        tool_start_time = datetime.now()
-                        try:
-                            if trace_id:
-                                self._log.debug(f"Tool call start: {fn_name} with trace_id {trace_id}")
-                        except Exception:
-                            pass
+                        result = self._execute_tool_call(fn_name, raw_args, functions_map, tools_used, trace_id)
+                        content_str = self._serialize_tool_result(result)
                         
-                        result: Any
-                        error_occurred = False
-                        if fn_name in functions_map:
-                            try:
-                                result = functions_map[fn_name](**args)
-                            except TypeError:
-                                result = functions_map[fn_name](args)
-                            except Exception as tool_exc:
-                                result = {"error": str(tool_exc)}
-                                error_occurred = True
-                        else:
-                            result = {"error": f"unknown tool: {fn_name}"}
-                            error_occurred = True
-
-                        # Log tool call completion
-                        try:
-                            if trace_id:
-                                duration_ms = int((datetime.now() - tool_start_time).total_seconds() * 1000)
-                                status = "failed" if error_occurred else "completed"
-                                self._log.debug(f"Tool call {status}: {fn_name} duration={duration_ms}ms")
-                        except Exception:
-                            pass
-
-                        try:
-                            content_str = result if isinstance(result, str) else json.dumps(result, ensure_ascii=False)
-                        except Exception:
-                            content_str = str(result)
-
-                        local_msgs.append(
-                            {
-                                "role": "tool",
-                                "tool_call_id": call_id,
-                                "name": fn_name,
-                                "content": content_str,
-                            }
-                        )
+                        local_msgs.append({
+                            "role": "tool",
+                            "tool_call_id": call_id,
+                            "name": fn_name,
+                            "content": content_str,
+                        })
 
                 # max rounds exhausted
                 self._set_active_provider(idx)
@@ -540,54 +547,20 @@ class LLMClient:
                         assistant_msg["tool_calls"] = normalized_calls
                         local_msgs.append(assistant_msg)
 
-                        # Execute each call
                         for tc in normalized_calls:
                             fn_name = (tc.get("function") or {}).get("name")
                             raw_args = (tc.get("function") or {}).get("arguments") or "{}"
                             call_id = tc.get("id") or "tool_call"
-                            try:
-                                if fn_name and fn_name not in tools_used:
-                                    tools_used.append(fn_name)
-                            except Exception:
-                                pass
-                            try:
-                                args = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
-                            except Exception:
-                                args = {}
-
-                            tool_start_time = datetime.now()
-                            result: Any
-                            error_occurred = False
-                            if fn_name in functions_map:
-                                try:
-                                    result = functions_map[fn_name](**args)
-                                except TypeError:
-                                    result = functions_map[fn_name](args)
-                                except Exception as tool_exc:
-                                    result = {"error": str(tool_exc)}
-                                    error_occurred = True
-                            else:
-                                result = {"error": f"unknown tool: {fn_name}"}
-                                error_occurred = True
-
-                            try:
-                                duration_ms = int((datetime.now() - tool_start_time).total_seconds() * 1000)
-                                self._log.debug("tool %s finished in %dms (error=%s)", fn_name, duration_ms, error_occurred)
-                            except Exception:
-                                pass
-
-                            # Emit end event for tool
+                            
+                            result = self._execute_tool_call(fn_name, raw_args, functions_map, tools_used, trace_id)
+                            
                             try:
                                 if fn_name:
                                     yield {"type": "tool_call", "name": fn_name, "status": "end"}
                             except Exception:
                                 pass
-
-                            try:
-                                content_str = result if isinstance(result, str) else json.dumps(result, ensure_ascii=False)
-                            except Exception:
-                                content_str = str(result)
-
+                            
+                            content_str = self._serialize_tool_result(result)
                             local_msgs.append({
                                 "role": "tool",
                                 "tool_call_id": call_id,
