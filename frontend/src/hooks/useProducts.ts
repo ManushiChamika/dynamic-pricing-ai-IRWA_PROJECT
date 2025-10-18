@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAuthToken } from '../stores/authStore'
 
 export function useProducts() {
   const [products, setProducts] = useState<string[]>([])
   const token = useAuthToken()
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     if (!token) return
     try {
       const response = await fetch(`/api/catalog/products?token=${token}`)
@@ -16,13 +16,13 @@ export function useProducts() {
     } catch (err) {
       console.error('Error fetching products:', err)
     }
-  }
+  }, [token])
 
   useEffect(() => {
     fetchProducts()
     const interval = setInterval(fetchProducts, 30000)
     return () => clearInterval(interval)
-  }, [token])
+  }, [fetchProducts])
 
   useEffect(() => {
     const handleCatalogUpdate = () => {
@@ -30,7 +30,7 @@ export function useProducts() {
     }
     window.addEventListener('catalog-updated', handleCatalogUpdate)
     return () => window.removeEventListener('catalog-updated', handleCatalogUpdate)
-  }, [token])
+  }, [fetchProducts])
 
   return { products, refetch: fetchProducts }
 }

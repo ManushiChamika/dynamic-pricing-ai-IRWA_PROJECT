@@ -12,7 +12,8 @@ export function usePriceStream(running: boolean, sku: string) {
       if (esRef.current) {
         try {
           esRef.current.close()
-        } catch {
+        } catch (err) {
+          console.debug('Error closing EventSource:', err)
         }
         esRef.current = null
       }
@@ -31,7 +32,7 @@ export function usePriceStream(running: boolean, sku: string) {
           const key = data.sku || 'SKU'
           const p = Number(data.price)
           const ts = Number(data.ts) || Date.now()
-          
+
           if (throttleRef.current) clearTimeout(throttleRef.current)
           throttleRef.current = setTimeout(() => {
             setPrices((prev) => {
@@ -39,22 +40,24 @@ export function usePriceStream(running: boolean, sku: string) {
               return { ...prev, [key]: list }
             })
           }, 100)
-        } catch {
+        } catch (err) {
+          console.debug('Error parsing price event:', err)
         }
       }
-      const onError = () => {
-      }
+      const onError = () => {}
       es.addEventListener('price', onPrice as any)
       es.addEventListener('error', onError as any)
       return () => {
         try {
           es.close()
-        } catch {
+        } catch (err) {
+          console.debug('Error closing EventSource in cleanup:', err)
         }
         if (esRef.current === es) esRef.current = null
         if (throttleRef.current) clearTimeout(throttleRef.current)
       }
-    } catch {
+    } catch (err) {
+      console.error('Error initializing price stream:', err)
     }
   }, [running, sku, token])
 

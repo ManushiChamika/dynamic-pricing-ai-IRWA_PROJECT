@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAuthToken } from '../stores/authStore'
 
 export interface Incident {
@@ -16,7 +16,7 @@ export function useIncidents() {
   const [incidents, setIncidents] = useState<Incident[]>([])
   const token = useAuthToken()
 
-  const fetchIncidents = async () => {
+  const fetchIncidents = useCallback(async () => {
     if (!token) return
     try {
       const response = await fetch(`/api/alerts/incidents?token=${token}`)
@@ -26,35 +26,39 @@ export function useIncidents() {
     } catch (err) {
       console.error('Error fetching incidents:', err)
     }
-  }
+  }, [token])
 
-  const acknowledgeIncident = async (incidentId: string) => {
+  const acknowledgeIncident = useCallback(async (incidentId: string) => {
     if (!token) return
     try {
-      const response = await fetch(`/api/alerts/incidents/${incidentId}/ack?token=${token}`, { method: 'POST' })
+      const response = await fetch(`/api/alerts/incidents/${incidentId}/ack?token=${token}`, {
+        method: 'POST',
+      })
       if (!response.ok) throw new Error('Failed to acknowledge incident')
       await fetchIncidents()
     } catch (err) {
       console.error('Error acknowledging incident:', err)
     }
-  }
+  }, [token, fetchIncidents])
 
-  const resolveIncident = async (incidentId: string) => {
+  const resolveIncident = useCallback(async (incidentId: string) => {
     if (!token) return
     try {
-      const response = await fetch(`/api/alerts/incidents/${incidentId}/resolve?token=${token}`, { method: 'POST' })
+      const response = await fetch(`/api/alerts/incidents/${incidentId}/resolve?token=${token}`, {
+        method: 'POST',
+      })
       if (!response.ok) throw new Error('Failed to resolve incident')
       await fetchIncidents()
     } catch (err) {
       console.error('Error resolving incident:', err)
     }
-  }
+  }, [token, fetchIncidents])
 
   useEffect(() => {
     fetchIncidents()
     const interval = setInterval(fetchIncidents, 30000)
     return () => clearInterval(interval)
-  }, [token])
+  }, [fetchIncidents])
 
   return {
     incidents,
