@@ -186,6 +186,7 @@
     backdrop-filter: blur(16px);
     position: relative;
     overflow: hidden;
+    isolation: isolate;
   }
   button::before {
     content: '';
@@ -194,6 +195,7 @@
     background: var(--app-button-gradient);
     opacity: 0;
     transition: opacity 0.3s ease;
+    z-index: -1;
   }
   button:hover:not(:disabled)::before {
     opacity: 1;
@@ -206,7 +208,6 @@
   }
   button > * {
     position: relative;
-    z-index: 1;
   }
   button:active:not(:disabled) {
     transform: translateY(0);
