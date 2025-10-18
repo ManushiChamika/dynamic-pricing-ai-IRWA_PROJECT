@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List, Tuple
 
 
 @dataclass
@@ -19,43 +19,50 @@ def optimize(
     max_price: float,
     min_margin: float = 0.12,
     trace_id: Optional[str] = None,
+    algorithm: Optional[str] = None,
+    market_records: Optional[List[Tuple[float, str]]] = None,
 ) -> Dict[str, Any]:
-    """
-    Heuristic v0:
-    - Start from our_price.
-    - If competitor undercuts by >= ~2%, reduce slightly (to 99% of competitor) within bounds.
-    - Enforce margin floor if cost provided.
-    - Clamp to [min_price, max_price].
-    """
     base = float(f.our_price)
     rationale = []
 
-    # Competitor undercut heuristic
-    if f.competitor_price is not None:
-        try:
-            if f.competitor_price * 1.02 < f.our_price:
-                base = max(f.competitor_price * 0.99, min_price)
-                rationale.append("Competitor undercut → reduce slightly")
-        except Exception:
-            pass
+    if algorithm and market_records is not None:
+        from .algorithms import ALGORITHMS
+        
+        algo_func = ALGORITHMS.get(algorithm)
+        if algo_func:
+            try:
+                algo_price = algo_func(market_records)
+                if algo_price is not None:
+                    base = algo_price
+                    rationale.append(f"Algorithm {algorithm} suggested ${algo_price:.2f}")
+            except Exception as e:
+                rationale.append(f"Algorithm {algorithm} failed: {str(e)}, using fallback")
 
-    # Enforce margin floor
-    if f.cost is not None:
-        try:
-            floor = f.cost / (1.0 - float(min_margin))
-            if base < floor:
-                base = floor
-                rationale.append("Margin floor enforced")
-        except Exception:
-            pass
+    if not rationale:
+        if f.competitor_price is not None:
+            try:
+                if f.competitor_price * 1.02 < f.our_price:
+                    base = max(f.competitor_price * 0.99, min_price)
+                    rationale.append("Competitor undercut → reduce slightly")
+            except Exception:
+                pass
 
-    # Clamp to bounds
+        if f.cost is not None:
+            try:
+                floor = f.cost / (1.0 - float(min_margin))
+                if base < floor:
+                    base = floor
+                    rationale.append("Margin floor enforced")
+            except Exception:
+                pass
+
     base = min(max(base, min_price), max_price)
 
     result = {
         "recommended_price": round(base, 2),
-        "confidence": 0.6,  # placeholder
+        "confidence": 0.8 if algorithm else 0.6,
         "rationale": "; ".join(rationale) or "No change",
+        "algorithm": algorithm or "heuristic",
         "constraints_evaluation": {
             "min_price": min_price,
             "max_price": max_price,
