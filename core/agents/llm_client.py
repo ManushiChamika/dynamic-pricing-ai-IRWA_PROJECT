@@ -186,7 +186,7 @@ class LLMClient:
         oa_key = os.getenv("OPENAI_API_KEY")
         oa_model = os.getenv("OPENAI_MODEL") or "gpt-4o-mini"
 
-         gemini_base = os.getenv("GEMINI_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta/openai/"
+        gemini_base = os.getenv("GEMINI_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta/openai/"
         if gemini_base and not gemini_base.endswith("/"):
             gemini_base = gemini_base + "/"
         gemini_model = os.getenv("GEMINI_MODEL") or "gemini-2.5-flash"
@@ -223,7 +223,7 @@ class LLMClient:
 
         self._set_active_provider(0)
 
-     def _set_active_provider(self, index: int) -> None:
+    def _set_active_provider(self, index: int) -> None:
         provider = self._providers[index]
         self._active_index = index
         self.model = provider["model"]
