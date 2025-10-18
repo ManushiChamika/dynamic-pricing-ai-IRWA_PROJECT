@@ -16,6 +16,7 @@ import importlib
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from core.agents.llm_client import LLMClient
 
 
 # Load .env from project root if present (simple loader, no extra deps)
@@ -50,7 +51,7 @@ _load_dotenv_if_present()
 
 # --- Step 1: Tools (algorithms) ---
 
-def rule_based(records):
+def  rule_based(records):
 	"""
 	Conservative competitive pricing algorithm:
 	- Analyzes competitor price distribution
@@ -155,44 +156,19 @@ class LLMBrain:
 	"""
 	The LLM acts as the 'brain' of the Pricing Optimizer Agent.
 	It decides which tool/algorithm to use based on user intent and data context.
+	Uses LLMClient for robust multi-provider LLM support.
 	"""
 
 	def __init__(self, api_key: str | None = None, base_url: str | None = None, model: str | None = None, strict_ai_selection: bool | None = None):
-		# Try to import OpenAI dynamically. If not available, fall back to None
-		# Prefer explicitly passed api_key, else try OPENROUTER_API_KEY then OPENAI_API_KEY
-		api_key = api_key or os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
-		base_url = base_url or os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1"
-		self.model = model or os.getenv("OPENROUTER_MODEL") or os.getenv("OPENAI_MODEL") or "z-ai/glm-4.5-air:free"
+		# Use the robust LLMClient for all LLM operations
+		self.llm_client = LLMClient(api_key=api_key, base_url=base_url, model=model)
 		self.strict_ai_selection = strict_ai_selection if strict_ai_selection is not None else os.getenv("STRICT_AI_SELECTION", "true").lower() == "true"
-		self.client = None
-		if api_key:
-			try:
-				openai_mod = importlib.import_module("openai")
-				# client construction depends on library; support passing base_url for OpenRouter
-				try:
-					# Newer OpenAI SDK accepts base_url and api_key in constructor
-					self.client = openai_mod.OpenAI(api_key=api_key, base_url=base_url)
-				except Exception:
-					# Fallback: set module-level api_key and optionally base_url
-					try:
-						openai_mod.api_key = api_key
-					except Exception:
-						pass
-					try:
-						openai_mod.base_url = base_url
-					except Exception:
-						pass
-					self.client = openai_mod
-			except ModuleNotFoundError:
-				if self.strict_ai_selection:
-					print("ERROR: openai package not installed and strict_ai_selection=True; AI tool selection will fail")
-				else:
-					print("WARNING: openai package not installed; LLMBrain will use deterministic fallback")
-		else:
+		
+		if not self.llm_client.is_available():
 			if self.strict_ai_selection:
-				print("ERROR: No OpenRouter/OpenAI API key set and strict_ai_selection=True; AI tool selection will fail")
+				print(f"ERROR: LLM unavailable ({self.llm_client.unavailable_reason()}) and strict_ai_selection=True; AI tool selection will fail")
 			else:
-				print("WARNING: No OpenRouter/OpenAI API key set; LLMBrain will use deterministic fallback")
+				print(f"WARNING: LLM unavailable ({self.llm_client.unavailable_reason()}); LLMBrain will use deterministic fallback")
 
 	def decide_tool(self, user_intent: str, available_tools: dict[str, object], market_context: dict = None):
 		"""
@@ -257,9 +233,9 @@ class LLMBrain:
 		)
 
 		# AI-only selection logic
-		if not self.client:
+		if not self.llm_client.is_available():
 			if self.strict_ai_selection:
-				return {"error": "ai_selection_failed", "message": "No LLM client available and strict_ai_selection=True"}
+				return {"error": "ai_selection_failed", "message": f"LLM unavailable: {self.llm_client.unavailable_reason()}"}
 			else:
 				# Legacy fallback mode
 				intent = (user_intent or "").lower()
@@ -268,20 +244,19 @@ class LLMBrain:
 				return {"tool_name": "rule_based", "arguments": {}, "reason": "fallback: default conservative approach"}
 
 		try:
-			resp = self.client.chat.completions.create(
-				model=self.model,
+			# Use LLMClient.chat() for robust multi-provider support
+			raw = self.llm_client.chat(
 				messages=[{"role": "user", "content": prompt}],
 				max_tokens=300,
 				temperature=0.0,
 			)
-			raw = resp.choices[0].message.content or ""
 			
 			# Enhanced telemetry: log raw LLM decision (redacted for safety)
 			try:
 				from core.agents.agent_sdk.activity_log import activity_log as act_log
 				redacted_raw = raw[:100] + "..." if len(raw) > 100 else raw
 				act_log.log("llm_brain", "decide_tool.request", "info", 
-					message=f"model={self.model} prompt_len={len(prompt)} response_len={len(raw)}", 
+					message=f"provider={self.llm_client.provider()} model={self.llm_client.model} prompt_len={len(prompt)} response_len={len(raw)}", 
 					details={"raw_response_preview": redacted_raw, "available_tools": list(available_tools.keys())})
 			except Exception:
 				pass  # Don't fail on logging errors
@@ -318,7 +293,7 @@ class LLMBrain:
 			try:
 				from core.agents.agent_sdk.activity_log import activity_log as act_log
 				act_log.log("llm_brain", "decide_tool.success", "completed", 
-					message=f"selected={tool_name} reason='{reason}'", 
+					message=f"provider={self.llm_client.provider()} selected={tool_name} reason='{reason}'", 
 					details={"tool_name": tool_name, "arguments": arguments, "reason": reason, "market_context": market_context})
 			except Exception:
 				pass  # Don't fail on logging errors
@@ -331,7 +306,7 @@ class LLMBrain:
 				from core.agents.agent_sdk.activity_log import activity_log as act_log
 				act_log.log("llm_brain", "decide_tool.failed", "failed", 
 					message=f"LLM request failed: {str(e)}", 
-					details={"error": str(e), "model": self.model})
+					details={"error": str(e), "provider": self.llm_client.provider(), "model": self.llm_client.model})
 			except Exception:
 				pass  # Don't fail on logging errors
 			return {"error": "ai_selection_failed", "message": f"LLM request failed: {str(e)}"}
