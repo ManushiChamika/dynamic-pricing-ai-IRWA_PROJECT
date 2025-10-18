@@ -1,24 +1,34 @@
 from typing import Optional
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
+from core.auth_service import validate_session_token
 
 router = APIRouter(prefix="/api/prices", tags=["prices"])
 
 
 @router.get("/stream")
-async def api_prices_stream(sku: Optional[str] = None):
+async def api_prices_stream(sku: Optional[str] = None, token: Optional[str] = None):
     import asyncio
     import json
     import random
     import time
     import sqlite3
 
+    if not token:
+        raise HTTPException(status_code=401, detail="Authentication token required")
+    
+    sess = validate_session_token(token)
+    if not sess:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    
+    owner_id = int(sess["user_id"])
+
     if sku:
         symbols = [sku]
     else:
         conn = sqlite3.connect('app/data.db')
         cursor = conn.cursor()
-        cursor.execute('SELECT product_name FROM market_data LIMIT 50')
+        cursor.execute('SELECT DISTINCT product_name FROM market_data WHERE owner_id = ? LIMIT 50', (owner_id,))
         symbols = [row[0] for row in cursor.fetchall()]
         conn.close()
         if not symbols:
