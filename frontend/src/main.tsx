@@ -56,6 +56,14 @@ createRoot(document.getElementById('root')!).render(
                   </ChatPage>
                 }
               />
+              <Route
+                path="/chat/:threadId"
+                element={
+                  <ChatPage>
+                    <App />
+                  </ChatPage>
+                }
+              />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
