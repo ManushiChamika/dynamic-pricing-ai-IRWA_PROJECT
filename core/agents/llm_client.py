@@ -473,7 +473,6 @@ class LLMClient:
                         )
                         if content:
                             yield {"type": "delta", "text": content}
-                        self._set_active_provider(idx)
                         return
 
                     # Accumulate per-round deltas and tool call specs
