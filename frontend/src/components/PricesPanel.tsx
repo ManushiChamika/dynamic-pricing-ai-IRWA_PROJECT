@@ -4,8 +4,26 @@ import { Input } from './ui/input'
 import { useTheme } from '../stores/settingsStore'
 import { Sparkline } from './Sparkline'
 import { useAuthToken } from '../stores/authStore'
+import { AlertDetailModal } from './AlertDetailModal'
 
 const PriceChart = lazy(() => import('./PriceChart').then((m) => ({ default: m.PriceChart })))
+
+interface Incident {
+  id: string
+  rule_id: string
+  sku: string
+  status: 'OPEN' | 'ACKED' | 'RESOLVED'
+  first_seen: string
+  last_seen: string
+  severity: 'info' | 'warn' | 'crit'
+  title: string
+}
+
+const SEVERITY_CONFIG = {
+  info: { bg: 'bg-blue-500/20', text: 'text-blue-400', label: 'Info', icon: 'ℹ️' },
+  warn: { bg: 'bg-yellow-500/20', text: 'text-yellow-400', label: 'Warning', icon: '⚠️' },
+  crit: { bg: 'bg-red-500/20', text: 'text-red-400', label: 'Critical', icon: '🚨' },
+}
 
 const PriceCardComponent = ({ k, data, viewMode, theme }: { 
   k: string, 
