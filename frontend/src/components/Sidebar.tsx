@@ -11,6 +11,7 @@ import { useConfirm } from '../stores/confirmStore'
 import { useAuthUser, useAuthActions } from '../stores/authStore'
 import { useSettings } from '../stores/settingsStore'
 import { useCatalogStore } from '../stores/catalogStore'
+import { Package, Settings, LogOut, MessageSquarePlus, ChevronLeft, ChevronRight } from 'lucide-react'
 
 export function Sidebar() {
   const threads = useThreadList()
@@ -69,15 +70,18 @@ export function Sidebar() {
             aria-expanded={!collapsed}
             aria-controls="thread-list"
           >
-            {collapsed ? '⮞' : '⮜'}
+            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </Button>
-          <Button
-            onClick={() => createDraftThread()}
-            aria-label="Create new thread"
-            className="flex-1"
-          >
-            + New Chat
-          </Button>
+          {!collapsed && (
+            <Button
+              onClick={() => createDraftThread()}
+              aria-label="Create new thread"
+              className="flex-1"
+            >
+              <MessageSquarePlus className="w-4 h-4 mr-2" />
+              New Chat
+            </Button>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto mb-[var(--space-4)]">
@@ -107,24 +111,24 @@ export function Sidebar() {
            <Button
              variant="outline"
              onClick={() => useCatalogStore.getState().setCatalogOpen(true)}
-             className="flex items-center gap-2"
+             className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2'} hover:bg-indigo-500/10 hover:border-indigo-500/30 transition-colors`}
              aria-label="Open catalog"
            >
-             <span>📦</span>
-             <span>Catalog</span>
+             <Package className="w-4 h-4" />
+             {!collapsed && <span>Catalog</span>}
            </Button>
 
            <Button
              variant="outline"
              onClick={() => useSettings.getState().setSettingsOpen(true)}
-             className="flex items-center gap-2"
+             className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2'}`}
              aria-label="Open settings"
            >
-             <span>⚙️</span>
-             <span>Settings</span>
+             <Settings className="w-4 h-4" />
+             {!collapsed && <span>Settings</span>}
            </Button>
 
-          {user && (
+          {user && !collapsed && (
             <div className="px-3 py-2.5 bg-[var(--panel)] border border-[var(--border-color)] rounded-lg text-[var(--font-sm)]">
               <div className="opacity-70 mb-1">Signed in as</div>
               <div className="font-medium overflow-hidden text-ellipsis whitespace-nowrap">
@@ -136,11 +140,11 @@ export function Sidebar() {
           <Button
             variant="destructive"
             onClick={handleLogout}
-            className="flex items-center gap-2"
+            className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2'}`}
             aria-label="Sign out"
           >
-            <span>🚪</span>
-            <span>Sign Out</span>
+            <LogOut className="w-4 h-4" />
+            {!collapsed && <span>Sign Out</span>}
           </Button>
         </div>
       </div>
