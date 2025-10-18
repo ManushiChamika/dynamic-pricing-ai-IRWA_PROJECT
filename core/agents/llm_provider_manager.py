@@ -145,10 +145,10 @@ class ProviderManager:
             custom_model = explicit_model or or_model or oa_model or gemini_model
             self.register_provider(openai_mod, "custom", explicit_key, custom_model, explicit_base)
         else:
-            self.register_provider(openai_mod, "openrouter", or_key, or_model, or_base)
-            self.register_provider(openai_mod, "openai", oa_key, oa_model, None)
             for gemini_name, gemini_key in gemini_keys:
                 self.register_provider(openai_mod, gemini_name, gemini_key, gemini_model, gemini_base)
+            self.register_provider(openai_mod, "openrouter", or_key, or_model, or_base)
+            self.register_provider(openai_mod, "openai", oa_key, oa_model, None)
     
     def get_providers(self) -> List[Dict[str, Any]]:
         return self._providers
