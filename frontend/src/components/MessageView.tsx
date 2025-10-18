@@ -19,6 +19,21 @@ import { usePrompt } from '../stores/promptStore'
 import { useConfirm } from '../stores/confirmStore'
 import { useToasts } from '../stores/toastStore'
 
+const markdownComponents = {
+  li: ({ children }: any) => (
+    <li className="my-0 py-0">{children}</li>
+  ),
+  ul: ({ children }: any) => (
+    <ul className="list-disc list-inside my-0 space-y-0">{children}</ul>
+  ),
+  ol: ({ children }: any) => (
+    <ol className="list-decimal list-inside my-0 space-y-0">{children}</ol>
+  ),
+  p: ({ children }: any) => (
+    <p className="my-0 py-0">{children}</p>
+  ),
+}
+
 const PriceChart = lazy(() => import('./PriceChart').then((m) => ({ default: m.PriceChart })))
 
 export function EditButton({ m }: { m: Message }) {
@@ -231,16 +246,21 @@ export function MessageView({
           ) : null}
         </div>
       ) : null}
-        <div
-          className={`${m.role === 'user' ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white border-0 shadow-[0_4px_12px_rgba(99,102,241,0.3),0_2px_4px_rgba(99,102,241,0.2)]' : 'bg-gradient-to-br from-slate-800/70 to-slate-900/80 backdrop-blur-3xl border-indigo-500/20'} border rounded-2xl px-5 py-4 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-[0_4px_12px_rgba(0,0,0,0.4),0_2px_4px_rgba(0,0,0,0.3)] leading-[1.7] relative`}
-        >
-           {m.role === 'assistant' ? (
-             <div className="prose prose-invert max-w-none prose-p:m-0 prose-li:m-0 prose-ul:m-0 prose-ul:pl-5 prose-ol:m-0 prose-ol:pl-5">
-               <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content || ''}</ReactMarkdown>
-             </div>
-           ) : (
-             <pre className="whitespace-pre-wrap">{m.content}</pre>
-           )}
+         <div
+           className={`${m.role === 'user' ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white border-0 shadow-[0_4px_12px_rgba(99,102,241,0.3),0_2px_4px_rgba(99,102,241,0.2)]' : 'bg-gradient-to-br from-slate-800/70 to-slate-900/80 backdrop-blur-3xl border-indigo-500/20'} border rounded-2xl px-5 py-4 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-[0_4px_12px_rgba(0,0,0,0.4),0_2px_4px_rgba(0,0,0,0.3)] leading-normal relative`}
+         >
+            {m.role === 'assistant' ? (
+              <div className="max-w-none leading-normal">
+                <ReactMarkdown 
+                  remarkPlugins={[remarkGfm]}
+                  components={markdownComponents}
+                >
+                  {m.content || ''}
+                </ReactMarkdown>
+              </div>
+            ) : (
+              <pre className="whitespace-pre-wrap">{m.content}</pre>
+            )}
         </div>
       {showThinking && m.thinking && m.role === 'assistant' ? (
         <ThinkingTokens thinking={m.thinking} />
