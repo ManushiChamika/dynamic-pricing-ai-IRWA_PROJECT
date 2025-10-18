@@ -293,11 +293,16 @@ class UserInteractionAgent:
                     # Map tool name to agent label for UI badges
                     def _agent_for_tool(name: Optional[str]):
                         mapping = {
-                            "run_pricing_workflow": "PricingOptimizerAgent",
-                            "optimize_price": "PricingOptimizerAgent",
+                            "list_inventory_items": "UserInteractionAgent",
+                            "get_inventory_item": "UserInteractionAgent",
+                            "list_pricing_list": "PriceOptimizationAgent",
+                            "list_price_proposals": "PriceOptimizationAgent",
+                            "list_market_data": "DataCollectorAgent",
+                            "run_pricing_workflow": "PriceOptimizationAgent",
+                            "optimize_price": "PriceOptimizationAgent",
                             "scan_for_alerts": "AlertNotificationAgent",
-                            "collect_market_data": "DataCollectionAgent",
-                            "request_market_fetch": "MarketCollector",
+                            "collect_market_data": "DataCollectorAgent",
+                            "request_market_fetch": "DataCollectorAgent",
                         }
                         return mapping.get(name or "")
 

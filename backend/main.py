@@ -153,11 +153,16 @@ def _derive_agents_from_tools(tools_used: Optional[List[str]]) -> List[str]:
     if not tools_used:
         return []
     mapping = {
-        "run_pricing_workflow": "PricingOptimizerAgent",
-        "optimize_price": "PricingOptimizerAgent",
+        "list_inventory_items": "UserInteractionAgent",
+        "get_inventory_item": "UserInteractionAgent",
+        "list_pricing_list": "PriceOptimizationAgent",
+        "list_price_proposals": "PriceOptimizationAgent",
+        "list_market_data": "DataCollectorAgent",
+        "run_pricing_workflow": "PriceOptimizationAgent",
+        "optimize_price": "PriceOptimizationAgent",
         "scan_for_alerts": "AlertNotificationAgent",
-        "collect_market_data": "DataCollectionAgent",
-        "request_market_fetch": "MarketCollector",
+        "collect_market_data": "DataCollectorAgent",
+        "request_market_fetch": "DataCollectorAgent",
     }
     agents: List[str] = []
     for t in tools_used:
