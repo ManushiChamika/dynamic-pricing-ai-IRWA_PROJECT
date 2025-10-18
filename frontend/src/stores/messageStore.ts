@@ -60,6 +60,7 @@ type MessagesState = {
     agents?: string[]
     tools?: string[]
   } | null
+  clearStore: () => void
 }
 
 export const useMessages = create<MessagesState>((set, get) => ({
@@ -232,6 +233,18 @@ export const useMessages = create<MessagesState>((set, get) => ({
     if (typeof threadId !== 'number') return
     await branchMessage(threadId, parentId, content, user_name)
   },
+  clearStore: () => {
+    get().stop()
+    set({
+      messages: [],
+      streamingActive: false,
+      controller: null,
+      liveActiveAgent: null,
+      liveAgents: [],
+      liveTool: null,
+      turnStats: null,
+    })
+  },
 }))
 
 export const useMessagesSelector = <T>(selector: (state: MessagesState) => T): T =>
@@ -245,6 +258,7 @@ export const useMessagesActions = () =>
     del: state.del,
     branch: state.branch,
     stop: state.stop,
+    clearStore: state.clearStore,
   }))
 
 export const useStreamingState = () =>

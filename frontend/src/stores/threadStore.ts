@@ -15,6 +15,7 @@ export type ThreadsState = {
   deleteThread: (id: number) => Promise<void>
   renameThread: (id: number, title: string) => Promise<void>
   updateThreadTitleLocal: (id: number, title: string) => void
+  clearStore: () => void
 }
 
 const DRAFT_ID_PREFIX = 'draft_'
@@ -67,6 +68,10 @@ export const useThreads = create<ThreadsState>((set, get) => ({
       threads: state.threads.map((t) => (t.id === id ? { ...t, title } : t)),
     }))
   },
+  clearStore: () => {
+    localStorage.removeItem('lastThreadId')
+    set({ threads: [], currentId: null, draftId: null, skipNextRefresh: false })
+  },
 }))
 
 export const useCurrentThread = () => useThreads((state) => state.currentId)
@@ -84,6 +89,7 @@ export const useThreadActions = () =>
     deleteThread: state.deleteThread,
     renameThread: state.renameThread,
     updateThreadTitleLocal: state.updateThreadTitleLocal,
+    clearStore: state.clearStore,
   }))
 
 export { isDraftThread }
