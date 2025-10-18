@@ -1,23 +1,14 @@
-import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react'
+import React, { useMemo, useState, lazy, Suspense } from 'react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { useTheme } from '../stores/settingsStore'
 import { Sparkline } from './Sparkline'
-import { useAuthToken } from '../stores/authStore'
 import { AlertDetailModal } from './AlertDetailModal'
+import { useProducts } from '../hooks/useProducts'
+import { useIncidents, type Incident } from '../hooks/useIncidents'
+import { usePriceStream } from '../hooks/usePriceStream'
 
 const PriceChart = lazy(() => import('./PriceChart').then((m) => ({ default: m.PriceChart })))
-
-interface Incident {
-  id: string
-  rule_id: string
-  sku: string
-  status: 'OPEN' | 'ACKED' | 'RESOLVED'
-  first_seen: string
-  last_seen: string
-  severity: 'info' | 'warn' | 'crit'
-  title: string
-}
 
 const SEVERITY_CONFIG = {
   info: { bg: 'bg-blue-500/20', text: 'text-blue-400', label: 'Info', icon: 'ℹ️' },
@@ -136,142 +127,19 @@ export function PricesPanel() {
   const [collapsed, setCollapsed] = useState(localStorage.getItem('pricesCollapsed') === '1')
   const [running, setRunning] = useState(true)
   const [sku, setSku] = useState('')
-  const [prices, setPrices] = useState<Record<string, { ts: number; price: number }[]>>({})
   const [viewMode, setViewMode] = useState<'sparkline' | 'chart'>('sparkline')
-  const [incidents, setIncidents] = useState<Incident[]>([])
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
-  const [products, setProducts] = useState<string[]>([])
-  const esRef = useRef<EventSource | null>(null)
-  const throttleRef = useRef<ReturnType<typeof setTimeout>>()
   const theme = useTheme()
-  const token = useAuthToken()
-
-  const fetchProducts = async () => {
-    if (!token) return
-    try {
-      const response = await fetch(`/api/catalog/products?token=${token}`)
-      if (!response.ok) throw new Error('Failed to fetch products')
-      const data = await response.json()
-      const skus = data.products.map((p: any) => p.sku)
-      setProducts(skus)
-    } catch (err) {
-      console.error('Error fetching products:', err)
-    }
-  }
-
-  const fetchIncidents = async () => {
-    if (!token) return
-    try {
-      const response = await fetch(`/api/alerts/incidents?token=${token}`)
-      if (!response.ok) throw new Error('Failed to fetch incidents')
-      const data = await response.json()
-      setIncidents(data.filter((i: Incident) => i.status === 'OPEN' || i.status === 'ACKED'))
-    } catch (err) {
-      console.error('Error fetching incidents:', err)
-    }
-  }
-
-  const acknowledgeIncident = async (incidentId: string) => {
-    if (!token) return
-    try {
-      const response = await fetch(`/api/alerts/incidents/${incidentId}/ack?token=${token}`, { method: 'POST' })
-      if (!response.ok) throw new Error('Failed to acknowledge incident')
-      await fetchIncidents()
-    } catch (err) {
-      console.error('Error acknowledging incident:', err)
-    }
-  }
-
-  const resolveIncident = async (incidentId: string) => {
-    if (!token) return
-    try {
-      const response = await fetch(`/api/alerts/incidents/${incidentId}/resolve?token=${token}`, { method: 'POST' })
-      if (!response.ok) throw new Error('Failed to resolve incident')
-      await fetchIncidents()
-    } catch (err) {
-      console.error('Error resolving incident:', err)
-    }
-  }
+  
+  const { products } = useProducts()
+  const { incidents, acknowledgeIncident, resolveIncident } = useIncidents()
+  const prices = usePriceStream(running, sku)
 
   const handleAlertClick = (incident: Incident) => {
     setSelectedIncident(incident)
     setModalOpen(true)
   }
-
-  useEffect(() => {
-    fetchProducts()
-    fetchIncidents()
-    const interval = setInterval(() => {
-      fetchProducts()
-      fetchIncidents()
-    }, 30000)
-    return () => clearInterval(interval)
-  }, [token])
-
-  useEffect(() => {
-    const handleCatalogUpdate = () => {
-      fetchProducts()
-    }
-    window.addEventListener('catalog-updated', handleCatalogUpdate)
-    return () => window.removeEventListener('catalog-updated', handleCatalogUpdate)
-  }, [token])
-
-  useEffect(() => {
-    if (!running || !token) {
-      if (esRef.current) {
-        try {
-          esRef.current.close()
-        } catch {
-          /* ignore */
-        }
-        esRef.current = null
-      }
-      return
-    }
-    try {
-      const url = new URL('/api/prices/stream', window.location.origin)
-      const s = sku.trim()
-      if (s) url.searchParams.set('sku', s)
-      url.searchParams.set('token', token)
-      const es = new EventSource(url.toString())
-      esRef.current = es
-      const onPrice = (e: MessageEvent) => {
-        try {
-          const data = JSON.parse((e as any).data || '{}')
-          const key = data.sku || 'SKU'
-          const p = Number(data.price)
-          const ts = Number(data.ts) || Date.now()
-          
-          if (throttleRef.current) clearTimeout(throttleRef.current)
-          throttleRef.current = setTimeout(() => {
-            setPrices((prev) => {
-              const list = (prev[key] || []).concat({ ts, price: p }).slice(-50)
-              return { ...prev, [key]: list }
-            })
-          }, 100)
-        } catch {
-          /* ignore invalid JSON */
-        }
-      }
-      const onError = () => {
-        /* keep open; server may retry */
-      }
-      es.addEventListener('price', onPrice as any)
-      es.addEventListener('error', onError as any)
-      return () => {
-        try {
-          es.close()
-        } catch {
-          /* ignore */
-        }
-        if (esRef.current === es) esRef.current = null
-        if (throttleRef.current) clearTimeout(throttleRef.current)
-      }
-    } catch {
-      // ignore
-    }
-  }, [running, sku, token])
 
   const keys = useMemo(() => {
     const priceKeys = Object.keys(prices)

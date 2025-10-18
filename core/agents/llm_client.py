@@ -218,24 +218,14 @@ class LLMClient:
         temperature: float = 0.2,
         trace_id: Optional[str] = None,
     ):
-        """Streaming tool-calling loop.
-
-        Yields dict events and text deltas interleaved:
-        - {"type":"delta", "text": str}
-        - {"type":"tool_call", "name": str, "status": "start"|"end"}
-
-        Strategy per round:
-        1) Stream assistant message with potential tool_calls; emit content deltas + capture tool call specs.
-        2) If tool_calls present, execute mapped Python functions, emit tool_call end, append tool outputs, then continue to next round.
-        3) If no tool_calls, finish.
-        """
         if not self._providers:
             raise RuntimeError("LLM client unavailable (missing key or package)")
 
+        handler = self._get_handler()
         last_error: Optional[Exception] = None
         tools_used: List[str] = []
 
-        for idx in self._provider_indices():
+        for idx in handler.provider_indices():
             provider = self._providers[idx]
             try:
                 local_msgs: List[Dict[str, Any]] = list(messages)
@@ -260,7 +250,6 @@ class LLMClient:
                             stream_options={"include_usage": True},
                         )
                     except Exception as se:
-                        # Fallback to non-streaming tool loop
                         content = self.chat_with_tools(
                             messages=local_msgs,
                             tools=tools,
@@ -275,7 +264,6 @@ class LLMClient:
                             yield {"type": "delta", "text": content}
                         return
 
-                    # Accumulate per-round deltas and tool call specs
                     round_text_parts: List[str] = []
                     call_order: List[str] = []
                     call_specs: Dict[str, Dict[str, Any]] = {}
@@ -284,19 +272,17 @@ class LLMClient:
                         try:
                             usage = getattr(event, "usage", None)
                             if usage:
-                                self._capture_usage(event, provider["name"], provider["model"])
+                                handler.capture_usage(event, provider["name"], provider["model"])
                             choices = getattr(event, "choices", None) or []
                             if not choices:
                                 continue
                             delta = getattr(choices[0], "delta", None)
                             if not delta:
                                 continue
-                            # content delta
                             text = getattr(delta, "content", None)
                             if text:
                                 round_text_parts.append(text)
                                 yield {"type": "delta", "text": text}
-                            # tool call deltas
                             tcd_list = getattr(delta, "tool_calls", None) or []
                             for tcd in tcd_list:
                                 try:
@@ -306,7 +292,6 @@ class LLMClient:
                                     spec = call_specs.get(cid) or {"id": cid, "function": {"name": None, "arguments": ""}}
                                     if fn and not spec["function"]["name"]:
                                         spec["function"]["name"] = fn
-                                        # first time we see this tool name => emit start
                                         yield {"type": "tool_call", "name": fn, "status": "start"}
                                         call_order.append(cid)
                                     if arg_delta:
@@ -317,12 +302,10 @@ class LLMClient:
                         except Exception:
                             continue
 
-                    # Build assistant message for this round
                     assistant_msg: Dict[str, Any] = {"role": "assistant"}
                     if round_text_parts:
                         assistant_msg["content"] = "".join(round_text_parts)
 
-                    # If tool calls present, execute and continue
                     if call_order:
                         normalized_calls: List[Dict[str, Any]] = []
                         for cid in call_order:
@@ -337,40 +320,39 @@ class LLMClient:
                             fn_name = (tc.get("function") or {}).get("name")
                             raw_args = (tc.get("function") or {}).get("arguments") or "{}"
                             call_id = tc.get("id") or "tool_call"
-                            
-                            result = self._execute_tool_call(fn_name, raw_args, functions_map, tools_used, trace_id)
-                            
+
+                            result = handler.executor.execute_tool_call(fn_name, raw_args, functions_map, tools_used, trace_id)
+
                             try:
                                 if fn_name:
                                     yield {"type": "tool_call", "name": fn_name, "status": "end"}
                             except Exception:
                                 pass
-                            
-                            content_str = self._serialize_tool_result(result)
+
+                            content_str = handler.executor.serialize_tool_result(result)
                             local_msgs.append({
                                 "role": "tool",
                                 "tool_call_id": call_id,
                                 "name": fn_name,
                                 "content": content_str,
                             })
-                        # continue to next round
                         continue
 
-                    # No tool calls => finalize
                     try:
                         if tools_used:
-                            self.last_usage = {**(self.last_usage or {}), "tools_used": tools_used}
+                            handler.last_usage = {**(handler.last_usage or {}), "tools_used": tools_used}
                     except Exception:
                         pass
+                    self.last_usage = handler.last_usage
                     self._set_active_provider(idx)
                     return
 
-                # max rounds exhausted
                 try:
                     if tools_used:
-                        self.last_usage = {**(self.last_usage or {}), "tools_used": tools_used}
+                        handler.last_usage = {**(handler.last_usage or {}), "tools_used": tools_used}
                 except Exception:
                     pass
+                self.last_usage = handler.last_usage
                 self._set_active_provider(idx)
                 return
             except Exception as exc:
