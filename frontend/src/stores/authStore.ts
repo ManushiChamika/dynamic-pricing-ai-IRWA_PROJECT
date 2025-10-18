@@ -4,6 +4,7 @@ import * as authApi from '../lib/authApi'
 export interface User {
   email: string
   username?: string
+  full_name?: string
   id?: string
 }
 

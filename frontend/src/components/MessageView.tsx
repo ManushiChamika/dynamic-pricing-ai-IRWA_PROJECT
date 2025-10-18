@@ -20,17 +20,17 @@ import { useConfirm } from '../stores/confirmStore'
 import { useToasts } from '../stores/toastStore'
 
 const markdownComponents = {
-  li: ({ children }: { children: React.ReactNode }) => (
-    <li className="my-0 py-0 leading-normal">{children}</li>
+  li: ({ children, ...props }: React.LiHTMLAttributes<HTMLLIElement>) => (
+    <li className="my-0 py-0 leading-normal" {...props}>{children}</li>
   ),
-  ul: ({ children }: { children: React.ReactNode }) => (
-    <ul className="list-disc list-inside my-0 py-0 space-y-1">{children}</ul>
+  ul: ({ children, ...props }: React.HTMLAttributes<HTMLUListElement>) => (
+    <ul className="list-disc list-inside my-0 py-0 space-y-1" {...props}>{children}</ul>
   ),
-  ol: ({ children }: { children: React.ReactNode }) => (
-    <ol className="list-decimal list-inside my-0 py-0 space-y-1">{children}</ol>
+  ol: ({ children, ...props }: React.OlHTMLAttributes<HTMLOListElement>) => (
+    <ol className="list-decimal list-inside my-0 py-0 space-y-1" {...props}>{children}</ol>
   ),
-  p: ({ children }: { children: React.ReactNode }) => (
-    <p className="my-0 py-0 leading-normal inline">{children}</p>
+  p: ({ children, ...props }: React.HTMLAttributes<HTMLParagraphElement>) => (
+    <p className="my-0 py-0 leading-normal inline" {...props}>{children}</p>
   ),
 }
 
