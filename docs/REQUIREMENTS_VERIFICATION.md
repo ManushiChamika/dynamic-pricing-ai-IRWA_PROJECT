@@ -59,7 +59,7 @@ This document tracks the implementation and verification status of all requireme
 - **Features**:
   - Edit any message inline
   - Delete messages
-  - Branch conversations (fork from any message)
+  - Branch conversations from any message
   - New AI response generated after edit
 
 ### 6. Export/Import Conversations

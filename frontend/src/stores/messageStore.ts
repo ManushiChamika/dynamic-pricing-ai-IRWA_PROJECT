@@ -8,7 +8,6 @@ import {
   editMessage,
   deleteMessage,
   branchMessage,
-  forkThread,
 } from '../lib/messageApi'
 
 export type Message = {
@@ -45,7 +44,6 @@ type MessagesState = {
     content: string,
     user_name: string
   ) => Promise<void>
-  fork: (threadId: number | string, atMessage: Message, title: string) => Promise<number | null>
   streamingActive: boolean
   stop: () => void
   controller: AbortController | null
@@ -208,10 +206,6 @@ export const useMessages = create<MessagesState>((set, get) => ({
      if (typeof threadId !== 'number') return
      await branchMessage(threadId, parentId, content, user_name)
    },
-   fork: async (threadId, atMessage, title) => {
-     if (typeof threadId !== 'number') return null
-     return await forkThread(threadId, atMessage, title)
-   },
 }))
 
 export const useMessagesSelector = <T>(selector: (state: MessagesState) => T): T =>
@@ -224,7 +218,6 @@ export const useMessagesActions = () =>
     edit: state.edit,
     del: state.del,
     branch: state.branch,
-    fork: state.fork,
     stop: state.stop,
   }))
 

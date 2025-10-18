@@ -18,7 +18,7 @@ const { streamingActive, liveActiveAgent, liveTool, liveAgents, turnStats } = us
 
 ### Actions
 ```typescript
-const { refresh, send, edit, del, branch, fork, stop } = useMessagesActions()
+const { refresh, send, edit, del, branch, stop } = useMessagesActions()
 ```
 
 ## Thread Store
