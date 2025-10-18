@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Button } from './ui/button'
 import { SummaryIndicator } from './SummaryIndicator'
-import { useThreadList, useCurrentThread, useThreadActions } from '../stores/threadStore'
+import { useThreadList, useCurrentThread, useThreadActions, useDraftId } from '../stores/threadStore'
 import { useConfirm } from '../stores/confirmStore'
 import { useAuthUser, useAuthActions } from '../stores/authStore'
 import { useSettings } from '../stores/settingsStore'
@@ -9,6 +9,7 @@ import { useSettings } from '../stores/settingsStore'
 export function Sidebar() {
   const threads = useThreadList()
   const currentId = useCurrentThread()
+  const draftId = useDraftId()
   const { setCurrent, refresh, createDraftThread } = useThreadActions()
   const [collapsed, setCollapsed] = useState(localStorage.getItem('sidebarCollapsed') === '1')
   const user = useAuthUser()
@@ -75,6 +76,36 @@ export function Sidebar() {
 
         <div className="flex-1 overflow-y-auto mb-[var(--space-4)]">
           <ul id="thread-list" className="list-none m-0 p-0">
+            {draftId && (
+              <li
+                key={draftId}
+                className="px-3 py-2.5 rounded-lg cursor-pointer mb-1.5 transition-all duration-200 border"
+                style={{
+                  background: currentId === draftId ? 'var(--accent-color)' : 'transparent',
+                  color: currentId === draftId ? 'white' : 'var(--fg)',
+                  fontWeight: currentId === draftId ? 500 : 400,
+                  borderColor: currentId === draftId ? 'transparent' : 'transparent',
+                }}
+                onClick={() => setCurrent(draftId)}
+                aria-current={currentId === draftId ? 'true' : undefined}
+                onMouseEnter={(e) => {
+                  if (currentId !== draftId) {
+                    ;(e.currentTarget as HTMLElement).style.background = 'var(--accent-light)'
+                    ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--border-color)'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (currentId !== draftId) {
+                    ;(e.currentTarget as HTMLElement).style.background = 'transparent'
+                    ;(e.currentTarget as HTMLElement).style.borderColor = 'transparent'
+                  }
+                }}
+              >
+                <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--font-sm)]">
+                  New Chat (unsaved)
+                </span>
+              </li>
+            )}
             {threads.map((t) => (
               <li
                 key={t.id}

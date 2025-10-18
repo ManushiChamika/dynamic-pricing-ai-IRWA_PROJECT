@@ -171,6 +171,9 @@
   },
   "active": "a6db50ab45cab173",
   "lastOpenFiles": [
+    "frontend/vite.config.ts.timestamp-1760775118878-6d3cc020f1643.mjs",
+    "frontend/vite.config.ts.timestamp-1760774916987-12c5c3083622b.mjs",
+    "frontend/vite.config.ts.timestamp-1760774661027-2220411a98d4a.mjs",
     "frontend/vite.config.ts.timestamp-1760774236817-29a7b998fcbaa.mjs",
     "AGENTS.md",
     "chat_interface_analysis.md",
@@ -181,9 +184,6 @@
     "frontend/vite.config.ts.timestamp-1760638646162-cfd6b66afda63.mjs",
     "frontend/vite.config.ts.timestamp-1760630983210-99c92b5f9ba2e.mjs",
     "frontend/vite.config.ts.timestamp-1760630832534-d0f341c34aede.mjs",
-    "frontend/dist/assets/PriceChart-IoHyxX6Q.js",
-    "frontend/dist/assets/SettingsModal-B1J8SnY0.js",
-    "frontend/dist/assets/createLucideIcon-OXOnQ7qf.js",
     "docs/store-hooks-reference.md",
     "docs/state-management-optimization.md"
   ]

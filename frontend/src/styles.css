@@ -395,9 +395,26 @@
 }
 
 .agent-badges-container {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  animation: fadeIn 0.3s ease-in-out;
+   display: flex;
+   align-items: center;
+   gap: 0.5rem;
+   flex-wrap: wrap;
+   animation: fadeIn 0.3s ease-in-out;
+}
+
+.prose ul,
+.prose ol {
+   padding-left: 1.5rem;
+}
+
+.prose li {
+   line-height: 1.6;
+}
+
+.prose ul li::marker {
+   color: rgba(99, 102, 241, 0.7);
+}
+
+.prose ol li::marker {
+   color: rgba(99, 102, 241, 0.7);
 }
