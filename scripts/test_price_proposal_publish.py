@@ -35,16 +35,16 @@ async def main() -> int:
         conn = sqlite3.connect("app/data.db")
         cur = conn.cursor()
         cur.execute(
-            "CREATE TABLE IF NOT EXISTS market_data (id INTEGER PRIMARY KEY AUTOINCREMENT, product_name TEXT NOT NULL, price REAL NOT NULL, update_time TEXT DEFAULT CURRENT_TIMESTAMP)"
+            "CREATE TABLE IF NOT EXISTS market_data (id INTEGER PRIMARY KEY AUTOINCREMENT, product_name TEXT NOT NULL, price REAL NOT NULL, update_time TEXT DEFAULT CURRENT_TIMESTAMP, owner_id INTEGER NOT NULL)"
         )
         cur.execute(
-            "CREATE TABLE IF NOT EXISTS pricing_list (id INTEGER PRIMARY KEY AUTOINCREMENT, product_name TEXT NOT NULL, optimized_price REAL NOT NULL, last_update TEXT DEFAULT CURRENT_TIMESTAMP, reason TEXT)"
+            "CREATE TABLE IF NOT EXISTS pricing_list (id INTEGER PRIMARY KEY AUTOINCREMENT, product_name TEXT NOT NULL, optimized_price REAL NOT NULL, last_update TEXT DEFAULT CURRENT_TIMESTAMP, reason TEXT, owner_id INTEGER NOT NULL)"
         )
         now = datetime.now().isoformat()
         cur.execute("DELETE FROM market_data WHERE product_name=?", ("SKU-123",))
         for p in (98.0, 100.0, 102.0, 101.0, 99.0):
             cur.execute(
-                "INSERT INTO market_data (product_name, price, update_time) VALUES (?,?,?)",
+                "INSERT INTO market_data (product_name, price, update_time, owner_id) VALUES (?,?,?,1)",
                 ("SKU-123", float(p), now),
             )
         conn.commit()

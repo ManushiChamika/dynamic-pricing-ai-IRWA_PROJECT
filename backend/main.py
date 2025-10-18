@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
-from backend.routers import auth, settings, threads, messages, streaming, prices
+from backend.routers import auth, settings, threads, messages, streaming, prices, catalog
 
 
 @asynccontextmanager
@@ -100,3 +100,4 @@ app.include_router(threads.router)
 app.include_router(messages.router)
 app.include_router(streaming.router)
 app.include_router(prices.router)
+app.include_router(catalog.router)

@@ -89,7 +89,8 @@ def main() -> int:
         "  product_name TEXT NOT NULL,\n"
         "  optimized_price REAL NOT NULL,\n"
         "  last_update TEXT DEFAULT CURRENT_TIMESTAMP,\n"
-        "  reason TEXT\n"
+        "  reason TEXT,\n"
+        "  owner_id INTEGER NOT NULL\n"
         ")"
     )
     mcur.execute(
@@ -104,7 +105,7 @@ def main() -> int:
         )
     else:
         mcur.execute(
-            "INSERT INTO pricing_list (product_name, optimized_price, last_update, reason) VALUES (?,?,CURRENT_TIMESTAMP,?)",
+            "INSERT INTO pricing_list (product_name, optimized_price, last_update, reason, owner_id) VALUES (?,?,CURRENT_TIMESTAMP,?,1)",
             (sku, float(proposed_price), "accepted_via_cli"),
         )
     mconn.commit()

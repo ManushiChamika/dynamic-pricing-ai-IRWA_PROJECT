@@ -199,8 +199,8 @@ def populate_database(db_path='app/data.db'):
     # Insert market data
     for laptop in laptops:
         cursor.execute('''
-            INSERT INTO market_data (product_name, price, features, update_time)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO market_data (product_name, price, features, update_time, owner_id)
+            VALUES (?, ?, ?, ?, 1)
         ''', (laptop['product_name'], laptop['price'], laptop['features'], laptop['update_time']))
     
     print("Creating optimized pricing entries...")
@@ -226,8 +226,8 @@ def populate_database(db_path='app/data.db'):
         reason = random.choice(optimization_reasons)
         
         cursor.execute('''
-            INSERT INTO pricing_list (product_name, optimized_price, reason)
-            VALUES (?, ?, ?)
+            INSERT INTO pricing_list (product_name, optimized_price, reason, owner_id)
+            VALUES (?, ?, ?, 1)
         ''', (laptop['product_name'], optimized_price, reason))
     
     # Commit changes

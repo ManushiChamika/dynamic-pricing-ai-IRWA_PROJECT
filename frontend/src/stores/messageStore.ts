@@ -89,31 +89,6 @@ export const useMessages = create<MessagesState>((set, get) => ({
      const threadsState = useThreads.getState()
      const isDraft = String(threadId).startsWith('draft_')
 
-     let actualThreadId: number = threadId as number
-
-     if (isDraft) {
-       const newThreadId = await threadsState.createThread('New Thread')
-       if (!newThreadId) {
-         useToasts.getState().push({ 
-           type: 'error', 
-           text: 'Failed to create thread. Check console and ensure backend is running.' 
-         })
-         return
-       }
-       actualThreadId = newThreadId
-       threadsState.setCurrent(newThreadId)
-     } else {
-       actualThreadId = threadId as number
-     }
-
-     if (!stream) {
-       const userMsg: Message = { id: -1, role: 'user', content }
-       set((s) => ({ messages: [...s.messages, userMsg] }))
-       await sendMessage(actualThreadId, content, user_name)
-       await get().refresh(actualThreadId)
-       return
-     }
-
      const userMsg: Message = { id: -1, role: 'user', content }
      const live: Message = { id: -2, role: 'assistant', content: '' }
      let thinkingShown = false
@@ -126,6 +101,33 @@ export const useMessages = create<MessagesState>((set, get) => ({
        liveTool: null,
        turnStats: null,
      }))
+
+     let actualThreadId: number = threadId as number
+
+     if (isDraft) {
+       const newThreadId = await threadsState.createThread('New Thread')
+       if (!newThreadId) {
+         useToasts.getState().push({ 
+           type: 'error', 
+           text: 'Failed to create thread. Check console and ensure backend is running.' 
+         })
+         set((s) => ({
+           messages: s.messages.filter((m) => m.id !== -1 && m.id !== -2),
+           streamingActive: false,
+         }))
+         return
+       }
+       actualThreadId = newThreadId
+       threadsState.setCurrent(newThreadId)
+     } else {
+       actualThreadId = threadId as number
+     }
+
+     if (!stream) {
+       await sendMessage(actualThreadId, content, user_name)
+       await get().refresh(actualThreadId)
+       return
+     }
 
      const ctrl = new AbortController()
      set({ controller: ctrl })

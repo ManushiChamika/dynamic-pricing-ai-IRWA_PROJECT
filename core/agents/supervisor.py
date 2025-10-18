@@ -152,7 +152,7 @@ class Supervisor:
         return {"items": results, "count": len(results)}
 
     # ----------------- helpers -----------------
-    def _seed_market_if_needed(self, sku: str) -> None:
+    def _seed_market_if_needed(self, sku: str, owner_id: int = 1) -> None:
         """Ensure app/data.db has some competitor rows for the optimizer.
 
         This POC method seeds minimal rows if none exist.
@@ -162,19 +162,19 @@ class Supervisor:
         conn = sqlite3.connect(mdb, check_same_thread=False)
         cur = conn.cursor()
         cur.execute(
-            "CREATE TABLE IF NOT EXISTS market_data (id INTEGER PRIMARY KEY AUTOINCREMENT, product_name TEXT NOT NULL, price REAL NOT NULL, update_time TEXT DEFAULT CURRENT_TIMESTAMP)"
+            "CREATE TABLE IF NOT EXISTS market_data (id INTEGER PRIMARY KEY AUTOINCREMENT, owner_id INTEGER NOT NULL, product_name TEXT NOT NULL, price REAL NOT NULL, update_time TEXT DEFAULT CURRENT_TIMESTAMP)"
         )
         cur.execute(
-            "CREATE TABLE IF NOT EXISTS pricing_list (id INTEGER PRIMARY KEY AUTOINCREMENT, product_name TEXT NOT NULL, optimized_price REAL NOT NULL, last_update TEXT DEFAULT CURRENT_TIMESTAMP, reason TEXT)"
+            "CREATE TABLE IF NOT EXISTS pricing_list (id INTEGER PRIMARY KEY AUTOINCREMENT, owner_id INTEGER NOT NULL, product_name TEXT NOT NULL, optimized_price REAL NOT NULL, last_update TEXT DEFAULT CURRENT_TIMESTAMP, reason TEXT)"
         )
-        cur.execute("SELECT COUNT(*) FROM market_data WHERE product_name=?", (sku,))
+        cur.execute("SELECT COUNT(*) FROM market_data WHERE product_name=? AND owner_id=?", (sku, owner_id))
         n = cur.fetchone()[0]
         if n == 0:
             now = time.strftime("%Y-%m-%dT%H:%M:%S")
             for p in (98.0, 100.0, 101.5, 99.5):
                 cur.execute(
-                    "INSERT INTO market_data (product_name, price, update_time) VALUES (?,?,?)",
-                    (sku, float(p), now),
+                    "INSERT INTO market_data (owner_id, product_name, price, update_time) VALUES (?,?,?,?)",
+                    (owner_id, sku, float(p), now),
                 )
             conn.commit()
         conn.close()

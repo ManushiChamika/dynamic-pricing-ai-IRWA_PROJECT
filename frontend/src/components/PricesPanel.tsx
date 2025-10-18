@@ -4,6 +4,7 @@ import { Input } from './ui/input'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { useTheme } from '../stores/settingsStore'
 import { Sparkline } from './Sparkline'
+import { useAuthToken } from '../stores/authStore'
 
 const PriceChart = lazy(() => import('./PriceChart').then((m) => ({ default: m.PriceChart })))
 
@@ -16,9 +17,10 @@ export function PricesPanel() {
   const esRef = useRef<EventSource | null>(null)
   const [pricesParent] = useAutoAnimate()
   const theme = useTheme()
+  const token = useAuthToken()
 
   useEffect(() => {
-    if (!running) {
+    if (!running || !token) {
       if (esRef.current) {
         try {
           esRef.current.close()
@@ -33,6 +35,7 @@ export function PricesPanel() {
       const url = new URL('/api/prices/stream', window.location.origin)
       const s = sku.trim()
       if (s) url.searchParams.set('sku', s)
+      url.searchParams.set('token', token)
       const es = new EventSource(url.toString())
       esRef.current = es
       const onPrice = (e: MessageEvent) => {
@@ -65,7 +68,7 @@ export function PricesPanel() {
     } catch {
       // ignore
     }
-  }, [running, sku])
+  }, [running, sku, token])
 
   const keys = useMemo(() => Object.keys(prices).sort(), [prices])
 
