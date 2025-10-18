@@ -18,6 +18,7 @@ import {
   MessageSquarePlus,
   ChevronLeft,
   ChevronRight,
+  Home,
 } from 'lucide-react'
 
 export function Sidebar() {
@@ -58,7 +59,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`sidebar ${collapsed ? 'w-14' : 'w-[280px]'} border-r border-border p-[var(--space-4)] overflow-auto bg-[rgba(17,24,39,0.85)] backdrop-blur-3xl transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}
+      className={`sidebar ${collapsed ? 'w-14' : 'w-[280px]'} border-r border-border p-[var(--space-4)] overflow-auto bg-[var(--panel)] backdrop-blur-3xl transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}
       aria-label="Threads sidebar"
     >
       <div className="flex flex-col h-full">
@@ -115,6 +116,16 @@ export function Sidebar() {
         </div>
 
         <div className="border-t border-[var(--border-color)] pt-[var(--space-3)] flex flex-col gap-[var(--space-2)]">
+          <Button
+            variant="outline"
+            onClick={() => (window.location.href = '/')}
+            className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2'} hover:bg-indigo-500/10 hover:border-indigo-500/30 transition-colors`}
+            aria-label="Back to home"
+          >
+            <Home className="w-4 h-4" />
+            {!collapsed && <span>Home</span>}
+          </Button>
+
           <Button
             variant="outline"
             onClick={() => useCatalogStore.getState().setCatalogOpen(true)}

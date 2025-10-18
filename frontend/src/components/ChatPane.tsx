@@ -66,7 +66,7 @@ export function ChatPane() {
   }, [mode])
 
   return (
-    <main className="flex-1 flex flex-col bg-[rgba(10,14,26,0.3)]">
+    <main className="flex-1 flex flex-col bg-[var(--bg)]">
       <ChatHeader />
       <div
         className="flex-1 overflow-auto p-[var(--space-6)] flex flex-col gap-[var(--space-4)] scroll-smooth"
