@@ -1,33 +1,30 @@
-# AGENT CODING GUIDELINES
+# Agent Instructions
 
-This document outlines the conventions and commands for agentic development.
+Monorepo with Python/FastAPI backend and TypeScript/React frontend. Backend in backend/, frontend in frontend/.
 
-## 1. Commands
+## Backend (Python)
 
-| Area | Action | Command | Single Test |
-| :--- | :--- | :--- | :--- |
-| **Backend** | Test | `pytest` | `pytest path/to/test_file.py` |
-| **Backend** | Lint/Format | `black . && isort . && flake8 .` | N/A |
-| **Frontend** | Build | `npm run build` | N/A |
-| **Frontend** | Test | `npm run test` | `npm run test -- path/to/test_file.tsx` |
-| **Frontend** | Lint/Format | `npm run lint:fix && npm run format` | N/A |
+*Run:* using "C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\run_full_app.bat"
 
-## 2. Style & Conventions
+*Test:* pytest (all), pytest path/to/test_file.py (single)
+*Lint:* black ., isort ., flake8 . before committing
+*Style:* snake_case functions/vars, PascalCase classes; fully typed (mypy strict); use HTTPException in API endpoints
 
-### Python (Backend)
-- **Naming:** `snake_case` for functions/variables, `PascalCase` for classes.
-- **Typing:** Fully typed; enforce with `mypy --strict`.
-- **API:** Use `HTTPException` for error handling in FastAPI endpoints.
-- **Formatting:** Strict `black` (line-length 88) and `isort` compliance.
+## Frontend (TypeScript/React)
 
-### TypeScript/React (Frontend)
-- **Naming:** `camelCase` for functions/variables, `PascalCase` for components/types.
-- **Styling:** Use **Tailwind CSS only**.
-- **Typing:** Strong TypeScript typing; avoid `@typescript-eslint/no-explicit-any`.
-- **React:** Use functional components and hooks.
+*Run:* "C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\run_full_app.bat"
+*Build:* npm run build
+*Test:* npm run test (all), npm run test -- path/to/test_file.tsx (single)
+*Lint/Format:* npm run lint:fix, npm run format before committing
+*Style:* camelCase functions/vars, PascalCase components/types; Tailwind CSS only; strong TypeScript typing
 
-## 3. General Rules
-- **Code:** No comments in code. Achieve functionality with minimum code.
-- **Commits:** Commit frequently. Do not push without instruction.
-- **File Deletion:** Move deleted files to the recycle bin (do not permanently delete).
-- **Restart:** Inform the user if a restart is required to see changes.
+## Important
+
+- when you want to use chrome mcp tools do not attempt to run the backend and the frontend yourself just ask the user to run the full app and provide the necessary details
+- No comments in code
+- Try to achieve the desired functionality with minimum code
+- Testing credentials: demo@example.com / 1234567890
+-  Important : when you delete files move them to recycle bin do not permanently delete.  
+-  Commit frequently . do not push without instruction . commit super frequently 
+- i am new to git when you do something intermediate or advanced inform me what is happening 
+- If you made a change then tell me weather i have to restart to see the changes
