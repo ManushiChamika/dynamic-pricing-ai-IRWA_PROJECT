@@ -3,7 +3,7 @@ import { Button } from '../components/ui/button'
 import { MessageSquare, BarChart3, Bell, ArrowRight } from 'lucide-react'
 import { Navigation } from '../components/Navigation'
 import { Footer } from '../components/Footer'
-import { getHowItWorksCard } from '../lib/themeHelpers'
+import { getHowItWorksCard, getPageThemeClasses } from '../lib/themeHelpers'
 import { useTheme } from '../contexts/ThemeContext'
 
 export function LandingPage() {
@@ -11,16 +11,8 @@ export function LandingPage() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
-  const pageClasses = isDark ? 'bg-[#0F172A] text-white' : 'bg-slate-50 text-slate-900'
-  const mutedText = isDark ? 'text-gray-400' : 'text-slate-700'
-  const softMutedText = isDark ? 'text-gray-500' : 'text-slate-600'
-  const sectionBackdrop = isDark ? 'bg-[#1E293B]/30' : 'bg-slate-100'
-  const gradientOverlay = isDark
-    ? 'from-indigo-500/10 via-transparent to-purple-500/10'
-    : 'from-indigo-400/15 via-transparent to-purple-300/10'
-  const dottedOverlay = isDark
-    ? 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)'
-    : 'radial-gradient(circle at 1px 1px, rgba(79,70,229,0.08) 1px, transparent 0)'
+  const { pageClasses, mutedText, softMutedText, heroGradient, dottedOverlay, secondarySurface } =
+    getPageThemeClasses(isDark)
   const secondaryCta = isDark
     ? 'text-lg h-14 px-10 border border-white/20 text-white hover:bg-white/10 hover:border-white/40'
     : 'text-lg h-14 px-10 border border-slate-300 bg-white/85 text-slate-800 hover:bg-slate-100 hover:border-slate-400'
@@ -35,7 +27,7 @@ export function LandingPage() {
 
       <main className="pt-24">
         <section className="relative overflow-hidden px-6 py-24 lg:py-32">
-          <div className={`absolute inset-0 bg-gradient-to-br ${gradientOverlay}`} />
+          <div className={`absolute inset-0 bg-gradient-to-br ${heroGradient}`} />
           <div
             className="absolute inset-0"
             style={{
@@ -180,7 +172,7 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section id="features" className={`px-6 py-24 ${sectionBackdrop} relative overflow-hidden`}>
+        <section id="features" className={`px-6 py-24 ${secondarySurface} relative overflow-hidden`}>
           <div className="container mx-auto relative z-10">
             <div className="text-center mb-16">
               <h2 className="text-4xl font-bold mb-4">Powerful Features</h2>

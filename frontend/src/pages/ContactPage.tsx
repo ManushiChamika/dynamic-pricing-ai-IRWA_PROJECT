@@ -6,25 +6,20 @@ import { Footer } from '../components/Footer'
 import { ArrowRight, Mail, MapPin, Phone } from 'lucide-react'
 import { useState } from 'react'
 import { useTheme } from '../contexts/ThemeContext'
+import { getPageThemeClasses } from '../lib/themeHelpers'
 
 export function ContactPage() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const pageClasses = isDark ? 'bg-[#0F172A] text-white' : 'bg-slate-50 text-slate-900'
-  const mutedText = isDark ? 'text-gray-400' : 'text-slate-700'
-  const heroGradient = isDark
-    ? 'from-indigo-500/10 via-transparent to-purple-500/10'
-    : 'from-indigo-400/15 via-transparent to-purple-300/10'
-  const dottedOverlay = isDark
-    ? 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)'
-    : 'radial-gradient(circle at 1px 1px, rgba(79,70,229,0.08) 1px, transparent 0)'
-  const secondarySurface = isDark ? 'bg-[#1E293B]/30' : 'bg-slate-100'
-  const cardSurface = isDark
-    ? 'border-white/10 bg-[#1E293B]/50'
-    : 'border-slate-200 bg-white shadow-[0_20px_45px_rgba(15,23,42,0.1)]'
-  const inputSurface = isDark
-    ? 'bg-[#1E293B] border-white/20 text-white'
-    : 'bg-white border-slate-300 text-slate-900'
+  const {
+    pageClasses,
+    mutedText,
+    heroGradient,
+    dottedOverlay,
+    secondarySurface,
+    cardSurface,
+    inputSurface,
+  } = getPageThemeClasses(isDark)
   const [formData, setFormData] = useState({
     name: '',
     email: '',

@@ -59,3 +59,33 @@ export function getAuthThemeClasses(isDark: boolean) {
     backLink: isDark ? 'text-gray-400 hover:text-gray-300' : 'text-slate-600 hover:text-slate-700',
   }
 }
+
+export function getPageThemeClasses(isDark: boolean) {
+  return {
+    pageClasses: isDark ? 'bg-[#0F172A] text-white' : 'bg-slate-50 text-slate-900',
+    mutedText: isDark ? 'text-gray-400' : 'text-slate-700',
+    softMutedText: isDark ? 'text-gray-500' : 'text-slate-600',
+    helperText: isDark ? 'text-gray-500' : 'text-slate-600',
+    heroGradient: isDark
+      ? 'from-indigo-500/10 via-transparent to-purple-500/10'
+      : 'from-indigo-400/15 via-transparent to-purple-300/10',
+    dottedOverlay: isDark
+      ? 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)'
+      : 'radial-gradient(circle at 1px 1px, rgba(79,70,229,0.08) 1px, transparent 0)',
+    secondarySurface: isDark ? 'bg-[#1E293B]/30' : 'bg-slate-100',
+    cardSurface: isDark
+      ? 'border-white/10 bg-[#1E293B]/50'
+      : 'border-slate-200 bg-white shadow-[0_20px_45px_rgba(15,23,42,0.1)]',
+    inputSurface: isDark
+      ? 'bg-[#1E293B] border-white/20 text-white'
+      : 'bg-white border-slate-300 text-slate-900',
+  }
+}
+
+export function getFooterThemeClasses(isDark: boolean) {
+  return {
+    footerBg: isDark ? 'bg-[#0F172A] border-white/10' : 'bg-white border-slate-200',
+    textMuted: isDark ? 'text-gray-400' : 'text-slate-600',
+    textHover: isDark ? 'hover:text-white' : 'hover:text-slate-900',
+  }
+}
