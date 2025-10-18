@@ -171,6 +171,7 @@
   },
   "active": "a6db50ab45cab173",
   "lastOpenFiles": [
+    "scripts/test_llm_single_alert.py",
     "app/data.db-shm",
     "app/data.db-wal",
     "frontend/vite.config.ts.timestamp-1760819855034-d2535bdd61b2e.mjs",
@@ -181,7 +182,6 @@
     "frontend/vite.config.ts.timestamp-1760818591082-3088eb73d7dfc.mjs",
     "frontend/vite.config.ts.timestamp-1760818399056-a9688e9024ce.mjs",
     "scripts/test_llm_alert_agent.py",
-    "frontend/vite.config.ts.timestamp-1760817898380-ca1ac2b47b3f5.mjs",
     "_legacy_mcp_archive/README.md",
     "docs/MCP_IMPLEMENTATION_ANALYSIS.md",
     "docs/LLM_TESTING_GUIDE.md",

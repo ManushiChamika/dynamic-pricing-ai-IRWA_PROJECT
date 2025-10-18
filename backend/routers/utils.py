@@ -126,16 +126,13 @@ def should_summarize(thread_id: int, upto_message_id: int, token_in: Optional[in
     if len(since) >= min_msgs:
         return True
     
-    accumulated_tokens = 0
-    for m in since:
-        accumulated_tokens += (m.token_in or 0) + (m.token_out or 0)
+    accumulated_tokens = sum((m.token_in or 0) + (m.token_out or 0) for m in since)
     if accumulated_tokens >= token_trigger:
         return True
     
     if len(msgs) >= long_thread:
         seed = int(hashlib.md5(f"{thread_id}:{upto_message_id}".encode()).hexdigest()[:8], 16)
-        pseudo_random = (seed % 10000) / 10000.0
-        if pseudo_random < prob:
+        if (seed % 10000) / 10000.0 < prob:
             return True
     return False
 
@@ -185,6 +182,31 @@ def generate_summary(thread_id: int, upto_message_id: int) -> Optional[str]:
         return content
     except Exception:
         return None
+
+
+def safe_add_summary(thread_id: int, upto_message_id: int, content: str) -> bool:
+    from core.chat_db import add_summary, get_message, get_latest_summary
+    from sqlalchemy.exc import IntegrityError
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    msg = get_message(upto_message_id)
+    if not msg or msg.thread_id != thread_id:
+        logger.warning(f"Invalid upto_message_id {upto_message_id} for thread {thread_id}")
+        return False
+    
+    latest = get_latest_summary(thread_id)
+    if latest and int(latest.upto_message_id) >= upto_message_id:
+        logger.warning(f"Summary {upto_message_id} <= latest {latest.upto_message_id} for thread {thread_id}")
+        return False
+    
+    try:
+        add_summary(thread_id, upto_message_id, content)
+        return True
+    except IntegrityError as e:
+        logger.warning(f"Duplicate summary prevented for thread {thread_id}, message {upto_message_id}: {e}")
+        return False
 
 
 def count_user_messages_since(thread_id: int, since_message_id: Optional[int] = None) -> int:
