@@ -32,6 +32,12 @@ try:
 except Exception:
     get_system_prompt = None
 
+try:
+    from .tool_schemas import TOOL_SCHEMAS, get_agent_for_tool
+except Exception:
+    TOOL_SCHEMAS = []
+    get_agent_for_tool = lambda name: ""
+
 class UserInteractionAgent:
     def __init__(self, user_name, mode: str = "user"):
         self.user_name = user_name
@@ -158,108 +164,13 @@ class UserInteractionAgent:
                     max_tokens_cfg = ui_max_tokens if ui_max_tokens > 0 else 1024
                     temperature = 0.2 if self.mode == "user" else 0.3
 
-                    # Tool schemas matching our implementations
-                    tools = [
-                        {
-                            "type": "function",
-                            "function": {
-                                "name": "list_inventory_items",
-                                "description": "List items from the local product catalog (app/data.db). Use for inventory overviews.",
-                                "parameters": {
-                                    "type": "object",
-                                    "properties": {
-                                        "search": {"type": "string", "description": "Filter by substring in SKU or title."},
-                                        "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
-                                    },
-                                    "additionalProperties": False,
-                                },
-                            },
-                        },
-                        {
-                            "type": "function",
-                            "function": {
-                                "name": "get_inventory_item",
-                                "description": "Get a single inventory item by SKU from app/data.db/product_catalog.",
-                                "parameters": {
-                                    "type": "object",
-                                    "properties": {
-                                        "sku": {"type": "string", "description": "Item SKU (exact match)"},
-                                    },
-                                    "required": ["sku"],
-                                    "additionalProperties": False,
-                                },
-                            },
-                        },
-                        {
-                            "type": "function",
-                            "function": {
-                                "name": "list_pricing_list",
-                                "description": "List current market pricing entries from app/data.db/pricing_list.",
-                                "parameters": {
-                                    "type": "object",
-                                    "properties": {
-                                        "search": {"type": "string", "description": "Filter by substring in product_name."},
-                                        "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
-                                    },
-                                    "additionalProperties": False,
-                                },
-                            },
-                        },
-                        {
-                            "type": "function",
-                            "function": {
-                                "name": "list_price_proposals",
-                                "description": "List recent price proposals from app/data.db/price_proposals.",
-                                "parameters": {
-                                    "type": "object",
-                                    "properties": {
-                                        "sku": {"type": "string", "description": "Optional filter by SKU"},
-                                        "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
-                                    },
-                                    "additionalProperties": False,
-                                },
-                            },
-                        },
-                        {
-                            "type": "function",
-                            "function": {
-                                "name": "list_market_data",
-                                "description": "List products from app/data.db (market research data). Use this to find products by brand or name in market data.",
-                                "parameters": {
-                                    "type": "object",
-                                    "properties": {
-                                        "search": {"type": "string", "description": "Filter by substring in product_name or brand."},
-                                        "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
-                                    },
-                                    "additionalProperties": False,
-                                },
-                            },
-                        },
-                    ]
-
-                    # Map tool name to agent label for UI badges
-                    def _agent_for_tool(name: Optional[str]):
-                        mapping = {
-                            "list_inventory_items": "UserInteractionAgent",
-                            "get_inventory_item": "UserInteractionAgent",
-                            "list_pricing_list": "PriceOptimizationAgent",
-                            "list_price_proposals": "PriceOptimizationAgent",
-                            "list_market_data": "DataCollectorAgent",
-                            "run_pricing_workflow": "PriceOptimizationAgent",
-                            "optimize_price": "PriceOptimizationAgent",
-                            "scan_for_alerts": "AlertNotificationAgent",
-                            "collect_market_data": "DataCollectorAgent",
-                            "request_market_fetch": "DataCollectorAgent",
-                        }
-                        return mapping.get(name or "")
-
                     # Accumulate full content for memory on completion
                     full_parts: List[str] = []
 
                     try:
                         for event in llm.chat_with_tools_stream(
                             messages=msgs,
-                            tools=tools,
+                            tools=TOOL_SCHEMAS,
                             functions_map=TOOLS_MAP,
                             tool_choice="auto",
                             max_rounds=(4 if self.mode == "user" else 5),
@@ -272,13 +183,12 @@ class UserInteractionAgent:
                                     text = event.get("text")
                                     if text:
                                         full_parts.append(text)
-                                        # Back-compat: yield as raw string
                                         yield text
                                 elif et == "tool_call":
                                     name = event.get("name")
                                     status = event.get("status")
                                     if status == "start":
-                                        agent = _agent_for_tool(name)
+                                        agent = get_agent_for_tool(name)
                                         if agent:
                                             yield {"type": "agent", "name": agent}
                                     yield {"type": "tool_call", "name": name, "status": status}
