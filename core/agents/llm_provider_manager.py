@@ -120,7 +120,8 @@ class ProviderManager:
         gemini_base = os.getenv("GEMINI_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta/openai/"
         if gemini_base and not gemini_base.endswith("/"):
             gemini_base = gemini_base + "/"
-        gemini_model = os.getenv("GEMINI_MODEL") or "gemini-2.5-flash"
+        gemini_flash_model = os.getenv("GEMINI_FLASH_MODEL") or "gemini-2.5-flash"
+        gemini_pro_model = os.getenv("GEMINI_PRO_MODEL") or "gemini-2.5-pro"
         
         gemini_keys = []
         gemini_key_1 = os.getenv("GEMINI_API_KEY")
@@ -142,13 +143,15 @@ class ProviderManager:
             self._log.debug("Failed to sort Gemini keys by working key: %s", e)
 
         if explicit_key:
-            custom_model = explicit_model or or_model or oa_model or gemini_model
+            custom_model = explicit_model or or_model or oa_model or gemini_pro_model
             self.register_provider(openai_mod, "custom", explicit_key, custom_model, explicit_base)
         else:
-            self.register_provider(openai_mod, "openai", oa_key, oa_model, None)
-            self.register_provider(openai_mod, "openrouter", or_key, or_model, or_base)
             for gemini_name, gemini_key in gemini_keys:
-                self.register_provider(openai_mod, gemini_name, gemini_key, gemini_model, gemini_base)
+                self.register_provider(openai_mod, f"{gemini_name}_pro", gemini_key, gemini_pro_model, gemini_base)
+            for gemini_name, gemini_key in gemini_keys:
+                self.register_provider(openai_mod, gemini_name, gemini_key, gemini_flash_model, gemini_base)
+            self.register_provider(openai_mod, "openrouter", or_key, or_model, or_base)
+            self.register_provider(openai_mod, "openai", oa_key, oa_model, None)
     
     def get_providers(self) -> List[Dict[str, Any]]:
         return self._providers
