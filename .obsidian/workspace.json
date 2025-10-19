@@ -171,8 +171,9 @@
   },
   "active": "a6db50ab45cab173",
   "lastOpenFiles": [
-    "app/data.db-shm",
     "app/data.db-wal",
+    "frontend/src/stores/sidebarStore.ts",
+    "app/data.db-shm",
     "frontend/vite.config.ts.timestamp-1760836182111-e673e4dd9a859.mjs",
     "scripts/test_autonomous_web_scraper.py",
     "scripts/debug_amazon_scraper.py",
@@ -182,7 +183,6 @@
     "frontend/vite.config.ts.timestamp-1760835171992-a31c937d9c4e.mjs",
     "docs/VALIDATION_SCRIPT_RESULTS.md",
     "scripts/validate_end_to_end_workflow.py",
-    "frontend/vite.config.ts.timestamp-1760834150038-fc8d189bd1be7.mjs",
     "AUTONOMOUS_DATA_COLLECTOR_COMPLETE.md",
     "AUTONOMOUS_PRICING_INTEGRATION_COMPLETE.md",
     "docs/LLM_ALERT_AGENT_TEST_REPORT.md",

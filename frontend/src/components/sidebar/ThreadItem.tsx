@@ -10,10 +10,28 @@ interface ThreadItemProps {
   isDraft?: boolean
   updatedAt?: string
   onSelect: () => void
+  collapsed?: boolean
 }
 
 export const ThreadItem = React.memo(
-  ({ id, title, isActive, isDraft = false, updatedAt, onSelect }: ThreadItemProps) => {
+  ({ id, title, isActive, isDraft = false, updatedAt, onSelect, collapsed = false }: ThreadItemProps) => {
+    if (collapsed) {
+      return (
+        <li
+          className={`group relative cursor-pointer mb-1 transition-colors list-none rounded-lg p-2.5 flex items-center justify-center ${
+            isActive
+              ? 'bg-secondary text-secondary-foreground'
+              : 'hover:bg-accent hover:text-accent-foreground'
+          }`}
+          onClick={onSelect}
+          aria-current={isActive ? 'true' : undefined}
+          title={title}
+        >
+          <MessageSquare className="h-4 w-4 shrink-0" />
+        </li>
+      )
+    }
+
     return (
       <li
         className={`group relative cursor-pointer mb-1 transition-colors list-none rounded-lg px-3 py-2.5 ${

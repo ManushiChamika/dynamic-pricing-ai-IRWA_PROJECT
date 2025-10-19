@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, startTransition } from 'react'
+import React, { useEffect, useMemo, startTransition } from 'react'
 import { Virtuoso } from 'react-virtuoso'
 import { Button } from './ui/button'
 import { ThreadItem } from './sidebar/ThreadItem'
@@ -12,6 +12,7 @@ import { useConfirm } from '../stores/confirmStore'
 import { useAuthUser, useAuthActions } from '../stores/authStore'
 import { useSettings } from '../stores/settingsStore'
 import { useCatalogStore } from '../stores/catalogStore'
+import { useSidebar } from '../stores/sidebarStore'
 import {
   Package,
   Settings,
@@ -28,7 +29,7 @@ export function Sidebar() {
   const currentId = useCurrentThread()
   const draftId = useDraftId()
   const { setCurrent, refresh, createDraftThread } = useThreadActions()
-  const [collapsed, setCollapsed] = useState(localStorage.getItem('sidebarCollapsed') === '1')
+  const { collapsed, toggleCollapsed } = useSidebar()
   const user = useAuthUser()
   const { logout } = useAuthActions()
 
@@ -59,10 +60,6 @@ export function Sidebar() {
     })
   }, [refresh, setCurrent, createDraftThread, currentId])
 
-  useEffect(() => {
-    document.querySelector('.sidebar')?.classList.toggle('collapsed', collapsed)
-  }, [collapsed])
-
   const handleLogout = async () => {
     useConfirm.getState().openConfirm({
       title: 'Sign out?',
@@ -81,7 +78,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`sidebar ${collapsed ? 'w-16' : 'w-64'} border-r bg-background overflow-auto transition-all duration-300`}
+      className={`sidebar ${collapsed ? 'w-16' : 'w-64'} border-r bg-background transition-all duration-300 overflow-hidden`}
       aria-label="Threads sidebar"
     >
       <div className="flex flex-col h-full p-3 gap-3">
@@ -90,13 +87,7 @@ export function Sidebar() {
             variant="ghost"
             size="icon"
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            onClick={() =>
-              setCollapsed((c) => {
-                const n = !c
-                localStorage.setItem('sidebarCollapsed', n ? '1' : '0')
-                return n
-              })
-            }
+            onClick={toggleCollapsed}
             aria-expanded={!collapsed}
             aria-controls="thread-list"
           >
@@ -116,30 +107,34 @@ export function Sidebar() {
           )}
         </div>
 
-        <div className="flex-1 -mx-1" id="thread-list">
-          <Virtuoso
-            data={allItems}
-            totalCount={allItems.length}
-            itemContent={(index, item) => (
-              <ThreadItem
-                key={item.id}
-                id={item.id}
-                title={item.title}
-                isActive={currentId === item.id}
-                isDraft={item.isDraft}
-                updatedAt={item.updated_at}
-                onSelect={() => startTransition(() => setCurrent(item.id))}
-              />
-            )}
-            style={{ height: '100%', padding: '0 4px' }}
-          />
-        </div>
+        {!collapsed && (
+          <div className="flex-1 -mx-1" id="thread-list">
+            <Virtuoso
+              data={allItems}
+              totalCount={allItems.length}
+              itemContent={(index, item) => (
+                <ThreadItem
+                  key={item.id}
+                  id={item.id}
+                  title={item.title}
+                  isActive={currentId === item.id}
+                  isDraft={item.isDraft}
+                  updatedAt={item.updated_at}
+                  onSelect={() => startTransition(() => setCurrent(item.id))}
+                  collapsed={false}
+                />
+              )}
+              style={{ height: '100%', padding: '0 4px' }}
+            />
+          </div>
+        )}
 
         <div className="border-t pt-3 flex flex-col gap-1">
           <Button
             variant="ghost"
             onClick={() => (window.location.href = '/')}
-            className={`justify-start ${collapsed ? 'px-2' : ''}`}
+            className="justify-start"
+            size={collapsed ? 'icon' : 'default'}
             aria-label="Back to home"
           >
             <Home className="h-4 w-4" />
@@ -149,7 +144,8 @@ export function Sidebar() {
           <Button
             variant="ghost"
             onClick={() => useCatalogStore.getState().setCatalogOpen(true)}
-            className={`justify-start ${collapsed ? 'px-2' : ''}`}
+            className="justify-start"
+            size={collapsed ? 'icon' : 'default'}
             aria-label="Open catalog"
           >
             <Package className="h-4 w-4" />
@@ -159,7 +155,8 @@ export function Sidebar() {
           <Button
             variant="ghost"
             onClick={() => useSettings.getState().setSettingsOpen(true)}
-            className={`justify-start ${collapsed ? 'px-2' : ''}`}
+            className="justify-start"
+            size={collapsed ? 'icon' : 'default'}
             aria-label="Open settings"
           >
             <Settings className="h-4 w-4" />
@@ -178,7 +175,8 @@ export function Sidebar() {
           <Button
             variant="ghost"
             onClick={handleLogout}
-            className={`justify-start text-destructive hover:text-destructive hover:bg-destructive/10 ${collapsed ? 'px-2' : ''}`}
+            className="justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
+            size={collapsed ? 'icon' : 'default'}
             aria-label="Sign out"
           >
             <LogOut className="h-4 w-4" />
