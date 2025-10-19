@@ -14,77 +14,26 @@ interface ThreadItemProps {
 
 export const ThreadItem = React.memo(
   ({ id, title, isActive, isDraft = false, updatedAt, onSelect }: ThreadItemProps) => {
-    const [isHovered, setIsHovered] = useState(false)
-
     return (
       <li
-        className="thread-item group relative cursor-pointer mb-2 transition-all duration-150 ease-out list-none"
-        style={{
-          background: isActive
-            ? 'var(--accent-color)'
-            : isHovered
-              ? 'var(--thread-item-bg-hover)'
-              : 'var(--thread-item-bg-rest)',
-          borderRadius: '8px',
-          padding: '10px 12px',
-          border: isActive
-            ? '1px solid var(--accent-color)'
-            : isHovered
-              ? '1px solid var(--thread-item-border-hover)'
-              : '1px solid var(--thread-item-border-rest)',
-          boxShadow: isActive
-            ? 'var(--thread-item-shadow-active)'
-            : isHovered
-              ? 'var(--thread-item-shadow-hover)'
-              : 'none',
-          minHeight: '44px',
-          display: 'flex',
-          alignItems: 'center',
-        }}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        className={`group relative cursor-pointer mb-1 transition-colors list-none rounded-lg px-3 py-2.5 ${
+          isActive
+            ? 'bg-secondary text-secondary-foreground'
+            : 'hover:bg-accent hover:text-accent-foreground'
+        }`}
         onClick={onSelect}
         aria-current={isActive ? 'true' : undefined}
       >
         <div className="flex items-center gap-3 w-full">
-          <div
-            className="flex-shrink-0 transition-all duration-150"
-            style={{
-              opacity: isActive ? 1 : isHovered ? 0.9 : 0.6,
-              color: isActive ? 'rgba(255, 255, 255, 0.95)' : isHovered ? 'var(--accent-color)' : 'var(--muted)',
-              transform: isHovered ? 'scale(1.08)' : 'scale(1)',
-            }}
-          >
-            <MessageSquare size={17} strokeWidth={isActive ? 2.5 : 2} />
-          </div>
+          <MessageSquare className="h-4 w-4 shrink-0" />
 
-          <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-            <div
-              className="overflow-hidden text-ellipsis whitespace-nowrap"
-              style={{
-                fontFamily: 'var(--font-family)',
-                fontSize: 'var(--font-sm)',
-                lineHeight: 'var(--line-height-snug)',
-                fontWeight: isActive ? 600 : isHovered ? 500 : 450,
-                color: isActive ? 'rgba(255, 255, 255, 0.98)' : isHovered ? 'var(--fg)' : 'var(--fg)',
-                letterSpacing: '-0.01em',
-                opacity: isActive ? 1 : isHovered ? 1 : 0.85,
-              }}
-            >
+          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+            <div className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium leading-none">
               {title}
             </div>
 
             {updatedAt && !isDraft && (
-              <div
-                style={{
-                  fontFamily: 'var(--font-family)',
-                  fontSize: 'var(--font-xs)',
-                  lineHeight: 'var(--line-height-tight)',
-                  color: isActive ? 'rgba(255, 255, 255, 0.7)' : 'var(--app-text-muted)',
-                  opacity: isActive ? 1 : isHovered ? 0.85 : 0.7,
-                  fontWeight: 400,
-                }}
-              >
+              <div className="text-xs text-muted-foreground leading-none">
                 {formatRelativeTime(updatedAt)}
               </div>
             )}
@@ -92,7 +41,7 @@ export const ThreadItem = React.memo(
 
           {!isDraft && (
             <div
-              className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+              className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
               onClick={(e) => e.stopPropagation()}
             >
               <SummaryIndicator threadId={id as number} />

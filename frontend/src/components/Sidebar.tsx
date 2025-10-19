@@ -80,11 +80,11 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`sidebar ${collapsed ? 'w-14' : 'w-[280px]'} border-r border-border p-[var(--space-4)] overflow-auto bg-[var(--panel)] backdrop-blur-3xl transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}
+      className={`sidebar ${collapsed ? 'w-16' : 'w-64'} border-r bg-background overflow-auto transition-all duration-300`}
       aria-label="Threads sidebar"
     >
-      <div className="flex flex-col h-full">
-        <div className="flex gap-[var(--space-2)] mb-[var(--space-4)]">
+      <div className="flex flex-col h-full p-3 gap-3">
+        <div className="flex gap-2">
           <Button
             variant="ghost"
             size="icon"
@@ -99,21 +99,21 @@ export function Sidebar() {
             aria-expanded={!collapsed}
             aria-controls="thread-list"
           >
-            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
           {!collapsed && (
             <Button
               onClick={() => createDraftThread()}
               aria-label="Create new thread"
-              className="flex-1 flex items-center justify-center"
+              className="flex-1"
             >
-              <MessageSquarePlus className="w-4 h-4 mr-2" />
+              <MessageSquarePlus className="mr-2 h-4 w-4" />
               New Chat
             </Button>
           )}
         </div>
 
-        <div className="flex-1 mb-[var(--space-4)]" id="thread-list">
+        <div className="flex-1 -mx-1" id="thread-list">
           <Virtuoso
             data={allItems}
             totalCount={allItems.length}
@@ -128,44 +128,44 @@ export function Sidebar() {
                 onSelect={() => startTransition(() => setCurrent(item.id))}
               />
             )}
-            style={{ height: '100%' }}
+            style={{ height: '100%', padding: '0 4px' }}
           />
         </div>
 
-        <div className="border-t border-[var(--border-color)] pt-[var(--space-3)] flex flex-col gap-[var(--space-2)]">
+        <div className="border-t pt-3 flex flex-col gap-1">
           <Button
-            variant="outline"
+            variant="ghost"
             onClick={() => (window.location.href = '/')}
-            className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2'} hover:bg-indigo-500/10 hover:border-indigo-500/30 transition-colors`}
+            className={`justify-start ${collapsed ? 'px-2' : ''}`}
             aria-label="Back to home"
           >
-            <Home className="w-4 h-4" />
-            {!collapsed && <span>Home</span>}
+            <Home className="h-4 w-4" />
+            {!collapsed && <span className="ml-2">Home</span>}
           </Button>
 
           <Button
-            variant="outline"
+            variant="ghost"
             onClick={() => useCatalogStore.getState().setCatalogOpen(true)}
-            className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2'} hover:bg-indigo-500/10 hover:border-indigo-500/30 transition-colors`}
+            className={`justify-start ${collapsed ? 'px-2' : ''}`}
             aria-label="Open catalog"
           >
-            <Package className="w-4 h-4" />
-            {!collapsed && <span>Catalog</span>}
+            <Package className="h-4 w-4" />
+            {!collapsed && <span className="ml-2">Catalog</span>}
           </Button>
 
           <Button
-            variant="outline"
+            variant="ghost"
             onClick={() => useSettings.getState().setSettingsOpen(true)}
-            className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2'}`}
+            className={`justify-start ${collapsed ? 'px-2' : ''}`}
             aria-label="Open settings"
           >
-            <Settings className="w-4 h-4" />
-            {!collapsed && <span>Settings</span>}
+            <Settings className="h-4 w-4" />
+            {!collapsed && <span className="ml-2">Settings</span>}
           </Button>
 
           {user && !collapsed && (
-            <div className="px-3 py-2.5 bg-[var(--panel)] border border-[var(--border-color)] rounded-lg text-[var(--font-sm)]">
-              <div className="opacity-70 mb-1">Signed in as</div>
+            <div className="mt-2 px-3 py-2 bg-muted/50 rounded-lg text-xs">
+              <div className="text-muted-foreground mb-1">Signed in as</div>
               <div className="font-medium overflow-hidden text-ellipsis whitespace-nowrap">
                 {user.full_name || user.email}
               </div>
@@ -173,13 +173,13 @@ export function Sidebar() {
           )}
 
           <Button
-            variant="destructive"
+            variant="ghost"
             onClick={handleLogout}
-            className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2'}`}
+            className={`justify-start text-destructive hover:text-destructive hover:bg-destructive/10 ${collapsed ? 'px-2' : ''}`}
             aria-label="Sign out"
           >
-            <LogOut className="w-4 h-4" />
-            {!collapsed && <span>Sign Out</span>}
+            <LogOut className="h-4 w-4" />
+            {!collapsed && <span className="ml-2">Sign Out</span>}
           </Button>
         </div>
       </div>

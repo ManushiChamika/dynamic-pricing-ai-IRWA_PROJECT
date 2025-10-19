@@ -77,6 +77,7 @@ export function ChatHeader() {
       },
       {
         label: 'Export',
+        ariaLabel: 'Export thread',
         onClick: async () => {
           if (!currentId) return
           const isDraft = String(currentId).startsWith('draft_')
