@@ -7,13 +7,25 @@ import { AlertDetailModal } from './AlertDetailModal'
 import { useProducts } from '../hooks/useProducts'
 import { useIncidents, type Incident } from '../hooks/useIncidents'
 import { usePriceStream } from '../hooks/usePriceStream'
+import {
+  ChevronLeft,
+  ChevronRight,
+  BarChart3,
+  TrendingUp,
+  Pause,
+  Play,
+  Info,
+  AlertTriangle,
+  AlertCircle,
+  Bot,
+} from 'lucide-react'
 
 const PriceChart = lazy(() => import('./PriceChart').then((m) => ({ default: m.PriceChart })))
 
 const SEVERITY_CONFIG = {
-  info: { bg: 'bg-blue-500/20', text: 'text-blue-400', label: 'Info', icon: 'ℹ️' },
-  warn: { bg: 'bg-yellow-500/20', text: 'text-yellow-400', label: 'Warning', icon: '⚠️' },
-  crit: { bg: 'bg-red-500/20', text: 'text-red-400', label: 'Critical', icon: '🚨' },
+  info: { bg: 'bg-blue-500/20', text: 'text-blue-400', label: 'Info', icon: Info },
+  warn: { bg: 'bg-yellow-500/20', text: 'text-yellow-400', label: 'Warning', icon: AlertTriangle },
+  crit: { bg: 'bg-red-500/20', text: 'text-red-400', label: 'Critical', icon: AlertCircle },
 }
 
 const PriceCardComponent = ({
@@ -42,6 +54,7 @@ const PriceCardComponent = ({
   const changeColor = change >= 0 ? '#10b981' : '#ef4444'
   const severity = alert ? SEVERITY_CONFIG[alert.severity] : null
   const isLLM = alert?.rule_id === 'llm_agent'
+  const SeverityIcon = severity?.icon
 
   return (
     <div
@@ -76,12 +89,12 @@ const PriceCardComponent = ({
       {alert && (
         <div className={`mt-3 pt-3 border-t ${severity?.text.replace('text-', 'border-')}`}>
           <div className="flex items-start gap-2 mb-2">
-            <span className="text-base">{severity?.icon}</span>
+            {SeverityIcon && <SeverityIcon className="h-4 w-4 mt-0.5" />}
             <div className="flex-1">
               <div className="font-semibold text-xs">{alert.title}</div>
               {isLLM && (
                 <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-purple-500/30 text-purple-300 text-[10px] font-medium border border-purple-400/30 mt-1">
-                  <span>🤖</span>
+                  <Bot className="h-3 w-3" />
                   <span>AI</span>
                 </div>
               )}
@@ -172,7 +185,7 @@ export function PricesPanel() {
           }
           aria-expanded={!collapsed}
         >
-          {collapsed ? '⮞' : '⮜'}
+          {collapsed ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </Button>
         {!collapsed ? <strong>Prices</strong> : null}
         {!collapsed ? (
@@ -192,7 +205,11 @@ export function PricesPanel() {
               }
               title={viewMode === 'sparkline' ? 'Chart view' : 'Sparkline view'}
             >
-              {viewMode === 'sparkline' ? '📊' : '📈'}
+              {viewMode === 'sparkline' ? (
+                <BarChart3 className="h-4 w-4" />
+              ) : (
+                <TrendingUp className="h-4 w-4" />
+              )}
             </Button>
             <Button
               variant="ghost"
@@ -200,7 +217,7 @@ export function PricesPanel() {
               onClick={() => setRunning((r) => !r)}
               aria-label={running ? 'Pause stream' : 'Resume stream'}
             >
-              {running ? '⏸' : '▶'}
+              {running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </Button>
           </>
         ) : null}
@@ -217,13 +234,14 @@ export function PricesPanel() {
                 .map((incident) => {
                   const severity = SEVERITY_CONFIG[incident.severity]
                   const isLLM = incident.rule_id === 'llm_agent'
+                  const IncidentIcon = severity.icon
                   return (
                     <div
                       key={incident.id}
                       className={`p-3 rounded-lg border-2 ${severity.bg} ${severity.text} border-current/40`}
                     >
                       <div className="flex items-start gap-2 mb-2">
-                        <span className="text-base">{severity.icon}</span>
+                        <IncidentIcon className="h-4 w-4 mt-0.5" />
                         <div className="flex-1">
                           <div className="font-semibold text-xs">{incident.title}</div>
                           <div className="text-[10px] text-muted-foreground mt-0.5">
@@ -231,7 +249,7 @@ export function PricesPanel() {
                           </div>
                           {isLLM && (
                             <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-purple-500/30 text-purple-300 text-[10px] font-medium border border-purple-400/30 mt-1">
-                              <span>🤖</span>
+                              <Bot className="h-3 w-3" />
                               <span>AI</span>
                             </div>
                           )}

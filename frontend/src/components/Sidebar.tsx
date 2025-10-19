@@ -107,7 +107,7 @@ export function Sidebar() {
           )}
         </div>
 
-        {!collapsed && (
+        {!collapsed ? (
           <div className="flex-1 -mx-1" id="thread-list">
             <Virtuoso
               data={allItems}
@@ -126,6 +126,23 @@ export function Sidebar() {
               )}
               style={{ height: '100%', padding: '0 4px' }}
             />
+          </div>
+        ) : (
+          <div className="flex-1 overflow-auto" id="thread-list">
+            <div className="space-y-1">
+              {allItems.map((item) => (
+                <ThreadItem
+                  key={item.id}
+                  id={item.id}
+                  title={item.title}
+                  isActive={currentId === item.id}
+                  isDraft={item.isDraft}
+                  updatedAt={item.updated_at}
+                  onSelect={() => startTransition(() => setCurrent(item.id))}
+                  collapsed={true}
+                />
+              ))}
+            </div>
           </div>
         )}
 

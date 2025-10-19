@@ -105,13 +105,16 @@ class Tools:
                     SELECT 
                         pc.sku,
                         pc.title,
+                        pc.source_url,
                         MAX(mt.ts) as last_update,
                         COUNT(mt.id) as tick_count
                     FROM product_catalog pc
                     LEFT JOIN market_ticks mt ON pc.sku = mt.sku
-                    GROUP BY pc.sku, pc.title
+                    GROUP BY pc.sku, pc.title, pc.source_url
                     HAVING last_update IS NULL OR last_update < ?
-                    ORDER BY last_update ASC NULLS FIRST
+                    ORDER BY 
+                        CASE WHEN pc.source_url IS NOT NULL THEN 0 ELSE 1 END,
+                        last_update ASC NULLS FIRST
                     LIMIT 20
                     """,
                     (cutoff,),
@@ -132,6 +135,7 @@ class Tools:
                     stale_products.append({
                         "sku": r["sku"],
                         "title": r["title"],
+                        "source_url": r["source_url"],
                         "last_update": r["last_update"],
                         "minutes_stale": minutes_stale,
                         "tick_count": r["tick_count"] or 0,

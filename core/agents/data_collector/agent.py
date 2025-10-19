@@ -194,12 +194,15 @@ Complete this workflow autonomously using your tools."""
                     self.logger.info(f"Skipping {sku} - job already active")
                     continue
                 
-                self.logger.info(f"Starting collection job for {sku} (stale for {product.get('minutes_stale', 'unknown')} minutes)")
+                has_url = bool(product.get("source_url"))
+                connector = "web_scraper" if has_url else "mock"
+                
+                self.logger.info(f"Starting collection job for {sku} using {connector} (stale for {product.get('minutes_stale', 'unknown')} minutes)")
                 
                 result = await self.tools.start_collection_job(
                     sku=sku,
                     market="DEFAULT",
-                    connector="web_scraper",
+                    connector=connector,
                     depth=5
                 )
                 
