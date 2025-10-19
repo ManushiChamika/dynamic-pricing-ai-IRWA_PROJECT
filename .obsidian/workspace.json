@@ -173,6 +173,9 @@
   "lastOpenFiles": [
     "app/data.db-shm",
     "app/data.db-wal",
+    "frontend/vite.config.ts.timestamp-1760843127547-95bd9c16b7935.mjs",
+    "test_chat_streaming.py",
+    "temp_staged_diff.txt",
     "AGENTS.md",
     "data/alert.db",
     "data/app.db",
@@ -180,8 +183,6 @@
     "frontend/vite.config.ts.timestamp-1760841297993-3eeb8aab00dca.mjs",
     "scripts/migrate_fix_updated_at.py",
     "frontend/vite.config.ts.timestamp-1760841053983-251fa25caf82f.mjs",
-    "frontend/vite.config.ts.timestamp-1760840919057-25b2b9458b6cf.mjs",
-    "frontend/vite.config.ts.timestamp-1760840690047-2ffa120a0eb47.mjs",
     "docs/DEMO_PROMPTS - Copy.md",
     "DEMO_QUICK_START.md",
     "docs/DEMO_PROMPTS.md",

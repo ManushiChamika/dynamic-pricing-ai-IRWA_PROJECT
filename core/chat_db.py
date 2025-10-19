@@ -99,8 +99,7 @@ def create_thread(title: Optional[str] = None, owner_id: Optional[int] = None) -
         db.add(t)
         db.commit()
         db.refresh(t)
-        created_at = t.created_at
-        updated_at = t.updated_at
+        db.expunge(t)
         return t
 
 
