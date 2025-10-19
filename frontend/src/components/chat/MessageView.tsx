@@ -17,7 +17,7 @@ import { useCurrentThread } from '../../stores/threadStore'
 import { useSettings } from '../../stores/settingsStore'
 import { useConfirm } from '../../stores/confirmStore'
 import { useToasts } from '../../stores/toastStore'
-import { UserCircle, Sparkles } from 'lucide-react'
+import { User, Sparkles } from 'lucide-react'
 
 const MARKDOWN_COMPONENTS = {
   li: ({ children, ...props }: React.LiHTMLAttributes<HTMLLIElement>) => (
@@ -126,7 +126,7 @@ function MessageViewComponent({
       <div className={`flex gap-3 items-start ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
         <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center shadow-sm ${m.role === 'user' ? 'bg-gradient-to-br from-blue-500 to-blue-600' : 'bg-gradient-to-br from-purple-500 via-violet-500 to-indigo-500'}`}>
           {m.role === 'user' ? (
-            <UserCircle className="w-5 h-5 text-white" strokeWidth={1.5} />
+            <User className="w-5 h-5 text-white" strokeWidth={1.5} />
           ) : (
             <Sparkles className="w-5 h-5 text-white" strokeWidth={1.5} />
           )}
