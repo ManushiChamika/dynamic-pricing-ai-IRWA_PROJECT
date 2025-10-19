@@ -20,6 +20,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Home,
+  Sparkles,
 } from 'lucide-react'
 
 export function Sidebar() {
@@ -105,10 +106,10 @@ export function Sidebar() {
             <Button
               onClick={() => createDraftThread()}
               aria-label="Create new thread"
-              className="flex-1"
+              className="flex-1 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-semibold shadow-md hover:shadow-lg hover:shadow-indigo-500/50 transition-all duration-200 h-11"
             >
-              <MessageSquarePlus className="mr-2 h-4 w-4" />
-              New Chat
+              <Sparkles className="h-5 w-5" />
+              <span className="text-[0.9375rem] tracking-wide">New Chat</span>
             </Button>
           )}
         </div>
