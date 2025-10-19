@@ -1,5 +1,2 @@
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import sqlite3; conn = sqlite3.connect('core/auth_db.py'.replace('auth_db.py', 'auth.db')); cursor = conn.cursor(); cursor.execute('SELECT user_id, email FROM users'); print('Users:', cursor.fetchall()); conn.close()
-                                                                                                                        ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-sqlite3.OperationalError: no such table: users
+'Get-Content' is not recognized as an internal or external command,
+operable program or batch file.
