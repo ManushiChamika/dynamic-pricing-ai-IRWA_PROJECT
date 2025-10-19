@@ -27,9 +27,12 @@ router = APIRouter(prefix="/api/threads", tags=["threads"])
 def api_create_thread(req: CreateThreadRequest, token: Optional[str] = Query(None)):
     owner_id = None
     if token:
-        sess = validate_session_token(token)
-        if sess:
-            owner_id = sess["user_id"]
+        try:
+            sess = validate_session_token(token)
+            if sess:
+                owner_id = sess["user_id"]
+        except Exception as e:
+            print(f"Token validation error in POST: {e}")
     t = create_thread(title=req.title, owner_id=owner_id)
     return ThreadOut(id=t.id, title=t.title, created_at=t.created_at.isoformat(), updated_at=t.updated_at.isoformat())
 
