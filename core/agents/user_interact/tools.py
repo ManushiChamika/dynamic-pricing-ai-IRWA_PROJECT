@@ -137,24 +137,27 @@ def list_proposals(sku: str = "", limit: int = 10) -> Dict[str, Any]:
 
 def optimize_price(sku: str) -> Dict[str, Any]:
     try:
+        from core.agents.price_optimizer.agent import PricingOptimizerAgent
         import asyncio
-        from core.agents.agent_sdk.bus_factory import get_bus
-        from core.agents.agent_sdk.protocol import Topic
         
-        bus = get_bus()
-        payload = {"sku": sku, "strategy": "maximize profit"}
+        agent = PricingOptimizerAgent()
         
         try:
             loop = asyncio.get_running_loop()
-            asyncio.create_task(bus.publish(Topic.OPTIMIZATION_REQUEST.value, payload))
+            task = loop.create_task(agent.process_full_workflow(sku, f"Optimize price for {sku}"))
+            return {
+                "ok": True,
+                "message": f"Price optimization started for {sku}. Processing in background.",
+                "sku": sku
+            }
         except RuntimeError:
-            asyncio.ensure_future(bus.publish(Topic.OPTIMIZATION_REQUEST.value, payload))
-        
-        return {
-            "ok": True,
-            "message": f"Autonomous price optimization requested for {sku}. The Price Optimizer Agent will handle this request and publish results to the event bus.",
-            "sku": sku
-        }
+            result = asyncio.run(agent.process_full_workflow(sku, f"Optimize price for {sku}"))
+            return {
+                "ok": result.get("status") == "ok",
+                "message": result.get("message") or result.get("reason") or f"Optimization completed for {sku}",
+                "sku": sku,
+                "result": result
+            }
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
