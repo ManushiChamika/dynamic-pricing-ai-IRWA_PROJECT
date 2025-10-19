@@ -113,7 +113,7 @@ class EndToEndValidator:
     async def run_scenario_1_standard_workflow(self):
         scenario = TestScenario(
             name="Scenario 1: Standard End-to-End Workflow",
-            prompt="Find a new, better price for the Dell XPS 14 9440.",
+            prompt="Find a new, better price for the Dell XPS 15 Laptop.",
             description="Tests the full workflow: product lookup -> pricing analysis -> proposal generation"
         )
         self.scenarios.append(scenario)
@@ -126,9 +126,9 @@ class EndToEndValidator:
         
         initial_proposal_count = len(self.price_proposals_captured)
         
-        product = self.get_product_from_db("DELL-XPS-14-9440")
+        product = self.get_product_from_db("LAPTOP-001")
         if not product:
-            scenario.add_detail("Product 'DELL-XPS-14-9440' not found in database, using fallback workflow")
+            scenario.add_detail("Product 'LAPTOP-001' not found in database, using fallback workflow")
         else:
             scenario.add_detail(f"Product found: {product['title']} at ${product['current_price']}")
         
@@ -136,7 +136,7 @@ class EndToEndValidator:
         try:
             result = await self.price_optimizer.process_full_workflow(
                 user_request=scenario.prompt,
-                product_name="Dell XPS 14 9440"
+                product_name="Dell XPS 15 Laptop"
             )
             
             scenario.add_detail(f"Optimizer status: {result.get('status')}")
@@ -168,7 +168,7 @@ class EndToEndValidator:
     async def run_scenario_2_analytical_query(self):
         scenario = TestScenario(
             name="Scenario 2: Complex Analytical Query",
-            prompt="Compare the current market prices for the Dell XPS 13 and the Lenovo ThinkPad X1 Carbon. Which one has a higher margin for us?",
+            prompt="Compare the current market prices for the Dell XPS 15 and the Lenovo ThinkPad X1. Which one has a higher margin for us?",
             description="Tests the agent's ability to perform comparative analysis"
         )
         self.scenarios.append(scenario)
@@ -188,6 +188,7 @@ class EndToEndValidator:
                     response_parts.append(chunk)
             
             full_response = "".join(response_parts)
+            full_response = full_response.encode('ascii', 'ignore').decode('ascii')
             scenario.add_detail(f"Response length: {len(full_response)} chars")
             
             print(f"\n[RESPONSE]")
@@ -266,7 +267,7 @@ class EndToEndValidator:
     async def run_scenario_4_alert_trigger(self):
         scenario = TestScenario(
             name="Scenario 4: Edge Case - Triggering an Alert",
-            prompt="What is the price for the MX Master 4 mouse if we use a strategy to aggressively undercut all competitors by 30%?",
+            prompt="What is the price for the Logitech MX Master 3 mouse if we use a strategy to aggressively undercut all competitors by 30%?",
             description="Tests alert generation for high-risk pricing strategies"
         )
         self.scenarios.append(scenario)
@@ -284,12 +285,12 @@ class EndToEndValidator:
         
         print("\n[RUNNING] Testing aggressive pricing strategy...")
         
-        product = self.get_product_from_db("MX-MASTER-4")
+        product = self.get_product_from_db("MOUSE-001")
         if not product:
-            scenario.add_detail("Product 'MX-MASTER-4' not found, using alternative")
-            product_name = "Dell XPS 14 9440"
+            scenario.add_detail("Product 'MOUSE-001' not found, using alternative")
+            product_name = "Dell XPS 15 Laptop"
         else:
-            product_name = "MX Master 4"
+            product_name = "Logitech MX Master 3"
             scenario.add_detail(f"Product found: {product['title']} at ${product['current_price']}")
         
         try:
