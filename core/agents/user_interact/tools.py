@@ -144,14 +144,14 @@ def optimize_price(sku: str) -> Dict[str, Any]:
         
         try:
             loop = asyncio.get_running_loop()
-            task = loop.create_task(agent.process_full_workflow(sku, f"Optimize price for {sku}"))
+            task = loop.create_task(agent.process_full_workflow(f"Optimize price for {sku}", sku))
             return {
                 "ok": True,
                 "message": f"Price optimization started for {sku}. Processing in background.",
                 "sku": sku
             }
         except RuntimeError:
-            result = asyncio.run(agent.process_full_workflow(sku, f"Optimize price for {sku}"))
+            result = asyncio.run(agent.process_full_workflow(f"Optimize price for {sku}", sku))
             return {
                 "ok": result.get("status") == "ok",
                 "message": result.get("message") or result.get("reason") or f"Optimization completed for {sku}",

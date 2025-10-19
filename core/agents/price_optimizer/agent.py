@@ -295,10 +295,14 @@ Use your tools to complete this workflow autonomously."""
         if not validation.get("valid", False):
             self.logger.warning(f"Price validation failed: {validation.get('error')} - publishing anyway")
         
+        margin = validation.get("margin", 0.0)
+        
         publish_result = await self.tools.publish_price_proposal(
             sku=sku,
             old_price=our_price,
             new_price=proposed_price,
+            margin=margin,
+            algorithm=algorithm,
         )
         
         completed = datetime.now()
