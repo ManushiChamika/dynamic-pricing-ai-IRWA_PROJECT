@@ -18,7 +18,7 @@ async def get_incidents(status: Optional[str] = None, token: Optional[str] = Non
     owner_id = str(sess["user_id"])
     
     try:
-        incidents = await alert_api.list_incidents(status, owner_id)
+        incidents = await alert_api.list_incidents(status, None)
         return incidents
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
