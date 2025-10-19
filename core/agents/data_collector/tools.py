@@ -19,7 +19,7 @@ class Tools:
             with sqlite3.connect(uri_app, uri=True) as conn:
                 conn.row_factory = sqlite3.Row
                 rows = conn.execute(
-                    "SELECT sku, title, current_price, updated_at FROM product_catalog LIMIT 100"
+                    "SELECT sku, title, current_price, updated_at, source_url FROM product_catalog LIMIT 100"
                 ).fetchall()
                 
                 products = [
@@ -28,6 +28,7 @@ class Tools:
                         "title": r["title"],
                         "current_price": float(r["current_price"]) if r["current_price"] else None,
                         "updated_at": r["updated_at"],
+                        "source_url": r["source_url"],
                     }
                     for r in rows
                 ]
@@ -160,12 +161,24 @@ class Tools:
             
             request_id = uuid.uuid4().hex
             
+            urls = []
+            if connector == "web_scraper":
+                uri_app = f"file:{self.repo.path.as_posix()}?mode=ro"
+                import sqlite3
+                with sqlite3.connect(uri_app, uri=True) as conn:
+                    row = conn.execute(
+                        "SELECT source_url FROM product_catalog WHERE sku = ?",
+                        (sku,),
+                    ).fetchone()
+                    if row and row[0]:
+                        urls = [row[0]]
+            
             request_payload: MarketFetchRequestPayload = {
                 "request_id": request_id,
                 "sku": sku,
                 "market": market,
                 "sources": [connector],
-                "urls": [],
+                "urls": urls,
                 "depth": depth,
                 "horizon_minutes": 60,
             }
@@ -180,6 +193,7 @@ class Tools:
                 "market": market,
                 "connector": connector,
                 "depth": depth,
+                "urls": urls,
                 "message": f"Collection job started for {sku}",
             }
         except Exception as e:

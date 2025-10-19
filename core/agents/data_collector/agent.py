@@ -199,7 +199,7 @@ Complete this workflow autonomously using your tools."""
                 result = await self.tools.start_collection_job(
                     sku=sku,
                     market="DEFAULT",
-                    connector="mock",
+                    connector="web_scraper",
                     depth=5
                 )
                 
