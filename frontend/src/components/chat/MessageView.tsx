@@ -17,7 +17,7 @@ import { useCurrentThread } from '../../stores/threadStore'
 import { useSettings } from '../../stores/settingsStore'
 import { useConfirm } from '../../stores/confirmStore'
 import { useToasts } from '../../stores/toastStore'
-import { User, Bot } from 'lucide-react'
+import { UserCircle, Sparkles } from 'lucide-react'
 
 const MARKDOWN_COMPONENTS = {
   li: ({ children, ...props }: React.LiHTMLAttributes<HTMLLIElement>) => (
@@ -124,11 +124,11 @@ function MessageViewComponent({
       ) : null}
       {m.id === -1 ? <LiveStatus liveActiveAgent={liveActiveAgent} liveTool={liveTool} /> : null}
       <div className={`flex gap-3 items-start ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
-        <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${m.role === 'user' ? 'bg-primary/10 border border-primary/30' : 'bg-secondary/10 border border-secondary/30'}`}>
+        <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center shadow-sm ${m.role === 'user' ? 'bg-gradient-to-br from-blue-500 to-blue-600' : 'bg-gradient-to-br from-purple-500 via-violet-500 to-indigo-500'}`}>
           {m.role === 'user' ? (
-            <User className="w-4 h-4 text-primary" strokeWidth={2} />
+            <UserCircle className="w-5 h-5 text-white" strokeWidth={1.5} />
           ) : (
-            <Bot className="w-4 h-4 text-secondary-foreground" strokeWidth={2} />
+            <Sparkles className="w-5 h-5 text-white" strokeWidth={1.5} />
           )}
         </div>
         <div className="flex-1">

@@ -171,10 +171,10 @@
   },
   "active": "a6db50ab45cab173",
   "lastOpenFiles": [
-    "WEB_SCRAPER_TESTING_GUIDE.md",
-    "frontend/vite.config.ts.timestamp-1760836831165-2e250bc8237d2.mjs",
     "app/data.db-shm",
     "app/data.db-wal",
+    "WEB_SCRAPER_TESTING_GUIDE.md",
+    "frontend/vite.config.ts.timestamp-1760836831165-2e250bc8237d2.mjs",
     "scripts/check_stale_products.py",
     "frontend/src/stores/sidebarStore.ts",
     "frontend/vite.config.ts.timestamp-1760836182111-e673e4dd9a859.mjs",
