@@ -6,16 +6,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.agents.data_collector.agent import DataCollectorAgent
 from core.agents.data_collector.repo import DataRepo
-from core.config import settings
 
 async def test_autonomous_collector():
     print("=== Testing Autonomous Data Collector with Web Scraper ===\n")
     
-    repo = DataRepo(settings.DB_APP_PATH)
+    repo = DataRepo("app/data.db")
     agent = DataCollectorAgent(repo)
     
-    print("1. Running autonomous cycle...")
-    result = await agent.run_autonomous_cycle()
+    print("1. Running autonomous check...")
+    result = await agent._handle_autonomous_check()
     
     print(f"\n2. Cycle result:")
     print(f"   Status: {result.get('status')}")

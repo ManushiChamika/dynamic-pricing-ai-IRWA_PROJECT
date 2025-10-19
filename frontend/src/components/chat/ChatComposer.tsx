@@ -24,51 +24,55 @@ export function ChatComposer({ currentId, streaming }: ChatComposerProps) {
   }
 
   return (
-    <div className="composer">
-      <div className="flex items-center gap-3 px-6 py-3 border-t">
-        <textarea
-          className="flex-1 min-h-[80px] rounded-lg border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-          rows={2}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          disabled={streamingActive}
-          onKeyDown={(e) => {
-            if (!streamingActive && e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              handleSend()
-            } else if (!streamingActive && e.key === 'ArrowUp' && !input.trim()) {
-              const lastUser = [...messages].reverse().find((m) => m.role === 'user')
-              if (lastUser) {
+    <div className="composer border-t bg-gradient-to-b from-background to-background/80">
+      <div className="flex items-center justify-center px-6 py-4">
+        <div className="flex items-center gap-3 w-full max-w-4xl">
+          <textarea
+            className="flex-1 min-h-[80px] rounded-xl border-2 border-indigo-500/20 bg-background/50 backdrop-blur-sm px-4 py-3 text-[0.9375rem] placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:border-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 resize-none shadow-sm hover:border-indigo-500/30 transition-all duration-200"
+            rows={2}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={streamingActive}
+            onKeyDown={(e) => {
+              if (!streamingActive && e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault()
-                usePrompt.getState().openPrompt({
-                  title: 'Edit last message',
-                  defaultValue: lastUser.content,
-                  textarea: true,
-                  confirmText: 'Save',
-                  onSubmit: async (content) => {
-                    await useMessages.getState().edit(lastUser.id, content)
-                    if (currentId) await refresh(currentId)
-                  },
-                })
+                handleSend()
+              } else if (!streamingActive && e.key === 'ArrowUp' && !input.trim()) {
+                const lastUser = [...messages].reverse().find((m) => m.role === 'user')
+                if (lastUser) {
+                  e.preventDefault()
+                  usePrompt.getState().openPrompt({
+                    title: 'Edit last message',
+                    defaultValue: lastUser.content,
+                    textarea: true,
+                    confirmText: 'Save',
+                    onSubmit: async (content) => {
+                      await useMessages.getState().edit(lastUser.id, content)
+                      if (currentId) await refresh(currentId)
+                    },
+                  })
+                }
               }
-            }
-          }}
-          aria-label="Message input"
-          placeholder="Type a message..."
-        />
-        {!streamingActive ? (
-          <Button
-            onClick={handleSend}
-            disabled={!currentId || !input.trim()}
-            aria-label="Send message"
-          >
-            Send
-          </Button>
-        ) : (
-          <Button variant="destructive" onClick={stop} aria-label="Stop streaming">
-            Stop
-          </Button>
-        )}
+            }}
+            aria-label="Message input"
+            placeholder="Share your thoughts, ask anything..."
+          />
+          {!streamingActive ? (
+            <Button
+              onClick={handleSend}
+              disabled={!currentId || !input.trim()}
+              aria-label="Send message"
+              variant="gradient"
+              size="lg"
+            >
+              Send
+            </Button>
+          ) : (
+            <Button variant="destructive" size="lg" onClick={stop} aria-label="Stop streaming">
+              Stop
+            </Button>
+          )}
+        </div>
       </div>
       <label style={{ display: 'none' }} aria-label="Import thread from JSON">
         <input
