@@ -61,7 +61,7 @@ class EndToEndValidator:
         async def capture_proposal(payload):
             self.price_proposals_captured.append(payload)
             print(f"  [EVENT CAPTURED] Price Proposal: {payload.get('product_id')} "
-                  f"{payload.get('previous_price')} → {payload.get('proposed_price')}")
+                  f"{payload.get('previous_price')} -> {payload.get('proposed_price')}")
 
         async def capture_alert(alert):
             self.alerts_captured.append(alert)
@@ -114,7 +114,7 @@ class EndToEndValidator:
         scenario = TestScenario(
             name="Scenario 1: Standard End-to-End Workflow",
             prompt="Find a new, better price for the Dell XPS 14 9440.",
-            description="Tests the full workflow: product lookup → pricing analysis → proposal generation"
+            description="Tests the full workflow: product lookup -> pricing analysis -> proposal generation"
         )
         self.scenarios.append(scenario)
         
