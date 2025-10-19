@@ -25,16 +25,24 @@ router = APIRouter(prefix="/api/threads", tags=["threads"])
 
 @router.post("", response_model=ThreadOut)
 def api_create_thread(req: CreateThreadRequest, token: Optional[str] = Query(None)):
-    owner_id = None
-    if token:
-        try:
-            sess = validate_session_token(token)
-            if sess:
-                owner_id = sess["user_id"]
-        except Exception as e:
-            print(f"Token validation error in POST: {e}")
-    t = create_thread(title=req.title, owner_id=owner_id)
-    return ThreadOut(id=t.id, title=t.title, created_at=t.created_at.isoformat(), updated_at=t.updated_at.isoformat())
+    try:
+        owner_id = None
+        if token:
+            try:
+                sess = validate_session_token(token)
+                if sess:
+                    owner_id = sess["user_id"]
+            except Exception as e:
+                print(f"Token validation error in POST: {e}")
+                import traceback
+                traceback.print_exc()
+        t = create_thread(title=req.title, owner_id=owner_id)
+        return ThreadOut(id=t.id, title=t.title, created_at=t.created_at.isoformat(), updated_at=t.updated_at.isoformat())
+    except Exception as e:
+        print(f"FATAL ERROR in api_create_thread: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("", response_model=List[ThreadOut])

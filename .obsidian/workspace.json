@@ -171,6 +171,7 @@
   },
   "active": "a6db50ab45cab173",
   "lastOpenFiles": [
+    "frontend/vite.config.ts.timestamp-1760840919057-25b2b9458b6cf.mjs",
     "app/data.db-shm",
     "app/data.db-wal",
     "frontend/vite.config.ts.timestamp-1760840690047-2ffa120a0eb47.mjs",
@@ -181,7 +182,6 @@
     "frontend/vite.config.ts.timestamp-1760839138857-32eeba6f8ef52.mjs",
     "frontend/vite.config.ts.timestamp-1760839009137-e5aaecef7f0c2.mjs",
     "check_demo_products.py",
-    "app/catalog.db",
     "docs/DEMO_PROMPTS - Copy.md",
     "DEMO_QUICK_START.md",
     "docs/DEMO_PROMPTS.md",
