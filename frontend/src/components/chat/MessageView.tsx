@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState, lazy, Suspense } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { MarkdownRenderer } from './MarkdownRenderer'
 import { AgentBadgeGroup } from '../AgentBadge'
 import { BranchNavigator } from '../BranchNavigator'
 import { ThinkingTokens } from '../ThinkingTokens'
@@ -18,29 +17,6 @@ import { useSettings } from '../../stores/settingsStore'
 import { useConfirm } from '../../stores/confirmStore'
 import { useToasts } from '../../stores/toastStore'
 import { User, Sparkles } from 'lucide-react'
-
-const MARKDOWN_COMPONENTS = {
-  li: ({ children, ...props }: React.LiHTMLAttributes<HTMLLIElement>) => (
-    <li className="my-0 py-0 leading-normal" {...props}>
-      {children}
-    </li>
-  ),
-  ul: ({ children, ...props }: React.HTMLAttributes<HTMLUListElement>) => (
-    <ul className="list-disc list-inside my-0 py-0 space-y-1" {...props}>
-      {children}
-    </ul>
-  ),
-  ol: ({ children, ...props }: React.OlHTMLAttributes<HTMLOListElement>) => (
-    <ol className="list-decimal list-inside my-0 py-0 space-y-1" {...props}>
-      {children}
-    </ol>
-  ),
-  p: ({ children, ...props }: React.HTMLAttributes<HTMLParagraphElement>) => (
-    <p className="my-0 py-0 leading-normal inline" {...props}>
-      {children}
-    </p>
-  ),
-}
 
 const PriceChart = lazy(() => import('../PriceChart').then((m) => ({ default: m.PriceChart })))
 
@@ -137,11 +113,7 @@ function MessageViewComponent({
             style={m.role === 'assistant' ? { background: 'var(--message-assistant-bg)' } : undefined}
           >
             {m.role === 'assistant' ? (
-              <div className="max-w-none leading-normal">
-                <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
-                  {m.content || ''}
-                </ReactMarkdown>
-              </div>
+              <MarkdownRenderer content={m.content || ''} />
             ) : (
               <pre className="whitespace-pre-wrap">{m.content}</pre>
             )}

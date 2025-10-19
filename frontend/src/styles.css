@@ -579,3 +579,73 @@ p {
   margin: 0 !important;
   padding: 0 !important;
 }
+
+/* Enhanced Markdown Styling */
+.markdown-renderer {
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.markdown-renderer h1 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.markdown-renderer h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.markdown-renderer h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.markdown-renderer h4 {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.markdown-renderer code {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.875em;
+  letter-spacing: 0.02em;
+}
+
+.markdown-renderer pre {
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}
+
+.markdown-renderer pre code {
+  background: none;
+  color: inherit;
+  padding: 0;
+}
+
+.markdown-renderer table {
+  border-collapse: collapse;
+}
+
+.markdown-renderer table th,
+.markdown-renderer table td {
+  border: 1px solid hsl(var(--border) / 0.3);
+}
+
+.markdown-renderer blockquote p {
+  margin: 0;
+  padding: 0;
+  display: inline;
+}
+
+/* Code block syntax highlighting */
+.markdown-renderer pre {
+  background: linear-gradient(
+    135deg,
+    hsl(var(--muted) / 0.1) 0%,
+    hsl(var(--muted) / 0.05) 100%
+  );
+  border: 1px solid hsl(var(--border) / 0.3);
+}
