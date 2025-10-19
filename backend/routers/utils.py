@@ -6,7 +6,7 @@ def default_price_map() -> Dict[str, Dict[str, float]]:
     return {
         "openai:gpt-4o-mini": {"in": 0.005, "out": 0.015},
         "openai:gpt-4o": {"in": 0.01, "out": 0.03},
-        "gemini:gemini-2.0-flash": {"in": 0.0005, "out": 0.0015},
+        "gemini:2.0-flash": {"in": 0.0005, "out": 0.0015},
         "openrouter:deepseek/deepseek-r1-0528:free": {"in": 0.0, "out": 0.0},
         "openrouter:z-ai/glm-4.5-air:free": {"in": 0.0, "out": 0.0},
     }

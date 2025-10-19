@@ -124,9 +124,9 @@ function MessageViewComponent({
       ) : null}
       {m.id === -1 ? <LiveStatus liveActiveAgent={liveActiveAgent} liveTool={liveTool} /> : null}
       <div className={`flex gap-3 items-start ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
-        <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${m.role === 'user' ? 'bg-muted border border-border' : 'bg-gradient-to-br from-purple-500 via-violet-500 to-indigo-500 shadow-sm'}`}>
+        <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${m.role === 'user' ? 'bg-muted border-2 border-foreground/40' : 'bg-gradient-to-br from-purple-500 via-violet-500 to-indigo-500 shadow-sm'}`}>
           {m.role === 'user' ? (
-            <User className="w-5 h-5 text-muted-foreground" strokeWidth={1.5} />
+            <User className="w-5 h-5 text-foreground" strokeWidth={2} />
           ) : (
             <Sparkles className="w-5 h-5 text-white" strokeWidth={1.5} />
           )}
