@@ -10,34 +10,26 @@ const cleanMarkdownTables = (content: string): string => {
     const line = lines[i]
     const nextLine = lines[i + 1] || ''
     
-    if (nextLine.match(/^\s*\|[\s\-:|\s]*\|\s*$/)) {
-      const separatorMatch = nextLine.match(/\|([^|]*)\|/g)
-      
-      if (separatorMatch && separatorMatch.length > 0) {
-        const cleanSeparator = separatorMatch
-          .map((sep) => {
-            const content = sep.replace(/\|/g, '').trim()
-            const dashCount = (content.match(/-/g) || []).length
-            
-            if (dashCount > 20) {
-              const leftColon = content.startsWith(':')
-              const rightColon = content.endsWith(':')
-              let cleaned = '---'
-              if (leftColon && rightColon) cleaned = ':---:'
-              else if (leftColon) cleaned = ':---'
-              else if (rightColon) cleaned = '---:'
-              return `| ${cleaned} `
-            }
-            return sep
-          })
-          .join('')
+    if (line.includes('|') && nextLine.match(/^\s*\|[\s\-:|]*\|\s*$/)) {
+      const cells = nextLine.split('|').filter(c => c.trim())
+      const cleanedCells = cells.map(cell => {
+        const trimmed = cell.trim()
+        const dashCount = (trimmed.match(/-/g) || []).length
         
-        result.push(line)
-        result.push(cleanSeparator + (cleanSeparator.endsWith('|') ? '' : '|'))
-        i++
-      } else {
-        result.push(line)
-      }
+        if (dashCount > 3) {
+          const leftColon = trimmed.startsWith(':')
+          const rightColon = trimmed.endsWith(':')
+          if (leftColon && rightColon) return ':---:'
+          if (leftColon) return ':---'
+          if (rightColon) return '---:'
+          return '---'
+        }
+        return trimmed
+      })
+      
+      result.push(line)
+      result.push('| ' + cleanedCells.join(' | ') + ' |')
+      i++
     } else {
       result.push(line)
     }

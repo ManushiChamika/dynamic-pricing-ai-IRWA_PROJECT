@@ -91,6 +91,32 @@ TOOL_SCHEMAS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "check_stale_market_data",
+            "description": "Check for market data entries that are older than a specified threshold. Returns count and details of stale items.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "threshold_minutes": {"type": "integer", "description": "Age threshold in minutes. Default is 60.", "default": 60, "minimum": 1},
+                },
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "scan_for_alerts",
+            "description": "Scan for and retrieve all pricing alerts and incidents from the incidents table. Returns open, acknowledged, and resolved alerts with severity levels and details.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
+        },
+    },
 ]
 
 AGENT_TOOL_MAPPING: Dict[str, str] = {
@@ -99,6 +125,7 @@ AGENT_TOOL_MAPPING: Dict[str, str] = {
     "list_pricing_list": "PriceOptimizationAgent",
     "list_price_proposals": "PriceOptimizationAgent",
     "list_market_data": "DataCollectorAgent",
+    "check_stale_market_data": "DataCollectorAgent",
     "run_pricing_workflow": "PriceOptimizationAgent",
     "optimize_price": "PriceOptimizationAgent",
     "scan_for_alerts": "AlertNotificationAgent",
