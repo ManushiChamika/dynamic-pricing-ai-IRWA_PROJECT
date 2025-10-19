@@ -37,7 +37,8 @@ export default function App() {
   }, [threadId, setCurrent, navigate, currentId])
 
   useEffect(() => {
-    document.documentElement.classList.toggle('light', theme === 'light')
+    document.documentElement.classList.remove('light', 'dark', 'ocean', 'forest', 'sunset', 'midnight', 'rose')
+    document.documentElement.classList.add(theme)
     localStorage.setItem('theme', theme)
   }, [theme])
   return (

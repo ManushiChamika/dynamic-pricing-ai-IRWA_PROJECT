@@ -71,11 +71,6 @@ export function ChatHeader() {
         disabled: !currentId || streamingActive || String(currentId).startsWith('draft_'),
       },
       {
-        label: 'Toggle Theme',
-        onClick: () =>
-          useSettings.setState((s) => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
-      },
-      {
         label: 'Export',
         ariaLabel: 'Export thread',
         onClick: async () => {

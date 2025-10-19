@@ -181,7 +181,7 @@ class Repo:
             if owner_id:
                 cur = await db.execute("SELECT owner_id FROM incidents WHERE id=?", (inc_id,))
                 row = await cur.fetchone()
-                if not row or row[0] != owner_id:
+                if not row or str(row[0]) != str(owner_id):
                     raise ValueError("Incident not found or access denied")
             
             await db.execute(

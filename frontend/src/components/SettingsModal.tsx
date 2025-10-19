@@ -2,6 +2,7 @@ import React from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
 import { Settings } from '../lib/types'
 import { SettingToggle } from './settings/SettingToggle'
+import { type Theme } from '../stores/settingsStore'
 
 interface SettingsModalProps {
   open: boolean
@@ -9,6 +10,16 @@ interface SettingsModalProps {
   settings: Settings
   onSettingsChange: (settings: Settings) => void
 }
+
+const THEMES: { value: Theme; label: string }[] = [
+  { value: 'dark', label: 'Dark' },
+  { value: 'light', label: 'Light' },
+  { value: 'ocean', label: 'Ocean' },
+  { value: 'forest', label: 'Forest' },
+  { value: 'sunset', label: 'Sunset' },
+  { value: 'midnight', label: 'Midnight' },
+  { value: 'rose', label: 'Rose' },
+]
 
 function SettingsModalComponent({
   open,
@@ -30,12 +41,24 @@ function SettingsModalComponent({
           <DialogDescription>Configure your chat experience</DialogDescription>
         </DialogHeader>
         <div className="space-y-6 py-4">
-          <SettingToggle
-            label="Theme"
-            description={settings.theme === 'dark' ? 'Dark mode' : 'Light mode'}
-            checked={settings.theme === 'dark'}
-            onCheckedChange={(checked) => updateSetting('theme', checked ? 'dark' : 'light')}
-          />
+          <div>
+            <label className="text-sm font-medium mb-2 block">Theme</label>
+            <div className="grid grid-cols-2 gap-2">
+              {THEMES.map((theme) => (
+                <button
+                  key={theme.value}
+                  onClick={() => updateSetting('theme', theme.value)}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    settings.theme === theme.value
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                  }`}
+                >
+                  {theme.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <SettingToggle
             label="Show Model Name"
             description="Display model name in messages"

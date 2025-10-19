@@ -133,7 +133,8 @@ function MessageViewComponent({
         </div>
         <div className="flex-1">
           <div
-            className={`${m.role === 'user' ? 'bg-primary/10 border border-primary/20' : 'bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 border border-purple-200 dark:border-purple-800'} rounded-lg px-4 py-3 transition-colors leading-normal`}
+            className={`${m.role === 'user' ? 'bg-primary/10 border border-primary/20' : 'border border-primary/20'} rounded-lg px-4 py-3 transition-colors leading-normal`}
+            style={m.role === 'assistant' ? { background: 'var(--message-assistant-bg)' } : undefined}
           >
             {m.role === 'assistant' ? (
               <div className="max-w-none leading-normal">

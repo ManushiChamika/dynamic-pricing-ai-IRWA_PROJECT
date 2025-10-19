@@ -1,6 +1,5 @@
 import React, { useMemo, useState, lazy, Suspense } from 'react'
 import { Button } from './ui/button'
-import { Input } from './ui/input'
 import { useTheme } from '../stores/settingsStore'
 import { Sparkline } from './Sparkline'
 import { AlertDetailModal } from './AlertDetailModal'
@@ -24,8 +23,12 @@ const PriceChart = lazy(() => import('./PriceChart').then((m) => ({ default: m.P
 
 const SEVERITY_CONFIG = {
   info: { bg: 'bg-blue-500/20', text: 'text-blue-400', label: 'Info', icon: Info },
+  low: { bg: 'bg-blue-500/20', text: 'text-blue-400', label: 'Low', icon: Info },
   warn: { bg: 'bg-yellow-500/20', text: 'text-yellow-400', label: 'Warning', icon: AlertTriangle },
+  medium: { bg: 'bg-yellow-500/20', text: 'text-yellow-400', label: 'Medium', icon: AlertTriangle },
+  high: { bg: 'bg-orange-500/20', text: 'text-orange-400', label: 'High', icon: AlertCircle },
   crit: { bg: 'bg-red-500/20', text: 'text-red-400', label: 'Critical', icon: AlertCircle },
+  critical: { bg: 'bg-red-500/20', text: 'text-red-400', label: 'Critical', icon: AlertCircle },
 }
 
 const PriceCardComponent = ({
@@ -41,7 +44,7 @@ const PriceCardComponent = ({
   k: string
   data: { ts: number; price: number }[]
   viewMode: 'sparkline' | 'chart'
-  theme: 'dark' | 'light'
+  theme: 'light' | 'dark' | 'ocean' | 'forest' | 'sunset' | 'midnight' | 'rose'
   alert?: Incident
   onAlertClick?: (alert: Incident) => void
   onAcknowledge?: (id: string) => void
@@ -52,7 +55,7 @@ const PriceCardComponent = ({
   const first = vals[0]
   const change = last && first ? ((last - first) / first) * 100 : 0
   const changeColor = change >= 0 ? '#10b981' : '#ef4444'
-  const severity = alert ? SEVERITY_CONFIG[alert.severity] : null
+  const severity = alert ? SEVERITY_CONFIG[alert.severity] || SEVERITY_CONFIG['info'] : null
   const isLLM = alert?.rule_id === 'llm_agent'
   const SeverityIcon = severity?.icon
 
@@ -135,7 +138,6 @@ const PriceCard = React.memo(PriceCardComponent)
 export function PricesPanel() {
   const [collapsed, setCollapsed] = useState(localStorage.getItem('pricesCollapsed') === '1')
   const [running, setRunning] = useState(true)
-  const [sku, setSku] = useState('')
   const [viewMode, setViewMode] = useState<'sparkline' | 'chart'>('sparkline')
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
@@ -143,7 +145,7 @@ export function PricesPanel() {
 
   const { products } = useProducts()
   const { incidents, acknowledgeIncident, resolveIncident } = useIncidents()
-  const prices = usePriceStream(running, sku)
+  const prices = usePriceStream(running, '')
 
   const handleAlertClick = (incident: Incident) => {
     setSelectedIncident(incident)
@@ -190,12 +192,6 @@ export function PricesPanel() {
         {!collapsed ? <strong>Prices</strong> : null}
         {!collapsed ? (
           <>
-            <Input
-              placeholder="sku (optional)"
-              value={sku}
-              onChange={(e) => setSku(e.target.value)}
-              className="flex-1"
-            />
             <Button
               variant="ghost"
               size="icon"
@@ -232,7 +228,7 @@ export function PricesPanel() {
               {incidents
                 .filter((i) => !incidentsBySku[i.sku] || keys.length === 0)
                 .map((incident) => {
-                  const severity = SEVERITY_CONFIG[incident.severity]
+                  const severity = SEVERITY_CONFIG[incident.severity] || SEVERITY_CONFIG['info']
                   const isLLM = incident.rule_id === 'llm_agent'
                   const IncidentIcon = severity.icon
                   return (

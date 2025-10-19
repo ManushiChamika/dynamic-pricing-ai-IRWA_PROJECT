@@ -12,12 +12,9 @@ from starlette.responses import JSONResponse
 
 from backend.routers import auth, settings, threads, messages, streaming, prices, catalog, alerts
 
-from core.agents.alert_service.repo import Repo
-from core.agents.alert_service.engine import AlertEngine
+from core.agents.alert_service import api as alert_api
 from core.agents.price_optimizer.agent import PricingOptimizerAgent
 
-alert_repo = Repo()
-alert_engine = AlertEngine(alert_repo)
 pricing_optimizer = PricingOptimizerAgent()
 
 
@@ -27,7 +24,7 @@ async def lifespan(app: FastAPI):
     init_chat_db()
     cleanup_empty_threads()
     
-    await alert_engine.start()
+    await alert_api.start()
     await pricing_optimizer.start()
     
     yield

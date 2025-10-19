@@ -8,14 +8,18 @@ interface Incident {
   status: 'OPEN' | 'ACKED' | 'RESOLVED'
   first_seen: string
   last_seen: string
-  severity: 'info' | 'warn' | 'crit'
+  severity: 'info' | 'low' | 'warn' | 'medium' | 'high' | 'crit' | 'critical'
   title: string
 }
 
 const SEVERITY_CONFIG = {
   info: { bg: 'bg-blue-500/20', text: 'text-blue-400', label: 'Info', icon: 'ℹ️' },
+  low: { bg: 'bg-blue-500/20', text: 'text-blue-400', label: 'Low', icon: 'ℹ️' },
   warn: { bg: 'bg-yellow-500/20', text: 'text-yellow-400', label: 'Warning', icon: '⚠️' },
+  medium: { bg: 'bg-yellow-500/20', text: 'text-yellow-400', label: 'Medium', icon: '⚠️' },
+  high: { bg: 'bg-orange-500/20', text: 'text-orange-400', label: 'High', icon: '🔥' },
   crit: { bg: 'bg-red-500/20', text: 'text-red-400', label: 'Critical', icon: '🚨' },
+  critical: { bg: 'bg-red-500/20', text: 'text-red-400', label: 'Critical', icon: '🚨' },
 }
 
 const STATUS_CONFIG = {
@@ -41,7 +45,7 @@ export function AlertDetailModal({
 }: AlertDetailModalProps) {
   if (!incident) return null
 
-  const severity = SEVERITY_CONFIG[incident.severity]
+  const severity = SEVERITY_CONFIG[incident.severity] || SEVERITY_CONFIG['info']
   const status = STATUS_CONFIG[incident.status]
   const isLLM = incident.rule_id === 'llm_agent'
 

@@ -169,6 +169,211 @@
       rgba(248, 250, 252, 0.7) 100%
     );
   }
+
+  .ocean {
+    --background: 200 50% 8%;
+    --foreground: 180 30% 95%;
+    --card: 200 50% 8%;
+    --card-foreground: 180 30% 95%;
+    --popover: 200 50% 8%;
+    --popover-foreground: 180 30% 95%;
+    --primary: 190 95% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 200 35% 18%;
+    --secondary-foreground: 180 30% 95%;
+    --muted: 200 35% 18%;
+    --muted-foreground: 180 15% 60%;
+    --accent: 200 35% 18%;
+    --accent-foreground: 180 30% 95%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 200 35% 18%;
+    --input: 200 35% 18%;
+    --ring: 190 95% 45%;
+
+    --bg: linear-gradient(135deg, #0a1628 0%, #0d1f2d 100%);
+    --fg: #e0f2f1;
+    --muted: #78909c;
+    --panel: rgba(13, 31, 45, 0.95);
+    --panel-solid: #0d1f2d;
+    --border-color: rgba(38, 166, 154, 0.15);
+    --accent-color: #26a69a;
+    --accent-hover: #4db6ac;
+    --accent-light: rgba(38, 166, 154, 0.12);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.7);
+    --hover-bg: rgba(38, 166, 154, 0.1);
+    --message-assistant-bg: linear-gradient(
+      135deg,
+      rgba(13, 31, 45, 0.7) 0%,
+      rgba(10, 22, 40, 0.8) 100%
+    );
+  }
+
+  .forest {
+    --background: 140 40% 10%;
+    --foreground: 120 20% 95%;
+    --card: 140 40% 10%;
+    --card-foreground: 120 20% 95%;
+    --popover: 140 40% 10%;
+    --popover-foreground: 120 20% 95%;
+    --primary: 150 60% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 140 30% 20%;
+    --secondary-foreground: 120 20% 95%;
+    --muted: 140 30% 20%;
+    --muted-foreground: 120 15% 60%;
+    --accent: 140 30% 20%;
+    --accent-foreground: 120 20% 95%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 140 30% 20%;
+    --input: 140 30% 20%;
+    --ring: 150 60% 50%;
+
+    --bg: linear-gradient(135deg, #0f1e14 0%, #162318 100%);
+    --fg: #e8f5e9;
+    --muted: #81c784;
+    --panel: rgba(22, 35, 24, 0.95);
+    --panel-solid: #162318;
+    --border-color: rgba(102, 187, 106, 0.15);
+    --accent-color: #66bb6a;
+    --accent-hover: #81c784;
+    --accent-light: rgba(102, 187, 106, 0.12);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.7);
+    --hover-bg: rgba(102, 187, 106, 0.1);
+    --message-assistant-bg: linear-gradient(
+      135deg,
+      rgba(22, 35, 24, 0.7) 0%,
+      rgba(15, 30, 20, 0.8) 100%
+    );
+  }
+
+  .sunset {
+    --background: 20 60% 12%;
+    --foreground: 30 25% 95%;
+    --card: 20 60% 12%;
+    --card-foreground: 30 25% 95%;
+    --popover: 20 60% 12%;
+    --popover-foreground: 30 25% 95%;
+    --primary: 25 90% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 20 40% 22%;
+    --secondary-foreground: 30 25% 95%;
+    --muted: 20 40% 22%;
+    --muted-foreground: 30 15% 60%;
+    --accent: 20 40% 22%;
+    --accent-foreground: 30 25% 95%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 20 40% 22%;
+    --input: 20 40% 22%;
+    --ring: 25 90% 55%;
+
+    --bg: linear-gradient(135deg, #1f1410 0%, #2d1e18 100%);
+    --fg: #ffe0b2;
+    --muted: #ffab91;
+    --panel: rgba(45, 30, 24, 0.95);
+    --panel-solid: #2d1e18;
+    --border-color: rgba(255, 138, 101, 0.15);
+    --accent-color: #ff8a65;
+    --accent-hover: #ffab91;
+    --accent-light: rgba(255, 138, 101, 0.12);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.7);
+    --hover-bg: rgba(255, 138, 101, 0.1);
+    --message-assistant-bg: linear-gradient(
+      135deg,
+      rgba(45, 30, 24, 0.7) 0%,
+      rgba(31, 20, 16, 0.8) 100%
+    );
+  }
+
+  .midnight {
+    --background: 240 20% 6%;
+    --foreground: 220 30% 95%;
+    --card: 240 20% 6%;
+    --card-foreground: 220 30% 95%;
+    --popover: 240 20% 6%;
+    --popover-foreground: 220 30% 95%;
+    --primary: 260 100% 70%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 20% 15%;
+    --secondary-foreground: 220 30% 95%;
+    --muted: 240 20% 15%;
+    --muted-foreground: 220 15% 60%;
+    --accent: 240 20% 15%;
+    --accent-foreground: 220 30% 95%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 20% 15%;
+    --input: 240 20% 15%;
+    --ring: 260 100% 70%;
+
+    --bg: linear-gradient(135deg, #050810 0%, #0a0e1a 100%);
+    --fg: #e6e6fa;
+    --muted: #9d9dc7;
+    --panel: rgba(10, 14, 26, 0.95);
+    --panel-solid: #0a0e1a;
+    --border-color: rgba(138, 110, 255, 0.15);
+    --accent-color: #8a6eff;
+    --accent-hover: #a88fff;
+    --accent-light: rgba(138, 110, 255, 0.12);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.6);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.7);
+    --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.8);
+    --hover-bg: rgba(138, 110, 255, 0.1);
+    --message-assistant-bg: linear-gradient(
+      135deg,
+      rgba(10, 14, 26, 0.7) 0%,
+      rgba(5, 8, 16, 0.8) 100%
+    );
+  }
+
+  .rose {
+    --background: 340 40% 12%;
+    --foreground: 340 20% 95%;
+    --card: 340 40% 12%;
+    --card-foreground: 340 20% 95%;
+    --popover: 340 40% 12%;
+    --popover-foreground: 340 20% 95%;
+    --primary: 340 80% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 340 30% 22%;
+    --secondary-foreground: 340 20% 95%;
+    --muted: 340 30% 22%;
+    --muted-foreground: 340 15% 60%;
+    --accent: 340 30% 22%;
+    --accent-foreground: 340 20% 95%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 340 30% 22%;
+    --input: 340 30% 22%;
+    --ring: 340 80% 60%;
+
+    --bg: linear-gradient(135deg, #1a0f14 0%, #2d1620 100%);
+    --fg: #fce4ec;
+    --muted: #f48fb1;
+    --panel: rgba(45, 22, 32, 0.95);
+    --panel-solid: #2d1620;
+    --border-color: rgba(244, 143, 177, 0.15);
+    --accent-color: #f48fb1;
+    --accent-hover: #f8bbd0;
+    --accent-light: rgba(244, 143, 177, 0.12);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.7);
+    --hover-bg: rgba(244, 143, 177, 0.1);
+    --message-assistant-bg: linear-gradient(
+      135deg,
+      rgba(45, 22, 32, 0.7) 0%,
+      rgba(26, 15, 20, 0.8) 100%
+    );
+  }
 }
 
 @layer base {

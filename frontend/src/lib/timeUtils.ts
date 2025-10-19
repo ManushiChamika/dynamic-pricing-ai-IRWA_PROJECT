@@ -25,7 +25,12 @@ export function groupThreadsByTime(threads: Array<{ updated_at: string }>): {
   const yesterday = new Date(today.getTime() - 86400000)
   const weekAgo = new Date(today.getTime() - 7 * 86400000)
 
-  const groups = { today: [], yesterday: [], thisWeek: [], older: [] }
+  const groups: { today: number[]; yesterday: number[]; thisWeek: number[]; older: number[] } = { 
+    today: [], 
+    yesterday: [], 
+    thisWeek: [], 
+    older: [] 
+  }
 
   threads.forEach((thread, index) => {
     const threadDate = new Date(thread.updated_at)
