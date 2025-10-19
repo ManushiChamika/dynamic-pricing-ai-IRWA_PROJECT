@@ -104,7 +104,7 @@ function MessageViewComponent({
   return (
     <div
       ref={rowRef}
-      className="max-w-[900px] animate-slideIn origin-left transition-colors duration-200 rounded-lg"
+      className="group/message max-w-[900px] animate-slideIn origin-left transition-colors duration-200 rounded-lg"
       role="article"
       aria-label={`${m.role} message`}
       style={{ backgroundColor: hovered ? 'hsl(var(--accent) / 0.05)' : 'transparent' }}
@@ -123,7 +123,7 @@ function MessageViewComponent({
       ) : null}
       {m.id === -1 ? <LiveStatus liveActiveAgent={liveActiveAgent} liveTool={liveTool} /> : null}
       <div
-        className={`${m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted/50'} rounded-lg px-4 py-3 transition-colors leading-normal`}
+        className={`${m.role === 'user' ? 'bg-muted/30 border border-border/50' : 'bg-muted/50'} rounded-lg px-4 py-3 transition-colors leading-normal`}
       >
         {m.role === 'assistant' ? (
           <div className="max-w-none leading-normal">

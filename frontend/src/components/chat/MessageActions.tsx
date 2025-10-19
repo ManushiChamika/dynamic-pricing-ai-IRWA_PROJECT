@@ -1,5 +1,6 @@
 import React from 'react'
 import { Button } from '../ui/button'
+import { Copy, Pencil, Trash2, GitBranch } from 'lucide-react'
 import { useMessages, useMessagesActions, type Message } from '../../stores/messageStore'
 import { useCurrentThread } from '../../stores/threadStore'
 import { usePrompt } from '../../stores/promptStore'
@@ -57,15 +58,16 @@ function MessageActionsComponent({ m }: { m: Message }) {
   }
 
   return (
-    <div className="flex gap-1.5 mt-2 opacity-0 transition-opacity duration-200 hover:opacity-100">
+    <div className="flex gap-1.5 mt-2 opacity-15 transition-opacity duration-200 group-hover/message:opacity-100">
       <Button
         variant="ghost"
         size="sm"
         onClick={handleCopy}
         disabled={streamingActive}
         aria-label="Copy message"
+        className="border border-transparent hover:border-border hover:opacity-100"
       >
-        Copy
+        <Copy className="w-4 h-4" />
       </Button>
       {m.role === 'user' ? (
         <Button
@@ -74,8 +76,9 @@ function MessageActionsComponent({ m }: { m: Message }) {
           onClick={handleEdit}
           disabled={streamingActive}
           aria-label="Edit message"
+          className="border border-transparent hover:border-border hover:opacity-100"
         >
-          Edit
+          <Pencil className="w-4 h-4" />
         </Button>
       ) : null}
       <Button
@@ -84,8 +87,9 @@ function MessageActionsComponent({ m }: { m: Message }) {
         onClick={handleDelete}
         disabled={streamingActive}
         aria-label="Delete message"
+        className="border border-transparent hover:border-border hover:opacity-100"
       >
-        Del
+        <Trash2 className="w-4 h-4" />
       </Button>
       <Button
         variant="ghost"
@@ -93,8 +97,9 @@ function MessageActionsComponent({ m }: { m: Message }) {
         onClick={handleBranch}
         disabled={streamingActive}
         aria-label="Branch conversation here"
+        className="border border-transparent hover:border-border hover:opacity-100"
       >
-        Branch
+        <GitBranch className="w-4 h-4" />
       </Button>
     </div>
   )
