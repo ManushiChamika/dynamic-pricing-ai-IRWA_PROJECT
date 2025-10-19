@@ -95,7 +95,11 @@ class ChatAuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         if path.startswith("/api/threads") or path.startswith("/api/messages"):
             token = _extract_token_from_request(request)
-            sess = validate_session_token(token) if token else None
+            try:
+                sess = validate_session_token(token) if token else None
+            except Exception as e:
+                print(f"Token validation error: {e}")
+                sess = None
             if not sess:
                 return JSONResponse({"error": "Authentication required"}, status_code=401)
         return await call_next(request)
