@@ -240,10 +240,11 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
                             elif et == "tool_call":
                                 payload = {"name": delta.get("name"), "status": delta.get("status")}
                                 yield "event: tool_call\n" + "data: " + _json.dumps(payload, ensure_ascii=False) + "\n\n"
-                    except Exception:
+                    except Exception as e:
+                        logger.warning("Error processing stream delta: %s", e, exc_info=True)
                         continue
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error("Error in stream_response loop: %s", e, exc_info=True)
 
             full_text = ("".join(full_parts)).strip()
             model = getattr(uia, "last_model", None)
