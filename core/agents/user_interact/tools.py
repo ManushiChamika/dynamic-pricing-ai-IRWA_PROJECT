@@ -143,7 +143,12 @@ def optimize_price(sku: str) -> Dict[str, Any]:
         
         bus = get_bus()
         payload = {"sku": sku, "strategy": "maximize profit"}
-        asyncio.create_task(bus.publish(Topic.OPTIMIZATION_REQUEST.value, payload))
+        
+        try:
+            loop = asyncio.get_running_loop()
+            asyncio.create_task(bus.publish(Topic.OPTIMIZATION_REQUEST.value, payload))
+        except RuntimeError:
+            asyncio.ensure_future(bus.publish(Topic.OPTIMIZATION_REQUEST.value, payload))
         
         return {
             "ok": True,
