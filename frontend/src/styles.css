@@ -38,7 +38,14 @@
     --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
     --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.6);
-    --hover-bg: rgba(99, 102, 241, 0.08);
+    --hover-bg: rgba(99, 102, 241, 0.1);
+    
+    --thread-item-bg-rest: rgba(30, 41, 59, 0.3);
+    --thread-item-bg-hover: rgba(30, 41, 59, 0.6);
+    --thread-item-border-rest: rgba(148, 163, 184, 0.08);
+    --thread-item-border-hover: rgba(99, 102, 241, 0.25);
+    --thread-item-shadow-hover: 0 2px 8px rgba(99, 102, 241, 0.15);
+    --thread-item-shadow-active: 0 4px 12px rgba(99, 102, 241, 0.25);
 
     --app-surface-primary: rgba(17, 24, 39, 0.85);
     --app-surface-secondary: rgba(15, 23, 42, 0.7);
@@ -125,6 +132,13 @@
     --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.08);
     --shadow-md: 0 6px 20px rgba(15, 23, 42, 0.12);
     --shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.16);
+    
+    --thread-item-bg-rest: rgba(241, 245, 249, 0.5);
+    --thread-item-bg-hover: rgba(226, 232, 240, 0.8);
+    --thread-item-border-rest: rgba(148, 163, 184, 0.2);
+    --thread-item-border-hover: rgba(67, 56, 202, 0.35);
+    --thread-item-shadow-hover: 0 2px 8px rgba(67, 56, 202, 0.12);
+    --thread-item-shadow-active: 0 4px 12px rgba(67, 56, 202, 0.2);
 
     --app-surface-primary: rgba(255, 255, 255, 0.88);
     --app-surface-secondary: rgba(246, 248, 255, 0.92);
@@ -281,6 +295,12 @@
   .app-shadow-lg {
     box-shadow: var(--shadow-lg);
   }
+
+  .thread-item {
+    margin: 0 !important;
+    padding: 10px 12px !important;
+    line-height: 1.4 !important;
+  }
 }
 
 @keyframes spin {
@@ -412,15 +432,15 @@
   animation: fadeIn 0.3s ease-in-out;
 }
 
-ul,
-ol {
+ul:not(.sidebar ul),
+ol:not(.sidebar ol) {
   margin: 0 !important;
   padding: 0 !important;
   padding-left: 1.5rem !important;
   line-height: 1 !important;
 }
 
-li {
+li:not(.sidebar li):not(.group) {
   margin: 0 !important;
   margin-bottom: 0.25rem !important;
   padding: 0 !important;
