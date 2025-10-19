@@ -40,7 +40,7 @@ export function Sidebar() {
     items.push(
       ...threads.map((t) => ({
         id: t.id,
-        title: t.title || `Thread #${t.id}`,
+        title: t.title || 'Untitled',
         isDraft: false,
         updated_at: t.updated_at,
       }))
@@ -106,7 +106,9 @@ export function Sidebar() {
             <Button
               onClick={() => createDraftThread()}
               aria-label="Create new thread"
-              className="flex-1 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-semibold shadow-md hover:shadow-lg hover:shadow-indigo-500/50 transition-all duration-200 h-11"
+              variant="gradient"
+              size="lg"
+              className="flex-1"
             >
               <Sparkles className="h-5 w-5" />
               <span className="text-[0.9375rem] tracking-wide">New Chat</span>
