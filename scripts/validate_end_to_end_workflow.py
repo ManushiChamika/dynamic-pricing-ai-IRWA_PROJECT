@@ -396,12 +396,12 @@ class EndToEndValidator:
         print("=" * 80)
         
         if failed > 0:
-            print("\n⚠ Some scenarios failed. Please review the errors above.")
+            print("\n[WARN] Some scenarios failed. Please review the errors above.")
         else:
-            print("\n✓ All scenarios passed successfully!")
+            print("\n[PASS] All scenarios passed successfully!")
         
         if len(self.alerts_captured) == 0:
-            print("\n⚠ No alerts captured during testing.")
+            print("\n[WARN] No alerts captured during testing.")
             print("  To test Alert Agent functionality:")
             print("  1. Ensure the full backend is running (run_full_app.bat)")
             print("  2. Alert Agent must be started and subscribed to PRICE_PROPOSAL events")
