@@ -115,8 +115,8 @@ export function ChatHeader() {
   )
 
   return (
-    <div className="flex items-center gap-[var(--space-3)] px-[var(--space-5)] py-[var(--space-4)] border-b border-border bg-[var(--panel)] backdrop-blur-3xl shadow-[0_4px_16px_rgba(0,0,0,0.5)] justify-between">
-      <div className="flex gap-[var(--space-2)] items-center flex-wrap">
+    <div className="flex items-center gap-3 px-6 py-3 border-b justify-between">
+      <div className="flex gap-2 items-center flex-wrap">
         <strong>Thread</strong>
         <span>#{currentId ?? '-'}</span>
         {streamingActive ? (

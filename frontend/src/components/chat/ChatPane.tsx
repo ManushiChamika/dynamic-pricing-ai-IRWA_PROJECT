@@ -68,10 +68,10 @@ export function ChatPane() {
   }, [mode])
 
   return (
-    <main className="flex-1 flex flex-col bg-[var(--bg)]">
+    <main className="flex-1 flex flex-col">
       <ChatHeader />
       <div
-        className="flex-1 overflow-auto p-[var(--space-6)] flex flex-col gap-[var(--space-4)] scroll-smooth"
+        className="flex-1 overflow-auto px-6 py-4 flex flex-col gap-4 scroll-smooth"
         ref={msgsRef}
         role="log"
         aria-live="polite"

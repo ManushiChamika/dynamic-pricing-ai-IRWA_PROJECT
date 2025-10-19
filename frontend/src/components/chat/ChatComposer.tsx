@@ -25,11 +25,10 @@ export function ChatComposer({ currentId, streaming }: ChatComposerProps) {
 
   return (
     <>
-      <div className="flex gap-[var(--space-3)] px-[var(--space-5)] py-[var(--space-4)] border-t border-border bg-[rgba(17,24,39,0.9)] backdrop-blur-3xl shadow-[0_-4px_16px_rgba(0,0,0,0.5)]">
+      <div className="flex gap-3 px-6 py-3 border-t">
         <textarea
-          className="composer"
+          className="flex-1 min-h-[80px] rounded-lg border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
           rows={2}
-          style={{ flex: 1 }}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={streamingActive}

@@ -46,14 +46,14 @@ const PriceCardComponent = ({
   return (
     <div
       key={k}
-      className={`border rounded-2xl p-4 bg-panel backdrop-blur-xl shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
-        alert ? `border-2 ${severity?.text.replace('text-', 'border-')}` : 'border-border'
+      className={`border rounded-lg p-3 bg-muted/30 transition-colors hover:bg-muted/50 ${
+        alert ? `border-2 ${severity?.text.replace('text-', 'border-')}` : ''
       }`}
     >
       <div
         className={`flex justify-between items-center ${viewMode === 'chart' ? 'mb-3' : 'mb-2'}`}
       >
-        <span className="opacity-90 font-medium text-sm">{k}</span>
+        <span className="font-medium text-sm">{k}</span>
         <div className="text-right">
           <div className="tabular-nums text-base font-semibold">${last?.toFixed?.(2) ?? '-'}</div>
           {viewMode === 'chart' && change !== 0 ? (
@@ -68,7 +68,7 @@ const PriceCardComponent = ({
         <Sparkline values={vals} />
       ) : (
         <Suspense
-          fallback={<div className="text-center py-4 text-muted text-sm">Loading chart…</div>}
+          fallback={<div className="text-center py-4 text-muted-foreground text-sm">Loading chart…</div>}
         >
           <PriceChart data={data} sku={k} theme={theme} />
         </Suspense>
@@ -155,10 +155,10 @@ export function PricesPanel() {
 
   return (
     <aside
-      className={`${collapsed ? 'w-12' : 'w-[280px]'} border-l border-border p-[var(--space-4)] overflow-auto bg-[var(--panel)] backdrop-blur-3xl transition-all duration-300`}
+      className={`${collapsed ? 'w-12' : 'w-[280px]'} border-l p-4 overflow-auto transition-all duration-300`}
       aria-label="Prices panel"
     >
-      <div className="flex gap-[var(--space-2)] items-center mb-[var(--space-2)]">
+      <div className="flex gap-2 items-center mb-2">
         <Button
           variant="ghost"
           size="icon"
@@ -209,7 +209,7 @@ export function PricesPanel() {
         <div className="grid gap-2">
           {incidents.filter((i) => !incidentsBySku[i.sku] || keys.length === 0).length > 0 && (
             <div className="space-y-2 mb-4">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Alerts
               </div>
               {incidents
@@ -267,7 +267,7 @@ export function PricesPanel() {
             </div>
           )}
           {keys.length === 0 && incidents.length === 0 ? (
-            <div className="text-center py-12 px-6 text-muted text-base">Waiting for prices…</div>
+            <div className="text-center py-12 px-6 text-muted-foreground text-sm">Waiting for prices…</div>
           ) : null}
           {keys.map((k) => (
             <PriceCard

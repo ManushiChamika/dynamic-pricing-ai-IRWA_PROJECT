@@ -107,13 +107,13 @@ function MessageViewComponent({
       className="max-w-[900px] animate-slideIn origin-left transition-colors duration-200"
       role="article"
       aria-label={`${m.role} message`}
-      style={{ backgroundColor: hovered ? 'var(--hover-bg)' : 'transparent' }}
+      style={{ backgroundColor: hovered ? 'hsl(var(--accent))' : 'transparent' }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       data-message-id={m.id}
     >
       {showAgentBadges ? (
-        <div className="agent-badges-container">
+        <div className="mb-2">
           <AgentBadgeGroup
             agents={agentNames}
             activeAgent={streamingActive ? liveActiveAgent : null}
@@ -123,7 +123,7 @@ function MessageViewComponent({
       ) : null}
       {m.id === -1 ? <LiveStatus liveActiveAgent={liveActiveAgent} liveTool={liveTool} /> : null}
       <div
-        className={`${m.role === 'user' ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white border-0 shadow-[0_4px_12px_rgba(99,102,241,0.3),0_2px_4px_rgba(99,102,241,0.2)]' : 'bg-[var(--message-assistant-bg)] backdrop-blur-3xl border-indigo-500/20'} border rounded-2xl px-5 py-4 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-[0_4px_12px_rgba(0,0,0,0.4),0_2px_4px_rgba(0,0,0,0.3)] leading-normal relative`}
+        className={`${m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted/50'} rounded-lg px-4 py-3 transition-colors leading-normal`}
       >
         {m.role === 'assistant' ? (
           <div className="max-w-none leading-normal">
@@ -139,8 +139,8 @@ function MessageViewComponent({
         <ThinkingTokens thinking={m.thinking} />
       ) : null}
       {m.metadata?.priceData && m.role === 'assistant' ? (
-        <div style={{ marginTop: 12 }}>
-          <Suspense fallback={<div className="chart-loading">Loading chart…</div>}>
+        <div className="mt-3">
+          <Suspense fallback={<div className="text-center py-4 text-muted-foreground text-sm">Loading chart…</div>}>
             <PriceChart
               data={m.metadata.priceData as any}
               sku={(m.metadata as any).sku || 'Product'}
