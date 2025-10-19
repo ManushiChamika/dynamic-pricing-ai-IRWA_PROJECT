@@ -20,7 +20,7 @@ logger = logging.getLogger("autonomous_test")
 async def main():
     logger.info("Starting autonomous data collector test...")
     
-    db_path = root / "data" / "market.db"
+    db_path = root / "app" / "data.db"
     repo = DataRepo(db_path)
     
     agent = DataCollectorAgent(
