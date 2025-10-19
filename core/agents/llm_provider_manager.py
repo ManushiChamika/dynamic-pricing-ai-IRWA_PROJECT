@@ -120,8 +120,8 @@ class ProviderManager:
         gemini_base = os.getenv("GEMINI_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta/openai/"
         if gemini_base and not gemini_base.endswith("/"):
             gemini_base = gemini_base + "/"
-        gemini_flash_model = os.getenv("GEMINI_FLASH_MODEL") or "2.5-flash"
-        gemini_pro_model = os.getenv("GEMINI_PRO_MODEL") or "2.5-pro"
+        gemini_flash_model = os.getenv("GEMINI_FLASH_MODEL") or "gemini-2.5-flash"
+        gemini_pro_model = os.getenv("GEMINI_PRO_MODEL") or "gemini-2.5-pro"
         
         gemini_keys = []
         gemini_key_1 = os.getenv("GEMINI_API_KEY")
