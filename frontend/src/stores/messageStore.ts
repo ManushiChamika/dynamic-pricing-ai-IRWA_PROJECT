@@ -120,6 +120,7 @@ export const useMessages = create<MessagesState>((set, get) => ({
       }
       actualThreadId = newThreadId
       threadsState.setCurrent(newThreadId, true)
+      window.history.pushState({}, '', `/chat/${newThreadId}`)
     } else {
       actualThreadId = threadId as number
     }

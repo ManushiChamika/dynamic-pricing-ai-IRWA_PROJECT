@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, startTransition } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Virtuoso } from 'react-virtuoso'
 import { Button } from './ui/button'
 import { ThreadItem } from './sidebar/ThreadItem'
@@ -25,6 +26,7 @@ import {
 } from 'lucide-react'
 
 export function Sidebar() {
+  const navigate = useNavigate()
   const threads = useThreadList()
   const currentId = useCurrentThread()
   const draftId = useDraftId()
@@ -95,7 +97,10 @@ export function Sidebar() {
           </Button>
           {!collapsed && (
             <Button
-              onClick={() => createDraftThread()}
+              onClick={() => {
+                navigate('/chat')
+                createDraftThread()
+              }}
               aria-label="Create new thread"
               variant="gradient"
               size="lg"
