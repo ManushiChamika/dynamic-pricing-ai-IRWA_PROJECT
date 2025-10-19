@@ -58,7 +58,7 @@ function MessageActionsComponent({ m }: { m: Message }) {
   }
 
   return (
-    <div className="flex gap-1.5 mt-2 opacity-15 transition-opacity duration-200 group-hover/message:opacity-100">
+    <div className="flex gap-1.5 mt-2 opacity-0 transition-opacity duration-200 group-hover/message:opacity-100">
       <Button
         variant="ghost"
         size="sm"
