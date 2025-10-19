@@ -116,7 +116,7 @@ export function ChatHeader() {
   )
 
   return (
-    <div className="flex items-center gap-3 px-6 py-3 border-b justify-between">
+    <div className="flex items-center gap-3 px-6 py-3 border-b justify-between bg-card/50">
       <div className="flex gap-2 items-center flex-wrap">
         <strong>Thread</strong>
         <span>#{currentId ?? '-'}</span>

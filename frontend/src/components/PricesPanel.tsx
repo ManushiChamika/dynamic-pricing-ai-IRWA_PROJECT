@@ -59,7 +59,7 @@ const PriceCardComponent = ({
   return (
     <div
       key={k}
-      className={`border rounded-lg p-3 bg-muted/30 transition-colors hover:bg-muted/50 ${
+      className={`border rounded-lg p-3 bg-card/40 backdrop-blur-sm transition-colors hover:bg-card/60 ${
         alert ? `border-2 ${severity?.text.replace('text-', 'border-')}` : ''
       }`}
     >
@@ -168,7 +168,7 @@ export function PricesPanel() {
 
   return (
     <aside
-      className={`${collapsed ? 'w-12' : 'w-[280px]'} border-l p-4 overflow-auto transition-all duration-300`}
+      className={`${collapsed ? 'w-12' : 'w-[280px]'} border-l p-4 overflow-auto transition-all duration-300 bg-muted/30`}
       aria-label="Prices panel"
     >
       <div className="flex gap-2 items-center mb-2">

@@ -78,7 +78,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`sidebar ${collapsed ? 'w-16' : 'w-64'} border-r bg-background transition-all duration-300 overflow-hidden`}
+      className={`sidebar ${collapsed ? 'w-16' : 'w-64'} border-r bg-muted/20 transition-all duration-300 overflow-hidden`}
       aria-label="Threads sidebar"
     >
       <div className="flex flex-col h-full p-3 gap-3">
@@ -108,7 +108,7 @@ export function Sidebar() {
         </div>
 
         {!collapsed ? (
-          <div className="flex-1 -mx-1" id="thread-list">
+          <div className="flex-1 -mx-1 border-y py-2 bg-background/50" id="thread-list">
             <Virtuoso
               data={allItems}
               totalCount={allItems.length}
@@ -128,7 +128,7 @@ export function Sidebar() {
             />
           </div>
         ) : (
-          <div className="flex-1 overflow-auto" id="thread-list">
+          <div className="flex-1 overflow-auto border-y py-2 bg-background/50" id="thread-list">
             <div className="space-y-1">
               {allItems.map((item) => (
                 <ThreadItem
@@ -146,7 +146,7 @@ export function Sidebar() {
           </div>
         )}
 
-        <div className="border-t pt-3 flex flex-col gap-1">
+        <div className="border-t pt-3 flex flex-col gap-1 bg-muted/10 -mx-3 px-3 -mb-3 pb-3">
           <Button
             variant="ghost"
             onClick={() => (window.location.href = '/')}
