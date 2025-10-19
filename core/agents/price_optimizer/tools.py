@@ -170,6 +170,8 @@ class Tools:
         sku: str,
         old_price: float,
         new_price: float,
+        margin: float = 0.0,
+        algorithm: str = "unknown",
     ) -> Dict[str, Any]:
         try:
             from core.agents.agent_sdk.bus_factory import get_bus
@@ -178,9 +180,14 @@ class Tools:
             bus = get_bus()
             proposal_payload = {
                 "proposal_id": uuid.uuid4().hex,
+                "sku": sku,
                 "product_id": sku,
+                "old_price": float(old_price),
                 "previous_price": float(old_price),
+                "new_price": float(new_price),
                 "proposed_price": float(new_price),
+                "margin": float(margin),
+                "algorithm": algorithm,
             }
             await bus.publish(Topic.PRICE_PROPOSAL.value, proposal_payload)
             
