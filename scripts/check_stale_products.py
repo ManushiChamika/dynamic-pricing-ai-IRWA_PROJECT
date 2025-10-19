@@ -12,9 +12,11 @@ rows = conn.execute("""
         MAX(mt.ts) as last_update
     FROM product_catalog pc
     LEFT JOIN market_ticks mt ON pc.sku = mt.sku
-    GROUP BY pc.sku, pc.title
+    GROUP BY pc.sku, pc.title, pc.source_url
     HAVING last_update IS NULL OR last_update < ?
-    ORDER BY last_update ASC NULLS FIRST
+    ORDER BY 
+        CASE WHEN pc.source_url IS NOT NULL THEN 0 ELSE 1 END,
+        last_update ASC NULLS FIRST
     LIMIT 10
 """, (cutoff,)).fetchall()
 
