@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300..700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -89,12 +91,16 @@
     --space-16: 4rem;
 
     /* Typography tokens */
-    --font-sm: 0.875rem;
-    --font-md: 1rem;
+    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-xs: 0.6875rem;
+    --font-sm: 0.8125rem;
+    --font-md: 0.9375rem;
+    --font-base: 1rem;
     --font-lg: 1.125rem;
     --font-xl: 1.25rem;
     --font-2xl: 1.5rem;
     --line-height-tight: 1.25;
+    --line-height-snug: 1.375;
     --line-height-normal: 1.5;
     --line-height-relaxed: 1.75;
   }
@@ -174,14 +180,9 @@
     background: var(--bg);
     color: var(--fg);
     margin: 0;
-    font:
-      15px/1.6 -apple-system,
-      BlinkMacSystemFont,
-      'Segoe UI',
-      Roboto,
-      'Helvetica Neue',
-      Arial,
-      sans-serif;
+    font-family: var(--font-family);
+    font-size: 15px;
+    line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -192,7 +193,7 @@
   }
 }
 @layer components {
-  button {
+  button:not(.inline-flex) {
     background: var(--app-button-bg);
     border: 1px solid var(--app-button-border);
     color: var(--app-button-text);
@@ -209,7 +210,7 @@
     position: relative;
     overflow: hidden;
   }
-  button::before {
+  button:not(.inline-flex)::before {
     content: '';
     position: absolute;
     inset: 0;
@@ -217,24 +218,24 @@
     opacity: 0;
     transition: opacity 0.3s ease;
   }
-  button:hover:not(:disabled)::before {
+  button:hover:not(:disabled):not(.inline-flex)::before {
     opacity: 1;
   }
-  button:hover:not(:disabled) {
+  button:hover:not(:disabled):not(.inline-flex) {
     border-color: var(--accent-color);
     color: #ffffff;
     transform: translateY(-2px);
     box-shadow: var(--app-button-hover-shadow);
   }
-  button > * {
+  button:not(.inline-flex) > * {
     position: relative;
     z-index: 1;
   }
-  button:active:not(:disabled) {
+  button:active:not(:disabled):not(.inline-flex) {
     transform: translateY(0);
     box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
   }
-  button:disabled {
+  button:disabled:not(.inline-flex) {
     opacity: 0.5;
     cursor: not-allowed;
     filter: saturate(0.4);

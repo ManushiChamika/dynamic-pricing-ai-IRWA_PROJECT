@@ -171,6 +171,7 @@
   },
   "active": "a6db50ab45cab173",
   "lastOpenFiles": [
+    "frontend/vite.config.ts.timestamp-1760832096882-b620133351c6d.mjs",
     "app/data.db-shm",
     "app/data.db-wal",
     "frontend/vite.config.ts.timestamp-1760831138990-c1f65457bcdf1.mjs",
@@ -181,7 +182,6 @@
     "frontend/src/components/ui/buttonVariants.ts",
     "frontend/vite.config.ts.timestamp-1760830819045-e7777857ccd1a.mjs",
     "frontend/vite.config.ts.timestamp-1760830627082-19d7eca5fde42.mjs",
-    "test_market.db",
     "AUTONOMOUS_PRICING_INTEGRATION_COMPLETE.md",
     "docs/LLM_ALERT_AGENT_TEST_REPORT.md",
     "_legacy_mcp_archive/README.md",
