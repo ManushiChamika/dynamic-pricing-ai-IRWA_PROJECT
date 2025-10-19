@@ -25,7 +25,7 @@ export function ChatComposer({ currentId, streaming }: ChatComposerProps) {
 
   return (
     <>
-      <div className="flex items-end gap-3 px-6 py-3 border-t">
+      <div className="flex items-center gap-3 px-6 py-3 border-t">
         <textarea
           className="flex-1 min-h-[80px] rounded-lg border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
           rows={2}
