@@ -104,10 +104,10 @@ function MessageViewComponent({
   return (
     <div
       ref={rowRef}
-      className="max-w-[900px] animate-slideIn origin-left transition-colors duration-200"
+      className="max-w-[900px] animate-slideIn origin-left transition-colors duration-200 rounded-lg"
       role="article"
       aria-label={`${m.role} message`}
-      style={{ backgroundColor: hovered ? 'hsl(var(--accent))' : 'transparent' }}
+      style={{ backgroundColor: hovered ? 'hsl(var(--accent) / 0.05)' : 'transparent' }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       data-message-id={m.id}
