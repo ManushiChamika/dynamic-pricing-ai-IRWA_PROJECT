@@ -11,14 +11,12 @@ const cleanMarkdownTables = (content: string): string => {
     const nextLine = lines[i + 1] || ''
     
     if (nextLine.match(/^\s*\|[\s\-:|\s]*\|\s*$/)) {
-      const cells = line.split('|').map(cell => cell.trim()).filter(Boolean)
       const separatorMatch = nextLine.match(/\|([^|]*)\|/g)
       
       if (separatorMatch && separatorMatch.length > 0) {
         const cleanSeparator = separatorMatch
           .map((sep) => {
             const content = sep.replace(/\|/g, '').trim()
-            const colonCount = (content.match(/:/g) || []).length
             const dashCount = (content.match(/-/g) || []).length
             
             if (dashCount > 20) {
