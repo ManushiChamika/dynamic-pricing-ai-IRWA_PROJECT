@@ -54,13 +54,13 @@ export function Sidebar() {
   useEffect(() => {
     refresh().then(() => {
       const last = Number(localStorage.getItem('lastThreadId') || '')
-      if (last) {
+      if (last && !currentId) {
         setCurrent(last)
       } else if (!currentId) {
         createDraftThread()
       }
     })
-  }, [refresh, setCurrent, createDraftThread, currentId])
+  }, [refresh, setCurrent, createDraftThread])
 
   const handleLogout = async () => {
     useConfirm.getState().openConfirm({
