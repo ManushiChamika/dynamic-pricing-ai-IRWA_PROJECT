@@ -107,12 +107,12 @@
 
   .light {
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 222.2 47.4% 11.2%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222.2 47.4% 11.2%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
+    --popover-foreground: 222.2 47.4% 11.2%;
+    --primary: 221.2 83.2% 53.3%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -124,49 +124,49 @@
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --ring: 221.2 83.2% 53.3%;
 
-    --bg: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%);
+    --bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
     --fg: #0f172a;
-    --muted: #475569;
-    --panel: rgba(248, 250, 255, 0.8);
+    --muted: #64748b;
+    --panel: rgba(255, 255, 255, 0.95);
     --panel-solid: #ffffff;
-    --border-color: rgba(148, 163, 184, 0.35);
-    --accent-color: #4338ca;
-    --accent-hover: #3730a3;
-    --accent-light: rgba(67, 56, 202, 0.15);
-    --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.08);
-    --shadow-md: 0 6px 20px rgba(15, 23, 42, 0.12);
-    --shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.16);
+    --border-color: rgba(226, 232, 240, 0.8);
+    --accent-color: #6366f1;
+    --accent-hover: #4f46e5;
+    --accent-light: rgba(99, 102, 241, 0.08);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
     
-    --thread-item-bg-rest: rgba(241, 245, 249, 0.5);
-    --thread-item-bg-hover: rgba(226, 232, 240, 0.8);
-    --thread-item-border-rest: rgba(148, 163, 184, 0.2);
-    --thread-item-border-hover: rgba(67, 56, 202, 0.35);
-    --thread-item-shadow-hover: 0 2px 8px rgba(67, 56, 202, 0.12);
-    --thread-item-shadow-active: 0 4px 12px rgba(67, 56, 202, 0.2);
+    --thread-item-bg-rest: rgba(248, 250, 252, 0.6);
+    --thread-item-bg-hover: rgba(241, 245, 249, 0.9);
+    --thread-item-border-rest: rgba(226, 232, 240, 0.6);
+    --thread-item-border-hover: rgba(99, 102, 241, 0.3);
+    --thread-item-shadow-hover: 0 2px 4px rgba(0, 0, 0, 0.06);
+    --thread-item-shadow-active: 0 4px 8px rgba(99, 102, 241, 0.15);
 
-    --app-surface-primary: rgba(255, 255, 255, 0.88);
-    --app-surface-secondary: rgba(246, 248, 255, 0.92);
+    --app-surface-primary: rgba(255, 255, 255, 0.98);
+    --app-surface-secondary: rgba(248, 250, 252, 0.95);
     --app-surface-card: #ffffff;
-    --app-surface-muted: rgba(236, 239, 255, 0.8);
-    --app-text-muted: #334155;
-    --app-divider: rgba(148, 163, 184, 0.4);
-    --app-button-bg: linear-gradient(135deg, #4338ca 0%, #7c3aed 100%);
+    --app-surface-muted: rgba(241, 245, 249, 0.9);
+    --app-text-muted: #64748b;
+    --app-divider: rgba(226, 232, 240, 0.8);
+    --app-button-bg: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
     --app-button-text: #ffffff;
-    --app-button-border: rgba(67, 56, 202, 0.35);
-    --app-button-gradient: linear-gradient(135deg, #4338ca 0%, #1e40af 100%);
-    --app-button-hover-shadow: 0 12px 24px rgba(67, 56, 202, 0.25);
-    --app-input-bg: rgba(255, 255, 255, 0.96);
-    --app-input-border: rgba(148, 163, 184, 0.6);
+    --app-button-border: rgba(99, 102, 241, 0.2);
+    --app-button-gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    --app-button-hover-shadow: 0 8px 16px rgba(99, 102, 241, 0.2);
+    --app-input-bg: rgba(255, 255, 255, 0.98);
+    --app-input-border: rgba(226, 232, 240, 0.8);
     --app-input-text: #0f172a;
-    --app-input-placeholder: rgba(100, 116, 139, 0.8);
-    --app-nav-bg: rgba(255, 255, 255, 0.9);
-    --app-nav-border: rgba(148, 163, 184, 0.35);
+    --app-input-placeholder: rgba(100, 116, 139, 0.6);
+    --app-nav-bg: rgba(255, 255, 255, 0.95);
+    --app-nav-border: rgba(226, 232, 240, 0.8);
     --message-assistant-bg: linear-gradient(
       135deg,
-      rgba(226, 232, 240, 0.8) 0%,
-      rgba(241, 245, 249, 0.9) 100%
+      rgba(248, 250, 252, 0.9) 0%,
+      rgba(241, 245, 249, 0.95) 100%
     );
   }
 }

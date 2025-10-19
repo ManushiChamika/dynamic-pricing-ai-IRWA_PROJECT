@@ -17,6 +17,7 @@ import { useCurrentThread } from '../../stores/threadStore'
 import { useSettings } from '../../stores/settingsStore'
 import { useConfirm } from '../../stores/confirmStore'
 import { useToasts } from '../../stores/toastStore'
+import { User, Bot } from 'lucide-react'
 
 const MARKDOWN_COMPONENTS = {
   li: ({ children, ...props }: React.LiHTMLAttributes<HTMLLIElement>) => (
@@ -122,54 +123,65 @@ function MessageViewComponent({
         </div>
       ) : null}
       {m.id === -1 ? <LiveStatus liveActiveAgent={liveActiveAgent} liveTool={liveTool} /> : null}
-      <div
-        className={`${m.role === 'user' ? 'bg-muted/30 border border-border/50' : 'bg-muted/50'} rounded-lg px-4 py-3 transition-colors leading-normal`}
-      >
-        {m.role === 'assistant' ? (
-          <div className="max-w-none leading-normal">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
-              {m.content || ''}
-            </ReactMarkdown>
-          </div>
-        ) : (
-          <pre className="whitespace-pre-wrap">{m.content}</pre>
-        )}
-      </div>
-      {showThinking && m.thinking && m.role === 'assistant' ? (
-        <ThinkingTokens thinking={m.thinking} />
-      ) : null}
-      {m.metadata?.priceData && m.role === 'assistant' ? (
-        <div className="mt-3">
-          <Suspense fallback={<div className="text-center py-4 text-muted-foreground text-sm">Loading chart…</div>}>
-            <PriceChart
-              data={m.metadata.priceData as any}
-              sku={(m.metadata as any).sku || 'Product'}
-              theme={useSettings.getState().theme}
-            />
-          </Suspense>
+      <div className="flex gap-3 items-start">
+        <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${m.role === 'user' ? 'bg-primary' : 'bg-gradient-to-br from-purple-500 to-indigo-600'}`}>
+          {m.role === 'user' ? (
+            <User className="w-5 h-5 text-primary-foreground" />
+          ) : (
+            <Bot className="w-5 h-5 text-white" />
+          )}
         </div>
-      ) : null}
-      {m.id > 0 && allMessages.length > 0 ? (
-        <BranchNavigator
-          message={m as any}
-          allMessages={allMessages as any}
-          onNavigate={(targetId: number) => {
-            const targetEl = document.querySelector(`[data-message-id="${targetId}"]`)
-            if (targetEl) {
-              targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
-              targetEl.classList.add('highlight-pulse')
-              setTimeout(() => targetEl.classList.remove('highlight-pulse'), 2000)
-            }
-          }}
-        />
-      ) : null}
-      <MessageActions m={m} />
-      <MessageMetadata
-        m={m}
-        showTimestamps={showTimestamps}
-        showMeta={showMeta}
-        showModel={showModel}
-      />
+        <div className="flex-1">
+          <div
+            className={`${m.role === 'user' ? 'bg-primary/10 border border-primary/20' : 'bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 border border-purple-200 dark:border-purple-800'} rounded-lg px-4 py-3 transition-colors leading-normal`}
+          >
+            {m.role === 'assistant' ? (
+              <div className="max-w-none leading-normal">
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
+                  {m.content || ''}
+                </ReactMarkdown>
+              </div>
+            ) : (
+              <pre className="whitespace-pre-wrap">{m.content}</pre>
+            )}
+          </div>
+          {showThinking && m.thinking && m.role === 'assistant' ? (
+            <ThinkingTokens thinking={m.thinking} />
+          ) : null}
+          {m.metadata?.priceData && m.role === 'assistant' ? (
+            <div className="mt-3">
+              <Suspense fallback={<div className="text-center py-4 text-muted-foreground text-sm">Loading chart…</div>}>
+                <PriceChart
+                  data={m.metadata.priceData as any}
+                  sku={(m.metadata as any).sku || 'Product'}
+                  theme={useSettings.getState().theme}
+                />
+              </Suspense>
+            </div>
+          ) : null}
+          {m.id > 0 && allMessages.length > 0 ? (
+            <BranchNavigator
+              message={m as any}
+              allMessages={allMessages as any}
+              onNavigate={(targetId: number) => {
+                const targetEl = document.querySelector(`[data-message-id="${targetId}"]`)
+                if (targetEl) {
+                  targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  targetEl.classList.add('highlight-pulse')
+                  setTimeout(() => targetEl.classList.remove('highlight-pulse'), 2000)
+                }
+              }}
+            />
+          ) : null}
+          <MessageActions m={m} />
+          <MessageMetadata
+            m={m}
+            showTimestamps={showTimestamps}
+            showMeta={showMeta}
+            showModel={showModel}
+          />
+        </div>
+      </div>
     </div>
   )
 }
