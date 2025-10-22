@@ -6,6 +6,7 @@ import sqlite3
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 
+from core.tool_registry import get_tool_registry
 from core.agents.data_collector.repo import DataRepo
 from core.agents.data_collector.collector import DataCollector
 from core.agents.agent_sdk.mcp_client import get_data_collector_client
@@ -34,6 +35,7 @@ class Supervisor:
         self.collector = collector or DataCollector(self.repo)
         self.optimizer = optimizer or PricingOptimizerAgent()
         self.dc_client = get_data_collector_client()
+        self.tool_registry = get_tool_registry()
         self.concurrency = max(1, int(concurrency))
 
     async def run_for_catalog(
@@ -55,12 +57,16 @@ class Supervisor:
             async with sem:
                 summary: Dict[str, Any] = {"sku": sku}
                 try:
-                    # 1) Upsert product row
-                    await self.repo.upsert_products([row])
+# 1) Upsert product row using tool registry
+                    await self.tool_registry.execute_tool("upsert_product", product_data=row)
 
-                    # 2) Start collection job via MCP
-                    start_res = await self.dc_client.start_collection(
-                        sku, market=market, connector=connector, depth=depth
+                    # 2) Start collection job via tool registry
+                    start_res = await self.tool_registry.execute_tool(
+                        "start_data_collection",
+                        sku=sku,
+                        market=market,
+                        connector=connector,
+                        depth=depth,
                     )
                     if not start_res.get("ok"):
                         summary.update({"job_start": "error", "error": start_res})
@@ -73,7 +79,7 @@ class Supervisor:
                     t0 = time.time()
                     status = None
                     while time.time() - t0 < timeout_s:
-                        st = await self.dc_client.get_job_status(job_id)
+                        st = await self.tool_registry.execute_tool("get_job_status", job_id=job_id)
                         job = st.get("job") if st.get("ok") else None
                         status = (job or {}).get("status")
                         if status in {"DONE", "FAILED", "CANCELLED"}:
@@ -87,9 +93,9 @@ class Supervisor:
                     # Ensure app/data.db has some data for optimizer to read
                     self._seed_market_if_needed(sku)
 
-                    # 4) Run optimizer (folder-based version is async)
-                    opt_res = await self.optimizer.process_full_workflow(
-                        "maximize profit", sku
+                    # 4) Run optimizer using tool registry
+                    opt_res = await self.tool_registry.execute_tool(
+                        "optimize_price", sku=sku, objective="maximize profit"
                     )
                     summary["optimizer"] = opt_res
                     if not isinstance(opt_res, dict) or opt_res.get("status") != "ok":

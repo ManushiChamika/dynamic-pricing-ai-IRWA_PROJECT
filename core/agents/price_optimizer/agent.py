@@ -62,21 +62,16 @@ IMPORTANT: You must complete the entire workflow autonomously. Use tools in sequ
 
 class PricingOptimizerAgent:
     def __init__(
-        self, 
-        app_db: Optional[Path] = None, 
-        market_db: Optional[Path] = None,
+        self,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         model: Optional[str] = None,
-        strict_ai_selection: Optional[bool] = None,
-    ) -> None:
-        root = Path(__file__).resolve().parents[3]
-        self.db = _DBPaths(
-            app_db=app_db or (root / "app" / "data.db"),
-            market_db=market_db or (root / "app" / "data.db"),
-        )
-        
-        self.tools = Tools(self.db.app_db, self.db.market_db)
+        strict_ai_selection: bool = False,
+    ):
+        self.api_key = api_key
+        self.base_url = base_url
+        self.model = model
+        self.strict_ai_selection = strict_ai_selection
         self.llm = None
         self.logger = logging.getLogger("price_optimizer")
         self.bus = None
