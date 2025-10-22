@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, AwareDatetime, validator
+from pydantic import BaseModel, Field, AwareDatetime, field_validator
 from typing import Literal, List, Optional, Dict, Any
 
 Severity = Literal["info", "warn", "crit"]
@@ -38,8 +38,10 @@ class RuleSpec(BaseModel):
     notify: NotifySpec = NotifySpec()
     enabled: bool = True
 
-    @validator("where", always=True)
-    def where_or_detector(cls, v, values):
+    @field_validator("where")
+    @classmethod
+    def where_or_detector(cls, v, info):
+        values = info.data if hasattr(info, 'data') else {}
         if not v and not values.get("detector"):
             raise ValueError("Provide either 'where' or 'detector'.")
         return v
