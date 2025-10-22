@@ -16,7 +16,13 @@ from .base_chat_handler import BaseChatHandler
 
 
 def _load_dotenv_if_present() -> None:
-    """Minimal .env loader from project root if env vars not already present."""
+    """Minimal .env loader from project root if env vars not already present.
+
+    Avoid loading `.env` during pytest runs so tests that monkeypatch environment
+    control LLM configuration deterministically.
+    """
+    if os.getenv("PYTEST_CURRENT_TEST") is not None:
+        return
     # If any of the keys are explicitly present in the environment (even empty),
     # respect the caller's intent and DO NOT load from .env. This is important
     # for tests that set keys to empty strings to simulate "no key".
@@ -35,12 +41,12 @@ def _load_dotenv_if_present() -> None:
                 k, v = s.split("=", 1)
                 k = k.strip()
                 v = v.strip().strip('"').strip("'")
-                if k and not os.getenv(k):
+                if k and not os.getenv(k, "").strip():
                     os.environ[k] = v
     except Exception as e:
-        # Best-effort; log and continue
         logging.getLogger("core.agents.llm").debug("dotenv load skipped due to error: %s", e)
         pass
+
 
 
 class LLMClient:
@@ -381,22 +387,32 @@ def get_llm_client(model: Optional[str] = None) -> LLMClient:
     
     try:
         if model:
-            key = os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("GEMINI_API_KEY")
+            key = (os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
             if not key:
                 logging.getLogger("core.agents.llm").error("No API key found for custom model: %s", model)
                 raise RuntimeError("No API key configured for LLM client")
             
             base = None
-            if key and os.getenv("OPENROUTER_API_KEY") == key:
-                base = os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1"
-            elif key and os.getenv("GEMINI_API_KEY") == key:
-                base = os.getenv("GEMINI_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta/openai/"
+            if key and (os.getenv("OPENROUTER_API_KEY") or "").strip() == key:
+                base = (os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1").strip()
+            elif key and (os.getenv("GEMINI_API_KEY") or "").strip() == key:
+                base = (os.getenv("GEMINI_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta/openai/").strip()
             
             client = LLMClient(api_key=key, base_url=base, model=model)
             if not client.is_available():
                 raise RuntimeError(f"LLM client initialization failed: {client.unavailable_reason()}")
             return client
         
+        # During pytest runs, avoid returning a cached client so tests that monkeypatch
+        # env variables after module import can control LLM availability deterministically.
+        if os.getenv("PYTEST_CURRENT_TEST") is not None:
+            client = LLMClient()
+            if not client.is_available():
+                logging.getLogger("core.agents.llm").error(
+                    "LLM client unavailable: %s", client.unavailable_reason()
+                )
+            return client
+
         if _llm_client_cache is None:
             _llm_client_cache = LLMClient()
             if not _llm_client_cache.is_available():
@@ -408,3 +424,4 @@ def get_llm_client(model: Optional[str] = None) -> LLMClient:
     except Exception as e:
         logging.getLogger("core.agents.llm").error("Failed to get LLM client: %s", e)
         raise
+
