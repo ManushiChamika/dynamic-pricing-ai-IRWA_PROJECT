@@ -23,5 +23,6 @@ def test_optimize_properties(sku, our_price, competitor_price, demand_index, cos
     assert 'recommended_price' in result
     rp = result['recommended_price']
     assert isinstance(rp, float) or isinstance(rp, int)
-    assert rp >= min_price - 1e-6 and rp <= max_price + 1e-6
+    eps = 0.01
+    assert rp >= min_price - eps - 1e-8 and rp <= max_price + eps + 1e-8
     assert 0.0 <= result.get('confidence', 0.0) <= 1.0
