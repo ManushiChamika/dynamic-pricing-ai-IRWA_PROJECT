@@ -58,8 +58,15 @@ def optimize(
 
     base = min(max(base, min_price), max_price)
 
+    # Round the recommendation and ensure rounding doesn't push it outside constraints
+    recommended = round(base, 2)
+    if recommended < min_price:
+        recommended = float(min_price)
+    if recommended > max_price:
+        recommended = float(max_price)
+
     result = {
-        "recommended_price": round(base, 2),
+        "recommended_price": recommended,
         "confidence": 0.8 if algorithm else 0.6,
         "rationale": "; ".join(rationale) or "No change",
         "algorithm": algorithm or "heuristic",
@@ -69,6 +76,7 @@ def optimize(
             "min_margin": min_margin,
         },
     }
+
     
     # Publish price proposal event
     try:
