@@ -1,12 +1,27 @@
 import '@testing-library/jest-dom'
 import { cleanup } from '@testing-library/react'
 import { afterEach, beforeAll, afterAll } from 'vitest'
-import { server } from './mocks/server'
+import { getServer } from './mocks/server'
 
-beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }))
+let server: any
+
+beforeAll(async () => {
+  server = await getServer()
+  if (server && typeof server.listen === 'function') {
+    server.listen({ onUnhandledRequest: 'warn' })
+  }
+})
+
 afterEach(() => {
   cleanup()
-  server.resetHandlers()
+  if (server && typeof server.resetHandlers === 'function') {
+    server.resetHandlers()
+  }
 })
-afterAll(() => server.close())
+
+afterAll(() => {
+  if (server && typeof server.close === 'function') {
+    server.close()
+  }
+})
 
