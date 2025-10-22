@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\openai\resources\containers\containers.py
+# hypothesis_version: 6.142.2
+
+['*/*', '/containers', 'Accept', 'AsyncContainers', 'Containers', 'after', 'asc', 'desc', 'expires_after', 'file_ids', 'limit', 'name', 'order']

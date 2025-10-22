@@ -8,8 +8,17 @@ from backend.main import app
 
 
 def make_test_client():
+    import importlib
+    import sys
+    import os
+
+    os.environ["UI_REQUIRE_LOGIN"] = "0"
+    if "backend.main" in sys.modules:
+        del sys.modules["backend.main"]
+    mod = importlib.import_module("backend.main")
     from fastapi.testclient import TestClient as _TestClient
-    return _TestClient(app)
+
+    return _TestClient(mod.app)
 
 
 def test_create_thread_and_post_message_non_streaming(monkeypatch):
@@ -176,6 +185,11 @@ def test_delete_thread_cascades_messages_and_summaries(monkeypatch):
 
 
 def test_delete_thread_twice_returns_404(monkeypatch):
+    # Ensure deterministic fallback
+    monkeypatch.setenv("OPENROUTER_API_KEY", "")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+    client = make_test_client()
     # Create and delete once, second delete should 404
     r = client.post("/api/threads", json={"title": "Delete Twice Test"})
     assert r.status_code == 200

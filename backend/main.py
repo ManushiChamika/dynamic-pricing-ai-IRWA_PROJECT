@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
@@ -62,12 +63,25 @@ except Exception:
     pass
 
 
+# Capture the original host environment value for UI_REQUIRE_LOGIN so pytest can override it
+_ORIG_UI_REQUIRE_LOGIN = os.environ.get("UI_REQUIRE_LOGIN")
+
+
 def _require_login_enabled() -> bool:
     try:
-        import os
-        return (os.getenv("UI_REQUIRE_LOGIN", "0").lower() in {"1","true","yes","on"})
+        if os.getenv("PYTEST_CURRENT_TEST") is not None:
+            return os.environ.get("UI_REQUIRE_LOGIN", "").lower() in {"1", "true", "yes", "on"}
+
+        if _ORIG_UI_REQUIRE_LOGIN is not None:
+            try:
+                return _ORIG_UI_REQUIRE_LOGIN.lower() in {"1", "true", "yes", "on"}
+            except Exception:
+                return False
+
+        return False
     except Exception:
         return False
+
 
 
 def _extract_token_from_request(request: Request) -> str | None:

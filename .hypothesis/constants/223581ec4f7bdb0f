@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\numpy\__config__.py
+# hypothesis_version: 6.142.2
+
+['0.3.30', '19.44.35217', '3.1.4', '3.13', 'Build Dependencies', 'Compilers', 'False', 'Machine Information', 'Python Information', 'SIMD Extensions', 'True', 'args', 'baseline', 'blas', 'build', 'c', 'c++', 'cl', 'commands', 'cpu', 'cross-compiled', 'cython', 'detection method', 'dicts', 'endian', 'false', 'family', 'found', 'host', 'include directory', 'lapack', 'lib directory', 'link', 'linker', 'linker args', 'little', 'msvc', 'name', 'not found', 'numpy', 'path', 'pc file directory', 'pkgconfig', 'scipy-openblas', 'show_config', 'stdout', 'system', 'version', 'windows', 'x86_64']

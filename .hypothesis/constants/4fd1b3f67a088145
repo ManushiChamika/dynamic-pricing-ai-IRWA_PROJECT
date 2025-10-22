@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\core\agents\data_collector\tools.py
+# hypothesis_version: 6.142.2
+
+['DEFAULT', 'Product SKU to check', 'active_jobs', 'check_data_freshness', 'connector', 'count', 'created_at', 'current_price', 'data_collector_tools', 'depth', 'description', 'enum', 'error', 'finished_at', 'function', 'get_active_jobs', 'get_all_products', 'get_recent_jobs', 'get_stale_products', 'has_data', 'horizon_minutes', 'id', 'is_stale', 'last_ts', 'last_update', 'limit', 'market', 'message', 'minutes_stale', 'mock', 'name', 'number', 'object', 'ok', 'parameters', 'products', 'properties', 'recent_jobs', 'request_id', 'required', 'sku', 'source_url', 'sources', 'stale_products', 'start_collection_job', 'started_at', 'status', 'string', 'threshold_minutes', 'tick_count', 'title', 'type', 'updated_at', 'urls', 'web_scraper']

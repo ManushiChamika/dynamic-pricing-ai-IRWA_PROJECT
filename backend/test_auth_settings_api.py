@@ -7,7 +7,14 @@ from fastapi.testclient import TestClient
 from backend.main import app
 
 
-client = TestClient(app)
+def make_test_client():
+    import importlib
+    import sys
+
+    if "backend.main" in sys.modules:
+        del sys.modules["backend.main"]
+    mod = importlib.import_module("backend.main")
+    return TestClient(mod.app)
 
 
 def unique_email(prefix: str = "user") -> str:
@@ -18,6 +25,8 @@ def unique_email(prefix: str = "user") -> str:
 def test_auth_gating_requires_token_on_chat_routes(monkeypatch):
     # Enable login requirement
     monkeypatch.setenv("UI_REQUIRE_LOGIN", "1")
+
+    client = make_test_client()
 
     # Unprotected endpoints work
     r = client.get("/api/settings")
@@ -59,6 +68,8 @@ def test_auth_gating_allows_with_token(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "")
     monkeypatch.setenv("OPENAI_API_KEY", "")
     monkeypatch.setenv("GEMINI_API_KEY", "")
+
+    client = make_test_client()
 
     # Register and obtain token
     email = unique_email("allow")
@@ -117,6 +128,7 @@ def test_auth_gating_allows_with_token(monkeypatch):
 def test_settings_dev_mode_defaults_toggle(monkeypatch):
     # DEV_MODE = 1 enables timestamps/metadata/thinking
     monkeypatch.setenv("DEV_MODE", "1")
+    client = make_test_client()
     r = client.get("/api/settings")
     assert r.status_code == 200
     s = r.json()["settings"]

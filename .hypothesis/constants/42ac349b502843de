@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\core\agents\price_optimizer\llm_brain.py
+# hypothesis_version: 6.142.2
+
+[0.0, 100, 300, '...', 'Generic pricing tool', 'No reason provided', 'STRICT_AI_SELECTION', 'ai_selection_failed', 'arguments', 'available_tools', 'avg_price', 'completed', 'content', 'decide_tool.failed', 'decide_tool.request', 'decide_tool.success', 'description', 'error', 'failed', 'info', 'latest_price', 'llm_brain', 'market_context', 'maximize', 'message', 'ml_model', 'model', 'name', 'profit', 'profit_maximization', 'provider', 'raw_response_preview', 'reason', 'record_count', 'role', 'rule_based', 'tool_name', 'true', 'use_case', 'user', '{', '}']

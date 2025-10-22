@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\openai\types\responses\response_computer_tool_call.py
+# hypothesis_version: 6.142.2
+
+['Action', 'ActionClick', 'ActionDoubleClick', 'ActionDrag', 'ActionDragPath', 'ActionKeypress', 'ActionMove', 'ActionScreenshot', 'ActionScroll', 'ActionType', 'ActionWait', 'PendingSafetyCheck', 'back', 'click', 'completed', 'computer_call', 'double_click', 'drag', 'forward', 'in_progress', 'incomplete', 'keypress', 'left', 'move', 'right', 'screenshot', 'scroll', 'type', 'wait', 'wheel']

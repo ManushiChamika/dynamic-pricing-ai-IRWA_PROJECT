@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\backend\routers\prices.py
+# hypothesis_version: 6.142.2
+
+[-1.2, 1.0, 1.2, 10.0, 100.0, 401, 1000, '/api/prices', '/stream', 'app/data.db', 'data: ', 'data: {}\n\n', 'error', 'event: error\n', 'event: ping\n', 'event: price\n', 'price', 'prices', 'sku', 'text/event-stream', 'ts', 'user_id']

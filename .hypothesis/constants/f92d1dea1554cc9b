@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\core\agents\user_interact\tools.py
+# hypothesis_version: 6.142.2
+
+[100, ' WHERE sku = ?', 'OPEN', 'alerts', 'app', 'collect_market_data', 'count', 'data.db', 'error', 'execute_sql', 'get_inventory_item', 'incidents', 'info', 'item', 'items', 'list_inventory', 'list_inventory_items', 'list_market_data', 'list_market_prices', 'list_price_proposals', 'list_pricing_list', 'list_proposals', 'market', 'market_data', 'market_data missing', 'message', 'note', 'ok', 'open_count', 'optimize_price', 'price_proposals', 'pricing_list', 'pricing_list missing', 'product_catalog', 'reason', 'request_market_fetch', 'result', 'rows', 'run_pricing_workflow', 'scan_for_alerts', 'sku', 'stale_count', 'stale_items', 'status', 'threshold_minutes', 'total', 'total_count']

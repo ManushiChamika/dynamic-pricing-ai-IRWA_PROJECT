@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\pandas\core\indexes\range.py
+# hypothesis_version: 6.142.2
+
+['3.0', '__floordiv__', 'ascending', 'dtype', 'f', 'float64', 'ignore', 'integer', 'kind', 'last', 'm', 'max', 'min', 'name', 'rangeindex', 'safe', 'self', 'signed integer', 'sort_values', 'start', 'step', 'stop']

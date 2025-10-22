@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\core\chat_db.py
+# hypothesis_version: 6.142.2
+
+[128, 255, 'Message', 'New Thread', 'Thread', 'all, delete-orphan', 'chat.db', 'data', 'ix_thread_upto_desc', 'messages', 'messages.id', 'metadata', 'summaries', 'thread', 'thread_id', 'threads', 'threads.id', 'upto_message_id']

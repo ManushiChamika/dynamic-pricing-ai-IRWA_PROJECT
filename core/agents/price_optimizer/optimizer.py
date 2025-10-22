@@ -21,9 +21,10 @@ def optimize(
     trace_id: Optional[str] = None,
     algorithm: Optional[str] = None,
     market_records: Optional[List[Tuple[float, str]]] = None,
+    relax_max_price_to_meet_margin: bool = False,
 ) -> Dict[str, Any]:
     base = float(f.our_price)
-    rationale = []
+    rationale: List[str] = []
 
     if algorithm and market_records is not None:
         from .algorithms import ALGORITHMS
@@ -50,9 +51,20 @@ def optimize(
         if f.cost is not None:
             try:
                 floor = f.cost / (1.0 - float(min_margin))
-                if base < floor:
-                    base = floor
-                    rationale.append("Margin floor enforced")
+                # If floor is greater than max_price and relaxation is allowed, relax max_price
+                floor_rounded = round(floor, 2)
+                if floor_rounded > max_price and relax_max_price_to_meet_margin:
+                    prev_max = max_price
+                    max_price = floor_rounded
+                    rationale.append(f"Max price relaxed from ${prev_max:.2f} to ${max_price:.2f} to satisfy margin floor")
+                    # Ensure base is at least the rounded floor
+                    if base < floor_rounded:
+                        base = floor_rounded
+                        rationale.append("Margin floor enforced")
+                else:
+                    if base < floor:
+                        base = floor
+                        rationale.append("Margin floor enforced")
             except Exception:
                 pass
 
@@ -74,6 +86,7 @@ def optimize(
             "min_price": min_price,
             "max_price": max_price,
             "min_margin": min_margin,
+            "relaxed_max_price_to_meet_margin": relax_max_price_to_meet_margin,
         },
     }
 
@@ -116,6 +129,7 @@ def optimize(
         pass
     
     return result
+
 
 
 

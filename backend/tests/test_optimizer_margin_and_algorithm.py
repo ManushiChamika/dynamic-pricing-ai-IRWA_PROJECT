@@ -43,3 +43,28 @@ def test_algorithm_override_bounds(sku, our_price, market_prices, min_price, max
     rp = result['recommended_price']
     assert rp >= min_price - 1e-8
     assert rp <= max_price + 1e-8
+
+
+from hypothesis import assume
+
+@given(
+    sku=st.text(min_size=1, max_size=10),
+    our_price=st.floats(min_value=0.01, max_value=10000, allow_nan=False, allow_infinity=False),
+    cost=st.floats(min_value=0.01, max_value=5000, allow_nan=False, allow_infinity=False),
+    min_price=st.floats(min_value=0.0, max_value=10000),
+    max_price=st.floats(min_value=0.0, max_value=10000),
+    min_margin=st.floats(min_value=0.0, max_value=0.9),
+)
+def test_relax_max_price_to_meet_margin(sku, our_price, cost, min_price, max_price, min_margin):
+    if min_price > max_price:
+        min_price, max_price = max_price, min_price
+    # Ensure floor is greater than max_price to exercise relaxation
+    floor = round(cost / (1.0 - float(min_margin)), 2)
+    assume(floor > max_price)
+    f = Features(sku=sku, our_price=our_price, cost=cost)
+    result = optimize(f, min_price=min_price, max_price=max_price, min_margin=min_margin, relax_max_price_to_meet_margin=True)
+    rp = result['recommended_price']
+    # When relaxation is enabled and floor > max_price, optimizer should relax max_price and recommend >= floor
+    assert result['constraints_evaluation']['relaxed_max_price_to_meet_margin'] is True
+    assert rp >= floor - 1e-8
+    assert rp >= min_price - 1e-8

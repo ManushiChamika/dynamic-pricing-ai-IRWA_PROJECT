@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\pandas\core\computation\parsing.py
+# hypothesis_version: 6.142.2
+
+[100, '!', '"', '$', "'", '?', '_', '_DEGREESIGN_', '_DOLLARSIGN_', '_DOUBLEQUOTE_', '_EUROSIGN_', '_EXCLAMATIONMARK_', '_QUESTIONMARK_', '_SINGLEQUOTE_', '`', '°', '€']
