@@ -126,3 +126,20 @@ bundle_*/
 # Cleanup additions (auto)
 .bundle_env/
 *.pyc
+
+# Test/runtime caches
+.pytest_cache/
+.hypothesis/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# SQLite journals
+*.db-shm
+*.db-wal
+*.db-journal
+
+# Frontend test outputs
+frontend/playwright-report/
+frontend/test-results/
+
