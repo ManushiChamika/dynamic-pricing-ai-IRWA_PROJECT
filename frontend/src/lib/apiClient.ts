@@ -15,13 +15,16 @@ async function delay(ms: number) {
 async function fetchWithRetry(url: string, opts: RequestInit, retries = 0): Promise<Response> {
   try {
     const response = await fetch(url, opts)
-    if (response.status >= 500 && retries < MAX_RETRIES) {
+    if (response.status >= 500 && retries < MAX_RETRIES && !opts.signal?.aborted) {
       await delay(RETRY_DELAY * (retries + 1))
       return fetchWithRetry(url, opts, retries + 1)
     }
     return response
-  } catch (error) {
-    if (retries < MAX_RETRIES) {
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      throw error
+    }
+    if (retries < MAX_RETRIES && !opts.signal?.aborted) {
       await delay(RETRY_DELAY * (retries + 1))
       return fetchWithRetry(url, opts, retries + 1)
     }
@@ -33,7 +36,11 @@ export async function api<T = any>(
   url: string,
   init?: RequestInit & { json?: any }
 ): Promise<ApiResult<T>> {
-  const opts: RequestInit = { method: init?.method || 'GET', headers: init?.headers || {} }
+  const opts: RequestInit = { 
+    method: init?.method || 'GET', 
+    headers: init?.headers || {},
+    signal: init?.signal
+  }
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') || '' : ''
   let full = url
   if (token && url.startsWith('/api/')) {

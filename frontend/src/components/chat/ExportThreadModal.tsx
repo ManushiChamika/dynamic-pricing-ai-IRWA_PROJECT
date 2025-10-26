@@ -39,23 +39,29 @@ export function ExportThreadModal({ open, onOpenChange, threadId }: { open: bool
   }
 
   const handleExport = async () => {
-    if (!threadId) return
+    if (!threadId) {
+      toasts.getState().push({ type: 'error', text: 'No thread selected' })
+      return
+    }
     setWorking(true)
     setProgress('Starting...')
     abortRef.current = new AbortController()
     try {
       if (format === 'json') {
+        setProgress('Fetching thread data...')
         const { ok, data } = await api(`/api/threads/${threadId}/export`, { signal: abortRef.current.signal })
-        if (!ok) throw new Error('Export failed')
+        if (!ok || !data) throw new Error('Export failed: No data received')
+        setProgress('Creating file...')
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' })
         downloadBlob(blob, sanitizeFileName(filename))
         toasts.getState().push({ type: 'success', text: 'Exported thread JSON' })
       } else {
-        const endpoint = `/api/threads/${threadId}/export` // backend currently returns JSON
-        const resp = await fetch(endpoint, { signal: abortRef.current.signal })
-        if (!resp.ok) throw new Error('Export failed')
-        const data = await resp.json()
-        // convert to markdown/text incrementally
+        setProgress('Fetching thread data...')
+        const { ok, data } = await api(`/api/threads/${threadId}/export`, { signal: abortRef.current.signal })
+        if (!ok || !data) throw new Error('Export failed: No data received')
+        if (!data.messages || data.messages.length === 0) {
+          throw new Error('Cannot export empty thread')
+        }
         setProgress('Formatting...')
         const md = buildMarkdown(data.thread, data.messages, includeMeta)
         const mime = format === 'md' ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8'
@@ -66,11 +72,14 @@ export function ExportThreadModal({ open, onOpenChange, threadId }: { open: bool
       if (e.name === 'AbortError') {
         toasts.getState().push({ type: 'info', text: 'Export cancelled' })
       } else {
+        console.error('Export error:', e)
         toasts.getState().push({ type: 'error', text: e instanceof Error ? e.message : 'Export failed' })
       }
+    } finally {
+      setWorking(false)
+      setProgress(null)
+      abortRef.current = null
     }
-    setWorking(false)
-    setProgress(null)
     onOpenChange(false)
   }
 

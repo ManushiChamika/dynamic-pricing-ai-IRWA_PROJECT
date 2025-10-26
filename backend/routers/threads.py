@@ -77,19 +77,23 @@ def api_delete_thread(thread_id: int):
 
 @router.get("/{thread_id}/export", response_model=ThreadExport)
 def api_export_thread(thread_id: int):
-    msgs = get_thread_messages(thread_id)
-    thread_info: Dict[str, Any] = {"id": thread_id}
     try:
         with SessionLocal() as db:
             t = db.get(ChatThread, thread_id)
-            if t:
-                thread_info = {
-                    "id": t.id,
-                    "title": t.title,
-                    "created_at": t.created_at.isoformat() if t.created_at else None,
-                }
-    except Exception:
-        pass
+            if not t:
+                raise HTTPException(status_code=404, detail="Thread not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch thread: {str(e)}")
+    
+    msgs = get_thread_messages(thread_id)
+    thread_info: Dict[str, Any] = {
+        "id": t.id,
+        "title": t.title,
+        "created_at": t.created_at.isoformat() if t.created_at else None,
+    }
+    
     out_msgs: List[Dict[str, Any]] = []
     for m in msgs:
         item: Dict[str, Any] = {
