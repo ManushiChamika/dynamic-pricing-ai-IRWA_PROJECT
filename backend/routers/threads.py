@@ -6,6 +6,7 @@ from core.chat_db import (
     get_thread_messages,
     list_threads,
     update_thread,
+    update_message,
     add_message,
     SessionLocal,
     Thread as ChatThread,
@@ -102,20 +103,29 @@ def api_export_thread(thread_id: int):
             "api_calls": m.api_calls,
             "parent_id": m.parent_id,
             "created_at": m.created_at.isoformat() if m.created_at else None,
+            "agents": None,
+            "tools": None,
+            "metadata": None,
         }
         try:
             if m.agents:
                 item["agents"] = __import__("json").loads(m.agents)
+            else:
+                item["agents"] = None
         except Exception:
             item["agents"] = None
         try:
             if m.tools:
                 item["tools"] = __import__("json").loads(m.tools)
+            else:
+                item["tools"] = None
         except Exception:
             item["tools"] = None
         try:
             if m.meta:
                 item["metadata"] = __import__("json").loads(m.meta)
+            else:
+                item["metadata"] = None
         except Exception:
             item["metadata"] = None
         out_msgs.append(item)
@@ -127,11 +137,17 @@ def api_import_thread(req: ThreadImportRequest):
     t = create_thread(title=req.title, owner_id=req.owner_id)
     id_map: Dict[int, int] = {}
     import json as _json
-    for msg in req.messages:
-        agents = _json.dumps(msg.agents) if msg.agents is not None else None
-        tools = _json.dumps(msg.tools) if msg.tools is not None else None
-        metadata = _json.dumps(msg.metadata) if msg.metadata is not None else None
-        parent_id = id_map.get(int(msg.parent_id)) if msg.parent_id is not None and int(msg.parent_id) in id_map else None
+    messages_payload = list(req.messages or [])
+    # First pass: create all messages without parent links
+    for msg in messages_payload:
+        agents = _json.dumps(msg.agents) if getattr(msg, 'agents', None) is not None else None
+        tools = _json.dumps(msg.tools) if getattr(msg, 'tools', None) is not None else None
+        # accept either 'metadata' or legacy 'meta' key
+        meta_obj = getattr(msg, 'metadata', None)
+        if meta_obj is None and hasattr(msg, 'meta'):
+            meta_obj = getattr(msg, 'meta')
+        metadata = _json.dumps(meta_obj) if meta_obj is not None else None
+        # create without parent for now
         m = add_message(
             thread_id=t.id,
             role=msg.role,
@@ -143,11 +159,21 @@ def api_import_thread(req: ThreadImportRequest):
             agents=agents,
             tools=tools,
             api_calls=msg.api_calls,
-            parent_id=parent_id,
+            parent_id=None,
             meta=metadata,
         )
-        if msg.id is not None:
+        if getattr(msg, 'id', None) is not None:
             id_map[int(msg.id)] = m.id
+    # Second pass: update parent_id links now that we have id_map
+    for msg, created_msg_id in zip(messages_payload, list(id_map.values())):
+        if getattr(msg, 'parent_id', None) is not None:
+            orig_parent = int(msg.parent_id)
+            new_parent = id_map.get(orig_parent)
+            if new_parent:
+                try:
+                    update_message(created_msg_id, parent_id=new_parent)
+                except Exception:
+                    pass
     return ThreadOut(id=t.id, title=t.title, created_at=t.created_at.isoformat())
 
 

@@ -31,6 +31,7 @@ class Supervisor:
         collector: Optional[DataCollector] = None,
         optimizer: Optional[PricingOptimizerAgent] = None,
         concurrency: int = 4,
+        use_templates: bool = True,
     ) -> None:
         self.repo = repo or DataRepo()
         self.collector = collector or DataCollector(self.repo)
@@ -38,7 +39,7 @@ class Supervisor:
         self.dc_client = get_data_collector_client()
         self.tool_registry = get_tool_registry()
         self.concurrency = max(1, int(concurrency))
-        self.use_templates = True
+        self.use_templates = bool(use_templates)
 
     async def run_for_catalog(
         self, rows: List[Dict[str, Any]], apply_auto: bool = False, timeout_s: int = 60

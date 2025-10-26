@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Button } from '../ui/button'
 import { useMessagesActions, useStreamingState } from '../../stores/messageStore'
 import { useThreads, useCurrentThread } from '../../stores/threadStore'
@@ -12,14 +12,15 @@ import { SettingsButton } from '../SettingsButton'
 import { HeaderOverflowMenu, type HeaderMenuAction } from '../HeaderOverflowMenu'
 import { useSettings } from '../../stores/settingsStore'
 import { api } from '../../lib/apiClient'
+import { ExportThreadModal } from './ExportThreadModal'
 
 export function ChatHeader() {
   const { stop } = useMessagesActions()
   const { streamingActive, liveActiveAgent, liveTool, liveAgents, turnStats } = useStreamingState()
   const currentId = useCurrentThread()
+  const [exportOpen, setExportOpen] = useState(false)
 
-  const headerActions = useMemo<HeaderMenuAction[]>(
-    () => [
+  const headerActions = useMemo<HeaderMenuAction[]>(() => [
       {
         label: 'Rename',
         onClick: () => {
@@ -71,28 +72,9 @@ export function ChatHeader() {
         disabled: !currentId || streamingActive || String(currentId).startsWith('draft_'),
       },
       {
-        label: 'Export',
-        ariaLabel: 'Export thread',
-        onClick: async () => {
-          if (!currentId) return
-          const isDraft = String(currentId).startsWith('draft_')
-          if (isDraft) {
-            useToasts.getState().push({ type: 'error', text: 'Cannot export draft threads' })
-            return
-          }
-          const { ok, data } = await api(`/api/threads/${currentId}/export`)
-          if (ok && data) {
-            const blob = new Blob([JSON.stringify(data, null, 2)], {
-              type: 'application/json',
-            })
-            const a = document.createElement('a')
-            a.href = URL.createObjectURL(blob)
-            a.download = `thread-${currentId}.json`
-            a.click()
-            useToasts.getState().push({ type: 'success', text: 'Exported thread JSON' })
-          } else {
-            useToasts.getState().push({ type: 'error', text: 'Export failed' })
-          }
+        label: 'Open Export...',
+        onClick: () => {
+          setExportOpen(true)
         },
         disabled: !currentId || streamingActive || String(currentId).startsWith('draft_'),
       },
@@ -108,7 +90,7 @@ export function ChatHeader() {
       },
     ],
     [currentId, streamingActive]
-  )
+  );
 
   return (
     <div className="flex items-center gap-3 px-6 py-3 border-b justify-between bg-card/50">
@@ -231,6 +213,7 @@ export function ChatHeader() {
         <SettingsButton />
         <HeaderOverflowMenu actions={headerActions} />
       </div>
+      <ExportThreadModal open={exportOpen} onOpenChange={setExportOpen} threadId={currentId} />
     </div>
   )
 }

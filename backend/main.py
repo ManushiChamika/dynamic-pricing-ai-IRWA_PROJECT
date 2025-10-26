@@ -16,8 +16,6 @@ from backend.routers import auth, settings, threads, messages, streaming, prices
 from core.agents.alert_service import api as alert_api
 from core.agents.price_optimizer.agent import PricingOptimizerAgent
 
-pricing_optimizer = PricingOptimizerAgent()
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -25,8 +23,16 @@ async def lifespan(app: FastAPI):
     init_chat_db()
     cleanup_empty_threads()
     
+    if os.environ.get("EXPORT_OPENAPI_ONLY", "0") in {"1", "true", "yes", "on"}:
+        yield
+        return
+    try:
+        pricing_optimizer = PricingOptimizerAgent()
+    except Exception:
+        pricing_optimizer = None
     await alert_api.start()
-    await pricing_optimizer.start()
+    if pricing_optimizer is not None:
+        await pricing_optimizer.start()
     
     yield
 
