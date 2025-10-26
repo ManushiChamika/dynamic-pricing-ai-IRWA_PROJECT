@@ -8,8 +8,6 @@ try:
 except Exception:
     load_dotenv = None
 from typing import Any, Dict, List, Optional
-import subprocess
-import platform
 
 # Load .env variables if available
 if 'load_dotenv' in globals() and callable(load_dotenv):
@@ -49,8 +47,6 @@ class UserInteractionAgent:
             "price", "pricing", "discount", "offer", "demand", "supply",
             "cost", "profit", "margin", "dynamic pricing", "price optimization"
         ]
-        # Feature flags
-        self.enable_sound = os.getenv("SOUND_NOTIFICATIONS", "0").strip() in {"1", "true", "True", "yes", "on"}
         # Memory to store conversation history
         self.memory = []
         # Resolve DB paths
@@ -60,22 +56,6 @@ class UserInteractionAgent:
         # Last-inference metadata (populated on LLM calls)
         self.last_model = None
         self.last_provider = None
-
-    def _play_completion_sound(self):
-        """Play a sound to indicate task completion (guarded by feature flag)."""
-        if not getattr(self, "enable_sound", False):
-            return
-        try:
-            if platform.system() == 'Windows':
-                subprocess.call(['powershell', '-c', '[console]::beep(800, 1200)'], shell=True)
-            elif platform.system() == 'Darwin':  # macOS
-                subprocess.call(['afplay', '/System/Library/Sounds/Glass.aiff'])
-            elif platform.system() == 'Linux':
-                subprocess.call(['beep', '-f', '800', '-l', '1200'])
-        except Exception:
-            pass  # Silent failure if sound not available
-
-
 
     def is_dynamic_pricing_related(self, message):
         message_lower = message.lower()
@@ -216,7 +196,6 @@ class UserInteractionAgent:
                     answer = ("".join(full_parts)).strip()
                     if answer:
                         self.add_to_memory("assistant", answer)
-                    self._play_completion_sound()
                     return
         except Exception:
             pass
@@ -227,7 +206,6 @@ class UserInteractionAgent:
             self.add_to_memory("assistant", fallback)
         except Exception:
             pass
-        self._play_completion_sound()
         yield fallback
 
 
