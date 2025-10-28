@@ -43,7 +43,7 @@ export default function App() {
   }, [theme])
   return (
     <ErrorBoundary>
-      <div className="flex h-full">
+       <div className="flex h-full overflow-hidden">
         <Sidebar />
         <ChatPane />
         <PricesPanel />

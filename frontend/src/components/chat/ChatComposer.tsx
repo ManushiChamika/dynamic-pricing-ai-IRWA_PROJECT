@@ -24,7 +24,7 @@ export function ChatComposer({ currentId, streaming }: ChatComposerProps) {
   }
 
   return (
-    <div className="composer border-t bg-card/30 backdrop-blur-sm">
+    <div className="composer border-t bg-card/30 backdrop-blur-sm transition-[padding] duration-300 ease-in-out">
       <div className="flex items-center justify-center px-6 py-4">
         <div className="flex items-center gap-3 w-full max-w-4xl">
           <textarea
