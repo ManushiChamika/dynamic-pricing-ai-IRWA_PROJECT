@@ -24,6 +24,7 @@ import {
   Home,
   Sparkles,
 } from 'lucide-react'
+import { CollapsedNavItem } from './sidebar/CollapsedNavItem'
 
 export function Sidebar() {
   const navigate = useNavigate()
@@ -152,38 +153,56 @@ export function Sidebar() {
         )}
 
         <div className="border-t pt-3 flex flex-col gap-1 bg-muted/10 -mx-3 px-3 -mb-3 pb-3">
-            <Button
-              variant="ghost"
-              onClick={() => (window.location.href = '/')}
-              className={collapsed ? 'justify-center' : 'justify-start'}
-              size={collapsed ? 'icon' : 'default'}
-              aria-label="Back to home"
-            >
-              <Home className="h-4 w-4" />
-              {!collapsed && <span className="ml-2">Home</span>}
-            </Button>
+            {collapsed ? (
+              <CollapsedNavItem title="Home" onClick={() => (window.location.href = '/') }>
+                <Home className="h-4 w-4" />
+              </CollapsedNavItem>
+            ) : (
+              <Button
+                variant="ghost"
+                onClick={() => (window.location.href = '/')}
+                className="justify-start"
+                size={collapsed ? 'icon' : 'default'}
+                aria-label="Back to home"
+              >
+                <Home className="h-4 w-4" />
+                <span className="ml-2">Home</span>
+              </Button>
+            )
 
-            <Button
-              variant="ghost"
-              onClick={() => useCatalogStore.getState().setCatalogOpen(true)}
-              className={collapsed ? 'justify-center' : 'justify-start'}
-              size={collapsed ? 'icon' : 'default'}
-              aria-label="Open catalog"
-            >
-              <Package className="h-4 w-4" />
-              {!collapsed && <span className="ml-2">Catalog</span>}
-            </Button>
+            {collapsed ? (
+              <CollapsedNavItem title="Catalog" onClick={() => useCatalogStore.getState().setCatalogOpen(true)}>
+                <Package className="h-4 w-4" />
+              </CollapsedNavItem>
+            ) : (
+              <Button
+                variant="ghost"
+                onClick={() => useCatalogStore.getState().setCatalogOpen(true)}
+                className="justify-start"
+                size={collapsed ? 'icon' : 'default'}
+                aria-label="Open catalog"
+              >
+                <Package className="h-4 w-4" />
+                <span className="ml-2">Catalog</span>
+              </Button>
+            )
 
-            <Button
-              variant="ghost"
-              onClick={() => useSettings.getState().setSettingsOpen(true)}
-              className={collapsed ? 'justify-center' : 'justify-start'}
-              size={collapsed ? 'icon' : 'default'}
-              aria-label="Open settings"
-            >
-              <Settings className="h-4 w-4" />
-              {!collapsed && <span className="ml-2">Settings</span>}
-            </Button>
+            {collapsed ? (
+              <CollapsedNavItem title="Settings" onClick={() => useSettings.getState().setSettingsOpen(true)}>
+                <Settings className="h-4 w-4" />
+              </CollapsedNavItem>
+            ) : (
+              <Button
+                variant="ghost"
+                onClick={() => useSettings.getState().setSettingsOpen(true)}
+                className="justify-start"
+                size={collapsed ? 'icon' : 'default'}
+                aria-label="Open settings"
+              >
+                <Settings className="h-4 w-4" />
+                <span className="ml-2">Settings</span>
+              </Button>
+            )
 
           {user && !collapsed && (
             <div className="mt-2 px-3 py-2 bg-muted/50 rounded-lg text-xs">
@@ -194,16 +213,22 @@ export function Sidebar() {
             </div>
           )}
 
-            <Button
-              variant="ghost"
-              onClick={handleLogout}
-              className={collapsed ? 'justify-center text-destructive hover:text-destructive hover:bg-destructive/10' : 'justify-start text-destructive hover:text-destructive hover:bg-destructive/10'}
-              size={collapsed ? 'icon' : 'default'}
-              aria-label="Sign out"
-            >
-              <LogOut className="h-4 w-4" />
-              {!collapsed && <span className="ml-2">Sign Out</span>}
-            </Button>
+            {collapsed ? (
+              <CollapsedNavItem title="Sign out" onClick={handleLogout} className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                <LogOut className="h-4 w-4" />
+              </CollapsedNavItem>
+            ) : (
+              <Button
+                variant="ghost"
+                onClick={handleLogout}
+                className="justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
+                size={collapsed ? 'icon' : 'default'}
+                aria-label="Sign out"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="ml-2">Sign Out</span>
+              </Button>
+            )
         </div>
       </div>
     </aside>
