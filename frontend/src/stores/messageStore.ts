@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { useThreads } from './threadStore'
 import { useToasts } from './toastStore'
 import { streamMessage } from '../lib/api/sseClient'
+import type { MessageMeta } from '../lib/types'
 import {
   fetchMessages,
   sendMessage,
@@ -22,7 +23,7 @@ export type Message = {
   api_calls?: number | null
   agents?: { activated?: string[]; count?: number } | null
   tools?: { used?: string[]; count?: number } | null
-  metadata?: Record<string, any> | null
+  metadata?: MessageMeta | null
   parent_id?: number | null
   thinking?: string | null
 }
