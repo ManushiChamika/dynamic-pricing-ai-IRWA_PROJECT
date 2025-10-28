@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { MessageSquare } from 'lucide-react'
+import { CollapsedNavItem } from './CollapsedNavItem'
 import { SummaryIndicator } from '../SummaryIndicator'
 import { formatRelativeTime } from '../../lib/timeUtils'
 
@@ -17,21 +18,9 @@ export const ThreadItem = React.memo(
   ({ id, title, isActive, isDraft = false, updatedAt, onSelect, collapsed = false }: ThreadItemProps) => {
     if (collapsed) {
       return (
-        <li
-          className={`group relative cursor-pointer mb-1 transition-colors list-none rounded-lg flex items-center justify-center ${
-            isActive
-              ? 'bg-secondary text-secondary-foreground'
-              : 'hover:bg-accent hover:text-accent-foreground'
-          }`}
-          onClick={onSelect}
-          aria-current={isActive ? 'true' : undefined}
-          title={title}
-          style={{ width: '40px', height: '40px' }}
-        >
-          <div className="flex items-center justify-center h-full w-full">
-            <MessageSquare className="h-4 w-4 shrink-0" />
-          </div>
-        </li>
+        <CollapsedNavItem title={title} isActive={isActive} onClick={onSelect}>
+          <MessageSquare className="h-4 w-4 shrink-0" />
+        </CollapsedNavItem>
       )
     }
 
