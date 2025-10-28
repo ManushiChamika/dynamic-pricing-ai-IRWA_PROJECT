@@ -168,7 +168,7 @@ export function Sidebar() {
                 <Home className="h-4 w-4" />
                 <span className="ml-2">Home</span>
               </Button>
-            )
+            )}
 
             {collapsed ? (
               <CollapsedNavItem title="Catalog" onClick={() => useCatalogStore.getState().setCatalogOpen(true)}>
@@ -185,7 +185,7 @@ export function Sidebar() {
                 <Package className="h-4 w-4" />
                 <span className="ml-2">Catalog</span>
               </Button>
-            )
+            )}
 
             {collapsed ? (
               <CollapsedNavItem title="Settings" onClick={() => useSettings.getState().setSettingsOpen(true)}>
@@ -202,7 +202,7 @@ export function Sidebar() {
                 <Settings className="h-4 w-4" />
                 <span className="ml-2">Settings</span>
               </Button>
-            )
+            )}
 
           {user && !collapsed && (
             <div className="mt-2 px-3 py-2 bg-muted/50 rounded-lg text-xs">
@@ -228,7 +228,7 @@ export function Sidebar() {
                 <LogOut className="h-4 w-4" />
                 <span className="ml-2">Sign Out</span>
               </Button>
-            )
+            )}
         </div>
       </div>
     </aside>
