@@ -1,4 +1,5 @@
 import React, { useMemo, useState, lazy, Suspense } from 'react'
+import { usePanels } from '../stores/panelsStore'
 import { Button } from './ui/button'
 import { useTheme } from '../stores/settingsStore'
 import { Sparkline } from './Sparkline'
@@ -136,7 +137,7 @@ const PriceCardComponent = ({
 const PriceCard = React.memo(PriceCardComponent)
 
 export function PricesPanel() {
-  const [collapsed, setCollapsed] = useState(localStorage.getItem('pricesCollapsed') === '1')
+  const { pricesCollapsed: collapsed, togglePricesCollapsed } = usePanels()
   const [running, setRunning] = useState(true)
   const [viewMode, setViewMode] = useState<'sparkline' | 'chart'>('sparkline')
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null)
@@ -170,7 +171,7 @@ export function PricesPanel() {
 
   return (
     <aside
-      className={`${collapsed ? 'w-12' : 'w-[280px]'} border-l p-4 overflow-auto transition-all duration-300 bg-muted/30`}
+       className={`${collapsed ? 'w-12' : 'w-[280px]'} border-l p-4 overflow-auto transition-all duration-300 ease-in-out bg-muted/30`}
       aria-label="Prices panel"
     >
       <div className="flex gap-2 items-center mb-2">
@@ -178,13 +179,7 @@ export function PricesPanel() {
           variant="ghost"
           size="icon"
           aria-label={collapsed ? 'Expand prices panel' : 'Collapse prices panel'}
-          onClick={() =>
-            setCollapsed((c) => {
-              const n = !c
-              localStorage.setItem('pricesCollapsed', n ? '1' : '0')
-              return n
-            })
-          }
+           onClick={togglePricesCollapsed}
           aria-expanded={!collapsed}
         >
           {collapsed ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
