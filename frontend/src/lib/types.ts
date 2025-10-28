@@ -41,3 +41,11 @@ export interface PriceData {
   competitorPrices: { source: string; price: number }[]
   timestamp: Date
 }
+
+export type PricePoint = { ts: number; price: number }
+export type MessageMeta = {
+  provider?: string
+  priceData?: PricePoint[]
+  sku?: string
+  [key: string]: unknown
+}

@@ -19,7 +19,7 @@ export function ChatComposer({ currentId, streaming }: ChatComposerProps) {
 
   const handleSend = () => {
     if (!currentId || !input.trim()) return
-    send(currentId as any, input.trim(), 'user', streaming === 'sse')
+    send(currentId, input.trim(), 'user', streaming === 'sse')
     setInput('')
   }
 
@@ -100,7 +100,7 @@ export function ChatComposer({ currentId, streaming }: ChatComposerProps) {
             }
             ;(e.currentTarget as HTMLInputElement).value = ''
           }}
-          disabled={streamingActive as any}
+          disabled={streamingActive}
         />
       </label>
     </div>

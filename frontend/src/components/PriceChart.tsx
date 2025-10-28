@@ -25,7 +25,7 @@ ChartJS.register(
   Filler
 )
 
-type PricePoint = { ts: number; price: number }
+import type { PricePoint } from '../lib/types'
 
 interface PriceChartProps {
   data: PricePoint[]

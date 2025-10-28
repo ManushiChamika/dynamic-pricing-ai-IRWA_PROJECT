@@ -26,7 +26,7 @@ function MessageMetadataComponent({
           {new Date(m.created_at).toLocaleString()}
         </span>
       ) : null}
-      {showMeta ? <MetadataTooltip message={m as any} /> : null}
+      {showMeta ? <MetadataTooltip message={m} /> : null}
       {hasModelInfo ? (
         <span className="opacity-60 text-[11px] ml-auto" title={m.model || ''}>
           {m.metadata?.provider ? `${m.metadata.provider}${m.model ? ':' + m.model : ''}` : m.model}

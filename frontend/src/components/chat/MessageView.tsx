@@ -125,8 +125,8 @@ function MessageViewComponent({
             <div className="mt-3">
               <Suspense fallback={<div className="text-center py-4 text-muted-foreground text-sm">Loading chart…</div>}>
                 <PriceChart
-                  data={m.metadata.priceData as any}
-                  sku={(m.metadata as any).sku || 'Product'}
+                  data={m.metadata.priceData}
+                  sku={m.metadata.sku || 'Product'}
                   theme={useSettings.getState().theme}
                 />
               </Suspense>
@@ -134,8 +134,8 @@ function MessageViewComponent({
           ) : null}
           {m.id > 0 && allMessages.length > 0 ? (
             <BranchNavigator
-              message={m as any}
-              allMessages={allMessages as any}
+              message={m}
+              allMessages={allMessages}
               onNavigate={(targetId: number) => {
                 const targetEl = document.querySelector(`[data-message-id="${targetId}"]`)
                 if (targetEl) {
@@ -146,6 +146,7 @@ function MessageViewComponent({
               }}
             />
           ) : null}
+
           <MessageActions m={m} />
           <MessageMetadata
             m={m}

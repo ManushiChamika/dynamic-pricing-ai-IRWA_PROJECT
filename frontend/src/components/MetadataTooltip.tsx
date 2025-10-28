@@ -9,7 +9,8 @@ interface Message {
   api_calls?: number | null
   agents?: { activated?: string[]; count?: number } | null
   tools?: { used?: string[]; count?: number } | null
-  metadata?: Record<string, any> | null
+   metadata?: Record<string, unknown> | null
+
 }
 
 interface MetadataTooltipProps {
