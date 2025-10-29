@@ -81,16 +81,18 @@ function MessageActionsComponent({ m }: { m: Message }) {
           <Pencil className="w-4 h-4" />
         </Button>
       ) : null}
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={handleDelete}
-        disabled={streamingActive}
-        aria-label="Delete message"
-        className="border border-transparent hover:border-border hover:opacity-100"
-      >
-        <Trash2 className="w-4 h-4" />
-      </Button>
+      {m.role === 'user' ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleDelete}
+          disabled={streamingActive}
+          aria-label="Delete message"
+          className="border border-transparent hover:border-border hover:opacity-100"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      ) : null}
       <Button
         variant="ghost"
         size="sm"

@@ -58,7 +58,7 @@ function MessageViewComponent({
           .then(() => {
             if (currentId) refresh(currentId)
           })
-      } else if (e.key === 'Delete') {
+      } else if (e.key === 'Delete' && m.role === 'user') {
         useConfirm.getState().openConfirm({
           title: 'Delete message?',
           description: 'This message will be permanently removed.',
