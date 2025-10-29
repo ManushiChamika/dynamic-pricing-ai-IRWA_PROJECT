@@ -83,7 +83,7 @@ export function Sidebar() {
   return (
     <aside
       id="sidebar"
-      className={`sidebar fixed inset-y-0 left-0 z-40 overflow-hidden transition-all duration-250 ease-in-out motion-reduce:transition-none ${uiCollapsed ? 'w-16 -translate-x-full md:translate-x-0 md:w-16 bg-transparent' : 'w-64 translate-x-0 md:w-64 bg-background/0 backdrop-blur-0 border-r border-border/0'}`}
+      className={`sidebar fixed inset-y-0 left-0 z-40 overflow-hidden transition-all duration-250 ease-in-out motion-reduce:transition-none ${uiCollapsed ? 'w-16 -translate-x-full md:translate-x-0 md:w-16 bg-[rgb(2,8,23)]' : 'w-64 translate-x-0 md:w-64 bg-background/0 backdrop-blur-0 border-r border-border/0'}`}
       aria-label="Threads sidebar"
     >
       <div className={`will-change-transform transition-transform duration-250 ease-in-out motion-reduce:transition-none`}>
