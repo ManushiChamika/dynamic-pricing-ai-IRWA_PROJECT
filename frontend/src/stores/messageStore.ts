@@ -177,6 +177,7 @@ export const useMessages = create<MessagesState>((set, get) => ({
             }
 
             if (update.turnStats) {
+              console.log('[MessageStore] Setting turnStats:', update.turnStats)
               return { turnStats: update.turnStats }
             }
 

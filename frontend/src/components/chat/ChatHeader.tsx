@@ -26,6 +26,10 @@ export function ChatHeader() {
   const rightToggleRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
+    console.log('[ChatHeader] streamingActive:', streamingActive, 'turnStats:', turnStats)
+  }, [streamingActive, turnStats])
+
+  useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return
     const isMobile = window.matchMedia('(max-width: 767px)').matches
     if (!collapsed && isMobile) {

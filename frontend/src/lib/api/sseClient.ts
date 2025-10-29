@@ -147,18 +147,18 @@ export async function streamMessage(
               const provider = obj?.metadata?.provider || null
               const agents = (obj?.agents?.activated || []) as string[]
               const tools = (obj?.tools?.used || []) as string[]
-              onUpdate({
-                turnStats: {
-                  token_in: obj.token_in ?? null,
-                  token_out: obj.token_out ?? null,
-                  cost_usd: obj.cost_usd ?? null,
-                  api_calls: obj.api_calls ?? null,
-                  model: obj.model ?? null,
-                  provider,
-                  agents,
-                  tools,
-                },
-              })
+              const turnStats = {
+                token_in: obj.token_in ?? null,
+                token_out: obj.token_out ?? null,
+                cost_usd: obj.cost_usd ?? null,
+                api_calls: obj.api_calls ?? null,
+                model: obj.model ?? null,
+                provider,
+                agents,
+                tools,
+              }
+              console.log('[SSE] Received turnStats:', turnStats)
+              onUpdate({ turnStats })
             }
           } catch {
             /* ignore */
