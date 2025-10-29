@@ -1,7 +1,6 @@
-import React, { useMemo, useState, lazy, Suspense } from 'react'
+import React, { useMemo, useState } from 'react'
 import { usePanels } from '../stores/panelsStore'
 import { Button } from './ui/button'
-import { useTheme } from '../stores/settingsStore'
 import { Sparkline } from './Sparkline'
 import { AlertDetailModal } from './AlertDetailModal'
 import { useProducts } from '../hooks/useProducts'
@@ -10,17 +9,11 @@ import { usePriceStream } from '../hooks/usePriceStream'
 import {
   ChevronLeft,
   ChevronRight,
-  BarChart3,
-  TrendingUp,
-  Pause,
-  Play,
   Info,
   AlertTriangle,
   AlertCircle,
   Bot,
 } from 'lucide-react'
-
-const PriceChart = lazy(() => import('./PriceChart').then((m) => ({ default: m.PriceChart })))
 
 const SEVERITY_CONFIG = {
   info: { bg: 'bg-blue-500/20', text: 'text-blue-400', label: 'Info', icon: Info },
@@ -35,8 +28,6 @@ const SEVERITY_CONFIG = {
 const PriceCardComponent = ({
   k,
   data,
-  viewMode,
-  theme,
   alert,
   onAlertClick,
   onAcknowledge,
@@ -44,8 +35,6 @@ const PriceCardComponent = ({
 }: {
   k: string
   data: { ts: number; price: number }[]
-  viewMode: 'sparkline' | 'chart'
-  theme: 'light' | 'dark' | 'ocean' | 'forest' | 'sunset' | 'midnight' | 'rose'
   alert?: Incident
   onAlertClick?: (alert: Incident) => void
   onAcknowledge?: (id: string) => void
@@ -53,9 +42,6 @@ const PriceCardComponent = ({
 }) => {
   const vals = data.map((x) => x.price)
   const last = vals[vals.length - 1]
-  const first = vals[0]
-  const change = last && first ? ((last - first) / first) * 100 : 0
-  const changeColor = change >= 0 ? '#10b981' : '#ef4444'
   const severity = alert ? SEVERITY_CONFIG[alert.severity] || SEVERITY_CONFIG['info'] : null
   const isLLM = alert?.rule_id === 'llm_agent'
   const SeverityIcon = severity?.icon
@@ -67,31 +53,13 @@ const PriceCardComponent = ({
         alert ? `border-2 ${severity?.text.replace('text-', 'border-')}` : ''
       }`}
     >
-      <div
-        className={`flex justify-between items-center ${viewMode === 'chart' ? 'mb-3' : 'mb-2'}`}
-      >
+      <div className="flex justify-between items-center mb-2">
         <span className="font-medium text-sm">{k}</span>
         <div className="text-right">
           <div className="tabular-nums text-base font-semibold">${last?.toFixed?.(2) ?? '-'}</div>
-          {viewMode === 'chart' && change !== 0 ? (
-            <div className="text-[11px] font-medium" style={{ color: changeColor }}>
-              {change > 0 ? '+' : ''}
-              {change.toFixed(2)}%
-            </div>
-          ) : null}
         </div>
       </div>
-      {viewMode === 'sparkline' ? (
-        <Sparkline values={vals} />
-      ) : (
-        <Suspense
-          fallback={
-            <div className="text-center py-4 text-muted-foreground text-sm">Loading chart…</div>
-          }
-        >
-          <PriceChart data={data} sku={k} theme={theme} />
-        </Suspense>
-      )}
+      <Sparkline values={vals} />
       {alert && (
         <div className={`mt-3 pt-3 border-t ${severity?.text.replace('text-', 'border-')}`}>
           <div className="flex items-start gap-2 mb-2">
@@ -141,15 +109,12 @@ const PriceCard = React.memo(PriceCardComponent)
 export function PricesPanel() {
   const { pricesCollapsed, togglePricesCollapsed } = usePanels()
   const collapsed = pricesCollapsed
-  const [running, setRunning] = useState(true)
-  const [viewMode, setViewMode] = useState<'sparkline' | 'chart'>('sparkline')
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
-  const theme = useTheme()
 
   const { products } = useProducts()
   const { incidents, acknowledgeIncident, resolveIncident } = useIncidents()
-  const prices = usePriceStream(running, '')
+  const prices = usePriceStream(true, '')
 
   const handleAlertClick = (incident: Incident) => {
     setSelectedIncident(incident)
@@ -192,33 +157,6 @@ export function PricesPanel() {
             {collapsed ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           </Button>
           {!collapsed ? <strong>Prices</strong> : null}
-          {!collapsed ? (
-            <>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setViewMode((v) => (v === 'sparkline' ? 'chart' : 'sparkline'))}
-                aria-label={
-                  viewMode === 'sparkline' ? 'Switch to chart view' : 'Switch to sparkline view'
-                }
-                title={viewMode === 'sparkline' ? 'Chart view' : 'Sparkline view'}
-              >
-                {viewMode === 'sparkline' ? (
-                  <BarChart3 className="h-4 w-4" />
-                ) : (
-                  <TrendingUp className="h-4 w-4" />
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setRunning((r) => !r)}
-                aria-label={running ? 'Pause stream' : 'Resume stream'}
-              >
-                {running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-              </Button>
-            </>
-          ) : null}
         </div>
         {!collapsed ? (
           <div className="grid gap-2">
@@ -292,8 +230,6 @@ export function PricesPanel() {
                 key={k}
                 k={k}
                 data={prices[k] || []}
-                viewMode={viewMode}
-                theme={theme}
                 alert={incidentsBySku[k]}
                 onAlertClick={handleAlertClick}
                 onAcknowledge={acknowledgeIncident}
