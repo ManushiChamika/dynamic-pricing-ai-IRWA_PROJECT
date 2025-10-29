@@ -171,9 +171,10 @@ export function PricesPanel() {
 
   return (
     <aside
-       className={`${collapsed ? 'w-12' : 'w-[280px]'} border-l p-4 overflow-auto transition-all duration-300 ease-in-out bg-muted/30`}
+       className={`${collapsed ? 'w-12' : 'w-[280px]'} border-l p-4 overflow-auto bg-muted/30 transition-none motion-reduce:transition-none`}
       aria-label="Prices panel"
     >
+      <div className={`will-change-transform transition-transform duration-250 ease-in-out motion-reduce:transition-none`} style={{ transform: collapsed ? 'translateX(8px)' : 'translateX(0)' }}>
       <div className="flex gap-2 items-center mb-2">
         <Button
           variant="ghost"
@@ -300,6 +301,7 @@ export function PricesPanel() {
         onAcknowledge={acknowledgeIncident}
         onResolve={resolveIncident}
       />
+      </div>
     </aside>
   )
 }

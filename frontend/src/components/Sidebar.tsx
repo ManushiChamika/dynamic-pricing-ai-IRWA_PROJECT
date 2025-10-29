@@ -81,10 +81,11 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`sidebar ${collapsed ? 'w-16' : 'w-64'} border-r bg-muted/20 transition-all duration-300 overflow-hidden`}
+      className={`sidebar ${collapsed ? 'w-16' : 'w-64'} border-r bg-muted/20 overflow-hidden transition-none motion-reduce:transition-none`}
       aria-label="Threads sidebar"
     >
-      <div className={`flex flex-col h-full gap-3 ${collapsed ? 'p-2 items-center' : 'p-3'}`}>
+      <div className={`will-change-transform transition-transform duration-250 ease-in-out motion-reduce:transition-none`} style={{ transform: collapsed ? 'translateX(-8px)' : 'translateX(0)' }}>
+        <div className={`flex flex-col h-full gap-3 ${collapsed ? 'p-2 items-center' : 'p-3'}`}>
         <div className="flex gap-2">
           <Button
             variant="ghost"

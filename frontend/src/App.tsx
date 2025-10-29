@@ -1,6 +1,7 @@
 import React, { useEffect, lazy, Suspense } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { PricesPanel } from './components/PricesPanel'
+import { LayoutProvider } from './contexts/LayoutContext'
 import { ChatPane } from './components/chat/ChatPane'
 import { Sidebar } from './components/Sidebar'
 import { PromptModal } from './components/PromptModal'
@@ -43,7 +44,8 @@ export default function App() {
   }, [theme])
   return (
     <ErrorBoundary>
-       <div className="flex h-full overflow-hidden">
+       <LayoutProvider>
+         <div className="flex h-full overflow-hidden">
         <Sidebar />
         <ChatPane />
         <PricesPanel />
@@ -60,7 +62,8 @@ export default function App() {
         </Suspense>
         <CatalogModal open={catalogOpen} onOpenChange={setCatalogOpen} />
         <Toasts />
-      </div>
+        </div>
+       </LayoutProvider>
     </ErrorBoundary>
   )
 }
