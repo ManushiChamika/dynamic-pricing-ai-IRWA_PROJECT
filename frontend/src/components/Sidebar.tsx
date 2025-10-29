@@ -155,7 +155,7 @@ export function Sidebar() {
           </div>
         )}
 
-        <div className={`${uiCollapsed ? '' : 'border-t bg-muted/20'} pt-3 flex flex-col gap-1 -mx-3 px-3 -mb-3 pb-3`}>
+        <div className={`${uiCollapsed ? '' : 'border-t bg-muted/20'} mt-auto pt-3 flex flex-col gap-1 -mx-3 px-3 -mb-3 pb-3`}>
             {uiCollapsed ? (
               <CollapsedNavItem title="Home" onClick={() => (window.location.href = '/') }>
                 <Home className="h-4 w-4" />
