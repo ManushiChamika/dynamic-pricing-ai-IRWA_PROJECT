@@ -238,6 +238,3 @@ export function Sidebar() {
     </aside>
   )
 }
-    </aside>
-  )
-}
