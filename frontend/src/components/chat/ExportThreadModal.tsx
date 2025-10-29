@@ -6,7 +6,15 @@ import { useToasts } from '../../stores/toastStore'
 import { api } from '../../lib/apiClient'
 import { sanitizeFileName, buildMarkdown } from '../../utils/exportHelpers'
 
-export function ExportThreadModal({ open, onOpenChange, threadId }: { open: boolean; onOpenChange: (v: boolean) => void; threadId?: number | null }) {
+export function ExportThreadModal({
+  open,
+  onOpenChange,
+  threadId,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  threadId?: number | null
+}) {
   const [format, setFormat] = useState<'md' | 'txt' | 'json'>('md')
   const [includeMeta, setIncludeMeta] = useState(false)
   const [filename, setFilename] = useState('')
@@ -21,7 +29,6 @@ export function ExportThreadModal({ open, onOpenChange, threadId }: { open: bool
       setFilename(`${base}.${format}`)
     }
   }, [open, threadId, format])
-
 
   const handleClose = () => {
     if (working && abortRef.current) {
@@ -49,15 +56,21 @@ export function ExportThreadModal({ open, onOpenChange, threadId }: { open: bool
     try {
       if (format === 'json') {
         setProgress('Fetching thread data...')
-        const { ok, data } = await api(`/api/threads/${threadId}/export`, { signal: abortRef.current.signal })
+        const { ok, data } = await api(`/api/threads/${threadId}/export`, {
+          signal: abortRef.current.signal,
+        })
         if (!ok || !data) throw new Error('Export failed: No data received')
         setProgress('Creating file...')
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' })
+        const blob = new Blob([JSON.stringify(data, null, 2)], {
+          type: 'application/json;charset=utf-8',
+        })
         downloadBlob(blob, sanitizeFileName(filename))
         toasts.getState().push({ type: 'success', text: 'Exported thread JSON' })
       } else {
         setProgress('Fetching thread data...')
-        const { ok, data } = await api(`/api/threads/${threadId}/export`, { signal: abortRef.current.signal })
+        const { ok, data } = await api(`/api/threads/${threadId}/export`, {
+          signal: abortRef.current.signal,
+        })
         if (!ok || !data) throw new Error('Export failed: No data received')
         if (!data.messages || data.messages.length === 0) {
           throw new Error('Cannot export empty thread')
@@ -66,14 +79,18 @@ export function ExportThreadModal({ open, onOpenChange, threadId }: { open: bool
         const md = buildMarkdown(data.thread, data.messages, includeMeta)
         const mime = format === 'md' ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8'
         downloadBlob(new Blob([md], { type: mime }), sanitizeFileName(filename))
-        toasts.getState().push({ type: 'success', text: `Exported thread as ${format.toUpperCase()}` })
+        toasts
+          .getState()
+          .push({ type: 'success', text: `Exported thread as ${format.toUpperCase()}` })
       }
     } catch (e: any) {
       if (e.name === 'AbortError') {
         toasts.getState().push({ type: 'info', text: 'Export cancelled' })
       } else {
         console.error('Export error:', e)
-        toasts.getState().push({ type: 'error', text: e instanceof Error ? e.message : 'Export failed' })
+        toasts
+          .getState()
+          .push({ type: 'error', text: e instanceof Error ? e.message : 'Export failed' })
       }
     } finally {
       setWorking(false)
@@ -106,12 +123,20 @@ export function ExportThreadModal({ open, onOpenChange, threadId }: { open: bool
           </div>
           <div className="mt-3 flex items-center gap-3">
             <label className="flex items-center gap-2">
-              <input type="checkbox" checked={includeMeta} onChange={(e) => setIncludeMeta(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={includeMeta}
+                onChange={(e) => setIncludeMeta(e.target.checked)}
+              />
               <span>Include message metadata</span>
             </label>
           </div>
           <div className="mt-3">
-            <Input value={filename} onChange={(e) => setFilename(e.target.value)} aria-label="Export filename" />
+            <Input
+              value={filename}
+              onChange={(e) => setFilename(e.target.value)}
+              aria-label="Export filename"
+            />
           </div>
           {progress ? <div className="mt-3 text-sm text-muted">{progress}</div> : null}
         </div>
@@ -127,4 +152,3 @@ export function ExportThreadModal({ open, onOpenChange, threadId }: { open: bool
     </Dialog>
   )
 }
-

@@ -28,31 +28,37 @@ export function useIncidents() {
     }
   }, [token])
 
-  const acknowledgeIncident = useCallback(async (incidentId: string) => {
-    if (!token) return
-    try {
-      const response = await fetch(`/api/alerts/incidents/${incidentId}/ack?token=${token}`, {
-        method: 'POST',
-      })
-      if (!response.ok) throw new Error('Failed to acknowledge incident')
-      await fetchIncidents()
-    } catch (err) {
-      console.error('Error acknowledging incident:', err)
-    }
-  }, [token, fetchIncidents])
+  const acknowledgeIncident = useCallback(
+    async (incidentId: string) => {
+      if (!token) return
+      try {
+        const response = await fetch(`/api/alerts/incidents/${incidentId}/ack?token=${token}`, {
+          method: 'POST',
+        })
+        if (!response.ok) throw new Error('Failed to acknowledge incident')
+        await fetchIncidents()
+      } catch (err) {
+        console.error('Error acknowledging incident:', err)
+      }
+    },
+    [token, fetchIncidents]
+  )
 
-  const resolveIncident = useCallback(async (incidentId: string) => {
-    if (!token) return
-    try {
-      const response = await fetch(`/api/alerts/incidents/${incidentId}/resolve?token=${token}`, {
-        method: 'POST',
-      })
-      if (!response.ok) throw new Error('Failed to resolve incident')
-      await fetchIncidents()
-    } catch (err) {
-      console.error('Error resolving incident:', err)
-    }
-  }, [token, fetchIncidents])
+  const resolveIncident = useCallback(
+    async (incidentId: string) => {
+      if (!token) return
+      try {
+        const response = await fetch(`/api/alerts/incidents/${incidentId}/resolve?token=${token}`, {
+          method: 'POST',
+        })
+        if (!response.ok) throw new Error('Failed to resolve incident')
+        await fetchIncidents()
+      } catch (err) {
+        console.error('Error resolving incident:', err)
+      }
+    },
+    [token, fetchIncidents]
+  )
 
   useEffect(() => {
     fetchIncidents()

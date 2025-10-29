@@ -5,17 +5,17 @@ import remarkGfm from 'remark-gfm'
 const cleanMarkdownTables = (content: string): string => {
   const lines = content.split('\n')
   const result: string[] = []
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     const nextLine = lines[i + 1] || ''
-    
+
     if (line.includes('|') && nextLine.match(/^\s*\|[\s\-:|]*\|\s*$/)) {
-      const cells = nextLine.split('|').filter(c => c.trim())
-      const cleanedCells = cells.map(cell => {
+      const cells = nextLine.split('|').filter((c) => c.trim())
+      const cleanedCells = cells.map((cell) => {
         const trimmed = cell.trim()
         const dashCount = (trimmed.match(/-/g) || []).length
-        
+
         if (dashCount > 3) {
           const leftColon = trimmed.startsWith(':')
           const rightColon = trimmed.endsWith(':')
@@ -26,7 +26,7 @@ const cleanMarkdownTables = (content: string): string => {
         }
         return trimmed
       })
-      
+
       result.push(line)
       result.push('| ' + cleanedCells.join(' | ') + ' |')
       i++
@@ -34,7 +34,7 @@ const cleanMarkdownTables = (content: string): string => {
       result.push(line)
     }
   }
-  
+
   return result.join('\n')
 }
 
@@ -155,10 +155,7 @@ const MARKDOWN_COMPONENTS = {
     </td>
   ),
   a: ({ children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
-    <a
-      className="text-primary hover:underline decoration-primary/50 transition-colors"
-      {...props}
-    >
+    <a className="text-primary hover:underline decoration-primary/50 transition-colors" {...props}>
       {children}
     </a>
   ),
@@ -184,7 +181,7 @@ interface MarkdownRendererProps {
 
 export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className = '' }) => {
   const cleanedContent = cleanMarkdownTables(content)
-  
+
   return (
     <div className={`max-w-none markdown-renderer ${className}`}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
@@ -193,4 +190,3 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
     </div>
   )
 }
-

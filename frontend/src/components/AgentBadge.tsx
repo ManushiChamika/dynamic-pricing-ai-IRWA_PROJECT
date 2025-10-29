@@ -34,9 +34,11 @@ const AGENT_DESCRIPTIONS: Record<string, string> = {
 
 function getAgentDisplayName(name: string): string {
   if (name.includes('UserInteraction') || name === 'UIA' || name === 'UI') return 'User Interaction'
-  if (name.includes('PriceOptimization') || name === 'POA' || name === 'Pricing') return 'Price Optimization'
+  if (name.includes('PriceOptimization') || name === 'POA' || name === 'Pricing')
+    return 'Price Optimization'
   if (name.includes('DataCollector') || name === 'DCA' || name === 'Data') return 'Data Collector'
-  if (name.includes('AlertNotification') || name === 'ANA' || name === 'Alerts') return 'Alert & Notification'
+  if (name.includes('AlertNotification') || name === 'ANA' || name === 'Alerts')
+    return 'Alert & Notification'
   return name
 }
 

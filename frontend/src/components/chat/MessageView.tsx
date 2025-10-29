@@ -81,7 +81,7 @@ function MessageViewComponent({
   return (
     <div
       ref={rowRef}
-      className="group/message w-full max-w-[calc(100vw-var(--left-w)-var(--right-w))] 2xl:max-w-[1200px] animate-slideIn origin-left transition-colors duration-200 rounded-lg"
+      className={`group/message w-full max-w-3xl mx-auto animate-slideIn origin-left transition-colors duration-200 rounded-lg ${m.role === 'user' ? 'pl-8 md:pl-16' : 'pr-8 md:pr-16'}`}
       role="article"
       aria-label={`${m.role} message`}
       style={{ backgroundColor: hovered ? 'hsl(var(--accent) / 0.05)' : 'transparent' }}
@@ -109,9 +109,9 @@ function MessageViewComponent({
             <Sparkles className="w-5 h-5 text-white" strokeWidth={1.5} />
           )}
         </div>
-        <div className="flex-1">
+        <div className={`${m.role === 'user' ? 'flex justify-end' : 'flex-1'}`}>
           <div
-            className={`${m.role === 'user' ? 'bg-primary/10 border border-primary/20' : 'border border-primary/20'} rounded-lg px-4 py-3 transition-colors leading-normal`}
+            className={`${m.role === 'user' ? 'bg-primary/10 border border-primary/20 text-right inline-block max-w-fit' : 'border border-primary/20 w-full'} rounded-lg px-4 py-3 transition-colors leading-normal`}
             style={
               m.role === 'assistant' ? { background: 'var(--message-assistant-bg)' } : undefined
             }
@@ -119,7 +119,7 @@ function MessageViewComponent({
             {m.role === 'assistant' ? (
               <MarkdownRenderer content={m.content || ''} />
             ) : (
-              <pre className="whitespace-pre-wrap">{m.content}</pre>
+              <pre className="whitespace-pre-wrap text-right">{m.content}</pre>
             )}
           </div>
           {showThinking && m.thinking && m.role === 'assistant' ? (

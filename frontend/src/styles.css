@@ -41,7 +41,7 @@
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
     --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.6);
     --hover-bg: rgba(99, 102, 241, 0.1);
-    
+
     --thread-item-bg-rest: rgba(30, 41, 59, 0.3);
     --thread-item-bg-hover: rgba(30, 41, 59, 0.6);
     --thread-item-border-rest: rgba(148, 163, 184, 0.08);
@@ -138,7 +138,7 @@
     --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06);
     --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
     --shadow-lg: 0 20px 25px -5px rgba(15, 23, 42, 0.1);
-    
+
     --thread-item-bg-rest: rgba(255, 255, 255, 0.5);
     --thread-item-bg-hover: rgba(255, 255, 255, 0.8);
     --thread-item-border-rest: rgba(148, 163, 184, 0.15);
@@ -642,10 +642,6 @@ p {
 
 /* Code block syntax highlighting */
 .markdown-renderer pre {
-  background: linear-gradient(
-    135deg,
-    hsl(var(--muted) / 0.1) 0%,
-    hsl(var(--muted) / 0.05) 100%
-  );
+  background: linear-gradient(135deg, hsl(var(--muted) / 0.1) 0%, hsl(var(--muted) / 0.05) 100%);
   border: 1px solid hsl(var(--border) / 0.3);
 }
