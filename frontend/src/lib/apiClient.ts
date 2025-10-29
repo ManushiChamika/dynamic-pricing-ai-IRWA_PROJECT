@@ -1,4 +1,4 @@
-export type ApiResult<T = any> = { ok: boolean; status: number; data: T | null }
+export type ApiResult<T = unknown> = { ok: boolean; status: number; data: T | null }
 
 let unauthorizedHandler: (() => void) | null = null
 export function setUnauthorizedHandler(fn: (() => void) | null) {
@@ -20,8 +20,8 @@ async function fetchWithRetry(url: string, opts: RequestInit, retries = 0): Prom
       return fetchWithRetry(url, opts, retries + 1)
     }
     return response
-  } catch (error: any) {
-    if (error.name === 'AbortError') {
+  } catch (error: unknown) {
+    if ((error as { name?: string })?.name === 'AbortError') {
       throw error
     }
     if (retries < MAX_RETRIES && !opts.signal?.aborted) {
@@ -32,9 +32,9 @@ async function fetchWithRetry(url: string, opts: RequestInit, retries = 0): Prom
   }
 }
 
-export async function api<T = any>(
+export async function api<T = unknown>(
   url: string,
-  init?: RequestInit & { json?: any }
+  init?: RequestInit & { json?: unknown }
 ): Promise<ApiResult<T>> {
   const opts: RequestInit = { 
     method: init?.method || 'GET', 
