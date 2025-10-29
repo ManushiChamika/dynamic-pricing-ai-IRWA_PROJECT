@@ -180,9 +180,8 @@ export function PricesPanel() {
     >
       <div
         className={`will-change-transform transition-transform duration-250 ease-in-out motion-reduce:transition-none`}
-        style={{ transform: collapsed ? 'translateX(8px)' : 'translateX(0)' }}
       >
-        <div className="sticky top-0 z-10 bg-muted/30 backdrop-blur-sm pb-2 flex gap-2 items-center mb-2">
+        <div className={collapsed ? 'h-full flex items-center justify-center' : 'sticky top-0 z-10 bg-muted/30 backdrop-blur-sm pb-2 flex gap-2 items-center mb-2'}>
           <Button
             variant="ghost"
             size="icon"
