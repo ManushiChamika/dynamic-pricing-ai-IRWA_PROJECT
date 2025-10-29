@@ -117,7 +117,7 @@ export function Sidebar() {
         </div>
 
         {!uiCollapsed ? (
-          <div className="flex-1 -mx-1 border-y py-2 bg-background/60" id="thread-list">
+          <div className="flex-1 -mx-1 py-2 bg-popover/40" id="thread-list">
             <Virtuoso
               data={allItems}
               totalCount={allItems.length}
@@ -137,7 +137,7 @@ export function Sidebar() {
             />
           </div>
         ) : (
-          <div className="flex-1 overflow-auto border-y py-2 bg-background/20 flex items-start justify-center" id="thread-list">
+          <div className="flex-1 overflow-auto py-2 bg-transparent flex items-start justify-center" id="thread-list">
             <div className="space-y-1">
               {allItems.map((item) => (
                 <ThreadItem
