@@ -81,7 +81,8 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`sidebar ${collapsed ? 'w-16' : 'w-64'} border-r bg-muted/20 overflow-hidden transition-none motion-reduce:transition-none`}
+      id="sidebar"
+      className={`sidebar fixed inset-y-0 left-0 z-40 w-64 transform ${collapsed ? '-translate-x-full' : 'translate-x-0'} md:relative md:translate-x-0 md:${collapsed ? 'w-16' : 'w-64'} border-r bg-muted/20 overflow-hidden transition-transform duration-250 ease-in-out motion-reduce:transition-none`}
       aria-label="Threads sidebar"
     >
       <div className={`will-change-transform transition-transform duration-250 ease-in-out motion-reduce:transition-none`} style={{ transform: collapsed ? 'translateX(-8px)' : 'translateX(0)' }}>

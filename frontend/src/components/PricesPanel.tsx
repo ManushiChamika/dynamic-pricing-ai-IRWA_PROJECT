@@ -171,7 +171,8 @@ export function PricesPanel() {
 
   return (
     <aside
-       className={`${collapsed ? 'w-12' : 'w-[280px]'} border-l p-4 overflow-auto bg-muted/30 transition-none motion-reduce:transition-none`}
+       id="prices-panel"
+       className={`fixed inset-y-0 right-0 z-40 w-[280px] transform ${collapsed ? 'translate-x-full' : 'translate-x-0'} md:relative md:translate-x-0 md:${collapsed ? 'w-12' : 'w-[280px]'} border-l p-4 overflow-auto bg-muted/30 transition-transform duration-250 ease-in-out motion-reduce:transition-none`}
       aria-label="Prices panel"
     >
       <div className={`will-change-transform transition-transform duration-250 ease-in-out motion-reduce:transition-none`} style={{ transform: collapsed ? 'translateX(8px)' : 'translateX(0)' }}>

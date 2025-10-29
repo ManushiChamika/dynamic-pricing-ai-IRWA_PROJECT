@@ -13,6 +13,9 @@ import { HeaderOverflowMenu, type HeaderMenuAction } from '../HeaderOverflowMenu
 import { useSettings } from '../../stores/settingsStore'
 import { api } from '../../lib/apiClient'
 import { ExportThreadModal } from './ExportThreadModal'
+import { useSidebar } from '../../stores/sidebarStore'
+import { usePanels } from '../../stores/panelsStore'
+import { Menu, BarChart3 } from 'lucide-react'
 
 export function ChatHeader() {
   const { stop } = useMessagesActions()
@@ -95,6 +98,22 @@ export function ChatHeader() {
   return (
     <div className="flex items-center gap-3 px-6 py-3 border-b justify-between bg-card/50 transition-[padding] duration-300 ease-in-out">
       <div className="flex gap-2 items-center flex-wrap">
+        <button
+          className="md:hidden inline-flex items-center justify-center p-2 rounded border hover:bg-muted/50"
+          aria-label="Toggle sidebar"
+          aria-controls="sidebar"
+          onClick={() => useSidebar.getState().toggleCollapsed()}
+        >
+          <Menu className="h-4 w-4" />
+        </button>
+        <button
+          className="md:hidden inline-flex items-center justify-center p-2 rounded border hover:bg-muted/50"
+          aria-label="Toggle prices panel"
+          aria-controls="prices-panel"
+          onClick={() => usePanels.getState().togglePricesCollapsed()}
+        >
+          <BarChart3 className="h-4 w-4" />
+        </button>
         <strong>Thread</strong>
         <span>#{currentId ?? '-'}</span>
         {streamingActive ? (
