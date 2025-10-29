@@ -18,7 +18,7 @@ export function LayoutProvider({ children }: Props) {
     [leftPx, rightPx]
   )
   return (
-    <div style={style} className="min-h-full">
+    <div style={style} className="h-full">
       {children}
     </div>
   )

@@ -98,7 +98,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <LayoutProvider>
-        <div className="relative flex h-full overflow-hidden pl-[var(--left-w)] pr-[var(--right-w)]">
+        <div className="relative flex h-screen overflow-hidden pl-[var(--left-w)] pr-[var(--right-w)]">
           <Sidebar />
           <ChatPane />
           <PricesPanel />
