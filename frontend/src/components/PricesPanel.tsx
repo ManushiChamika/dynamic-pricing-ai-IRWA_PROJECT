@@ -156,7 +156,7 @@ export function PricesPanel() {
           >
             {collapsed ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           </Button>
-          {!collapsed ? <strong>Prices</strong> : null}
+          {!collapsed ? <span className="text-sm font-semibold leading-none">Prices</span> : null}
         </div>
         {!collapsed ? (
           <div className="grid gap-2">
