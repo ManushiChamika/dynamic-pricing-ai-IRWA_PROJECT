@@ -86,9 +86,9 @@ export function Sidebar() {
       className={`sidebar fixed inset-y-0 left-0 z-40 overflow-hidden transition-all duration-250 ease-in-out motion-reduce:transition-none ${uiCollapsed ? 'w-16 -translate-x-full md:translate-x-0 md:w-16 bg-[rgb(2,8,23)] border-r' : 'w-64 translate-x-0 md:w-64 bg-background/0 backdrop-blur-0 border-r border-border/0'}`}
       aria-label="Threads sidebar"
     >
-      <div className={`will-change-transform transition-transform duration-250 ease-in-out motion-reduce:transition-none`}>
-        <div className={`flex flex-col h-full gap-3 ${uiCollapsed ? 'p-2 items-center' : 'p-3'}`}>
-        <div className="flex gap-2">
+      <div className={`will-change-transform transition-transform duration-250 ease-in-out motion-reduce:transition-none h-full`}>
+        <div className={`flex flex-col h-svh gap-3 ${uiCollapsed ? 'p-2 items-center' : 'p-3'}`}>
+        <div className={"flex gap-2 shrink-0"}>
           <Button
             variant="ghost"
             size="icon"
@@ -117,7 +117,7 @@ export function Sidebar() {
         </div>
 
         {!uiCollapsed ? (
-          <div className="flex-1 -mx-1 py-2 bg-popover/40" id="thread-list">
+          <div className="flex-1 overflow-y-auto py-2 bg-popover/40" id="thread-list">
             <Virtuoso
               data={allItems}
               totalCount={allItems.length}
@@ -137,7 +137,7 @@ export function Sidebar() {
             />
           </div>
         ) : (
-          <div className="flex-1 overflow-auto py-2 bg-transparent flex items-start justify-center" id="thread-list">
+          <div className="flex-1 overflow-y-auto py-2 bg-transparent flex items-start justify-center" id="thread-list">
             <div className="space-y-1">
               {allItems.map((item) => (
                 <ThreadItem
@@ -155,7 +155,8 @@ export function Sidebar() {
           </div>
         )}
 
-        <div className={`${uiCollapsed ? '' : 'border-t bg-muted/20'} mt-auto pt-3 flex flex-col gap-1 -mx-3 px-3 -mb-3 pb-3`}>
+        <div className={`${uiCollapsed ? '' : 'border-t bg-muted/20'} mt-auto pt-3 flex flex-col gap-1 -mx-3 px-3 -mb-3 pb-3 shrink-0 sticky bottom-0`}
+        >
             {uiCollapsed ? (
               <CollapsedNavItem title="Home" onClick={() => (window.location.href = '/') }>
                 <Home className="h-4 w-4" />
