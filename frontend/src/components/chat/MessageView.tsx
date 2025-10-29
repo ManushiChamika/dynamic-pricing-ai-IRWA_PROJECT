@@ -81,7 +81,7 @@ function MessageViewComponent({
   return (
     <div
       ref={rowRef}
-      className="group/message max-w-[900px] animate-slideIn origin-left transition-colors duration-200 rounded-lg"
+      className="group/message w-full max-w-[calc(100vw-var(--left-w)-var(--right-w))] 2xl:max-w-[1200px] animate-slideIn origin-left transition-colors duration-200 rounded-lg"
       role="article"
       aria-label={`${m.role} message`}
       style={{ backgroundColor: hovered ? 'hsl(var(--accent) / 0.05)' : 'transparent' }}
