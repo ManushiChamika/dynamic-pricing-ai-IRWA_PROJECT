@@ -140,7 +140,7 @@ export function PricesPanel() {
   return (
     <aside
       id="prices-panel"
-      className={`fixed inset-y-0 right-0 z-40 border-l transition-all duration-250 ease-in-out motion-reduce:transition-none ${collapsed ? 'w-12 p-2 bg-background/30 backdrop-blur-sm translate-x-full md:translate-x-0' : 'w-[280px] p-4 overflow-auto bg-muted/40 backdrop-blur translate-x-0'}`}
+      className={`fixed inset-y-0 right-0 z-40 border-l transition-all duration-250 ease-in-out motion-reduce:transition-none ${collapsed ? 'w-12 p-2 bg-background/10 backdrop-blur-sm border-transparent translate-x-full md:translate-x-0' : 'w-[280px] p-4 overflow-auto bg-popover/90 backdrop-blur translate-x-0'}`}
       aria-label="Prices panel"
     >
       <div
