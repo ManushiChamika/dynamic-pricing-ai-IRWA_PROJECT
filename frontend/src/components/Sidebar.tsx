@@ -36,6 +36,8 @@ export function Sidebar() {
   const user = useAuthUser()
   const { logout } = useAuthActions()
 
+  const uiCollapsed = collapsed
+
   const allItems = useMemo(() => {
     const items = []
     if (draftId) {
@@ -72,7 +74,6 @@ export function Sidebar() {
         try {
           await logout()
         } catch {
-          /* ignore */
         }
         window.location.href = '/auth'
       },
@@ -82,23 +83,23 @@ export function Sidebar() {
   return (
     <aside
       id="sidebar"
-      className={`sidebar fixed inset-y-0 left-0 z-40 w-64 transform ${collapsed ? '-translate-x-full' : 'translate-x-0'} md:relative md:translate-x-0 md:${collapsed ? 'w-16' : 'w-64'} border-r bg-muted/20 overflow-hidden transition-transform duration-250 ease-in-out motion-reduce:transition-none`}
+      className={`sidebar fixed inset-y-0 left-0 z-40 w-64 transform ${uiCollapsed ? '-translate-x-full' : 'translate-x-0'} md:w-64 border-r bg-muted/20 overflow-hidden transition-transform duration-250 ease-in-out motion-reduce:transition-none`}
       aria-label="Threads sidebar"
     >
-      <div className={`will-change-transform transition-transform duration-250 ease-in-out motion-reduce:transition-none`} style={{ transform: collapsed ? 'translateX(-8px)' : 'translateX(0)' }}>
-        <div className={`flex flex-col h-full gap-3 ${collapsed ? 'p-2 items-center' : 'p-3'}`}>
+      <div className={`will-change-transform transition-transform duration-250 ease-in-out motion-reduce:transition-none`} style={{ transform: uiCollapsed ? 'translateX(-8px)' : 'translateX(0)' }}>
+        <div className={`flex flex-col h-full gap-3 ${uiCollapsed ? 'p-2 items-center' : 'p-3'}`}>
         <div className="flex gap-2">
           <Button
             variant="ghost"
             size="icon"
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={uiCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             onClick={toggleCollapsed}
-            aria-expanded={!collapsed}
+            aria-expanded={!uiCollapsed}
             aria-controls="thread-list"
           >
-            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            {uiCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
-          {!collapsed && (
+          {!uiCollapsed && (
             <Button
               onClick={() => {
                 navigate('/chat')
@@ -115,7 +116,7 @@ export function Sidebar() {
           )}
         </div>
 
-        {!collapsed ? (
+        {!uiCollapsed ? (
           <div className="flex-1 -mx-1 border-y py-2 bg-background/50" id="thread-list">
             <Virtuoso
               data={allItems}
@@ -155,7 +156,7 @@ export function Sidebar() {
         )}
 
         <div className="border-t pt-3 flex flex-col gap-1 bg-muted/10 -mx-3 px-3 -mb-3 pb-3">
-            {collapsed ? (
+            {uiCollapsed ? (
               <CollapsedNavItem title="Home" onClick={() => (window.location.href = '/') }>
                 <Home className="h-4 w-4" />
               </CollapsedNavItem>
@@ -164,7 +165,7 @@ export function Sidebar() {
                 variant="ghost"
                 onClick={() => (window.location.href = '/')}
                 className="justify-start"
-                size={collapsed ? 'icon' : 'default'}
+                size={uiCollapsed ? 'icon' : 'default'}
                 aria-label="Back to home"
               >
                 <Home className="h-4 w-4" />
@@ -172,7 +173,7 @@ export function Sidebar() {
               </Button>
             )}
 
-            {collapsed ? (
+            {uiCollapsed ? (
               <CollapsedNavItem title="Catalog" onClick={() => useCatalogStore.getState().setCatalogOpen(true)}>
                 <Package className="h-4 w-4" />
               </CollapsedNavItem>
@@ -181,7 +182,7 @@ export function Sidebar() {
                 variant="ghost"
                 onClick={() => useCatalogStore.getState().setCatalogOpen(true)}
                 className="justify-start"
-                size={collapsed ? 'icon' : 'default'}
+                size={uiCollapsed ? 'icon' : 'default'}
                 aria-label="Open catalog"
               >
                 <Package className="h-4 w-4" />
@@ -189,7 +190,7 @@ export function Sidebar() {
               </Button>
             )}
 
-            {collapsed ? (
+            {uiCollapsed ? (
               <CollapsedNavItem title="Settings" onClick={() => useSettings.getState().setSettingsOpen(true)}>
                 <Settings className="h-4 w-4" />
               </CollapsedNavItem>
@@ -198,7 +199,7 @@ export function Sidebar() {
                 variant="ghost"
                 onClick={() => useSettings.getState().setSettingsOpen(true)}
                 className="justify-start"
-                size={collapsed ? 'icon' : 'default'}
+                size={uiCollapsed ? 'icon' : 'default'}
                 aria-label="Open settings"
               >
                 <Settings className="h-4 w-4" />
@@ -206,7 +207,7 @@ export function Sidebar() {
               </Button>
             )}
 
-          {user && !collapsed && (
+          {user && !uiCollapsed && (
             <div className="mt-2 px-3 py-2 bg-muted/50 rounded-lg text-xs">
               <div className="text-muted-foreground mb-1">Signed in as</div>
               <div className="font-medium overflow-hidden text-ellipsis whitespace-nowrap">
@@ -215,7 +216,7 @@ export function Sidebar() {
             </div>
           )}
 
-            {collapsed ? (
+            {uiCollapsed ? (
               <CollapsedNavItem title="Sign out" onClick={handleLogout} className="text-destructive hover:text-destructive hover:bg-destructive/10">
                 <LogOut className="h-4 w-4" />
               </CollapsedNavItem>
@@ -224,7 +225,7 @@ export function Sidebar() {
                 variant="ghost"
                 onClick={handleLogout}
                 className="justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
-                size={collapsed ? 'icon' : 'default'}
+                size={uiCollapsed ? 'icon' : 'default'}
                 aria-label="Sign out"
               >
                 <LogOut className="h-4 w-4" />

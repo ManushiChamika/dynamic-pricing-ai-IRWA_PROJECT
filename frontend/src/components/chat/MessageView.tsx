@@ -100,7 +100,9 @@ function MessageViewComponent({
       ) : null}
       {m.id === -1 ? <LiveStatus liveActiveAgent={liveActiveAgent} liveTool={liveTool} /> : null}
       <div className={`flex gap-3 items-start ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
-        <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${m.role === 'user' ? 'bg-muted border-2 border-foreground/40' : 'bg-gradient-to-br from-purple-500 via-violet-500 to-indigo-500 shadow-sm'}`}>
+        <div
+          className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${m.role === 'user' ? 'bg-muted border-2 border-foreground/40' : 'bg-gradient-to-br from-purple-500 via-violet-500 to-indigo-500 shadow-sm'}`}
+        >
           {m.role === 'user' ? (
             <User className="w-5 h-5 text-foreground" strokeWidth={2} />
           ) : (
@@ -110,7 +112,9 @@ function MessageViewComponent({
         <div className="flex-1">
           <div
             className={`${m.role === 'user' ? 'bg-primary/10 border border-primary/20' : 'border border-primary/20'} rounded-lg px-4 py-3 transition-colors leading-normal`}
-            style={m.role === 'assistant' ? { background: 'var(--message-assistant-bg)' } : undefined}
+            style={
+              m.role === 'assistant' ? { background: 'var(--message-assistant-bg)' } : undefined
+            }
           >
             {m.role === 'assistant' ? (
               <MarkdownRenderer content={m.content || ''} />
@@ -123,7 +127,13 @@ function MessageViewComponent({
           ) : null}
           {m.metadata?.priceData && m.role === 'assistant' ? (
             <div className="mt-3">
-              <Suspense fallback={<div className="text-center py-4 text-muted-foreground text-sm">Loading chart…</div>}>
+              <Suspense
+                fallback={
+                  <div className="text-center py-4 text-muted-foreground text-sm">
+                    Loading chart…
+                  </div>
+                }
+              >
                 <PriceChart
                   data={m.metadata.priceData}
                   sku={m.metadata.sku || 'Product'}

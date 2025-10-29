@@ -10,7 +10,11 @@ export function LayoutProvider({ children }: Props) {
   const leftPx = leftCollapsed ? 64 : 256
   const rightPx = rightCollapsed ? 48 : 280
   const style = useMemo(
-    () => ({ ['--left-w' as any]: `${leftPx}px`, ['--right-w' as any]: `${rightPx}px` } as React.CSSProperties),
+    () =>
+      ({
+        ['--left-w' as any]: `${leftPx}px`,
+        ['--right-w' as any]: `${rightPx}px`,
+      }) as React.CSSProperties,
     [leftPx, rightPx]
   )
   return (
