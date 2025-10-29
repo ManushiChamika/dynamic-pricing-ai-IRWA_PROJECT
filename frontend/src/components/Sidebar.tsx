@@ -83,7 +83,7 @@ export function Sidebar() {
   return (
     <aside
       id="sidebar"
-      className={`sidebar fixed inset-y-0 left-0 z-40 border-r bg-muted/20 overflow-hidden transition-transform duration-250 ease-in-out motion-reduce:transition-none ${uiCollapsed ? 'w-16 -translate-x-full md:translate-x-0 md:w-16' : 'w-64 translate-x-0 md:w-64'}`}
+      className={`sidebar fixed inset-y-0 left-0 z-40 border-r overflow-hidden transition-all duration-250 ease-in-out motion-reduce:transition-none ${uiCollapsed ? 'w-16 -translate-x-full md:translate-x-0 md:w-16 bg-background/30 backdrop-blur-sm' : 'w-64 translate-x-0 md:w-64 bg-muted/40 backdrop-blur'}`}
       aria-label="Threads sidebar"
     >
       <div className={`will-change-transform transition-transform duration-250 ease-in-out motion-reduce:transition-none`}>
@@ -117,7 +117,7 @@ export function Sidebar() {
         </div>
 
         {!uiCollapsed ? (
-          <div className="flex-1 -mx-1 border-y py-2 bg-background/50" id="thread-list">
+          <div className="flex-1 -mx-1 border-y py-2 bg-background/60" id="thread-list">
             <Virtuoso
               data={allItems}
               totalCount={allItems.length}
@@ -137,7 +137,7 @@ export function Sidebar() {
             />
           </div>
         ) : (
-          <div className="flex-1 overflow-auto border-y py-2 bg-background/50 flex items-start justify-center" id="thread-list">
+          <div className="flex-1 overflow-auto border-y py-2 bg-background/20 flex items-start justify-center" id="thread-list">
             <div className="space-y-1">
               {allItems.map((item) => (
                 <ThreadItem
@@ -155,7 +155,7 @@ export function Sidebar() {
           </div>
         )}
 
-        <div className="border-t pt-3 flex flex-col gap-1 bg-muted/10 -mx-3 px-3 -mb-3 pb-3">
+        <div className={`border-t pt-3 flex flex-col gap-1 -mx-3 px-3 -mb-3 pb-3 ${uiCollapsed ? 'bg-background/10' : 'bg-muted/20'}`}>
             {uiCollapsed ? (
               <CollapsedNavItem title="Home" onClick={() => (window.location.href = '/') }>
                 <Home className="h-4 w-4" />
