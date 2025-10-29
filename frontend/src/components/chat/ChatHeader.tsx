@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { Button } from '../ui/button'
 import { useMessagesActions, useStreamingState } from '../../stores/messageStore'
 import { useThreads, useCurrentThread } from '../../stores/threadStore'
@@ -10,8 +10,6 @@ import { SummaryIndicator } from '../SummaryIndicator'
 import { AuthControls } from '../AuthControls'
 import { SettingsButton } from '../SettingsButton'
 import { HeaderOverflowMenu, type HeaderMenuAction } from '../HeaderOverflowMenu'
-import { useSettings } from '../../stores/settingsStore'
-import { api } from '../../lib/apiClient'
 import { ExportThreadModal } from './ExportThreadModal'
 import { useSidebar } from '../../stores/sidebarStore'
 import { usePanels } from '../../stores/panelsStore'
@@ -22,8 +20,39 @@ export function ChatHeader() {
   const { streamingActive, liveActiveAgent, liveTool, liveAgents, turnStats } = useStreamingState()
   const currentId = useCurrentThread()
   const [exportOpen, setExportOpen] = useState(false)
+  const { collapsed } = useSidebar()
+  const { pricesCollapsed } = usePanels()
+  const leftToggleRef = useRef<HTMLButtonElement>(null)
+  const rightToggleRef = useRef<HTMLButtonElement>(null)
 
-  const headerActions = useMemo<HeaderMenuAction[]>(() => [
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const isMobile = window.matchMedia('(max-width: 767px)').matches
+    if (!collapsed && isMobile) {
+      const firstElement = document.querySelector<HTMLElement>(
+        '#sidebar [tabindex], #sidebar button, #sidebar a'
+      )
+      firstElement?.focus()
+    } else if (collapsed) {
+      leftToggleRef.current?.focus()
+    }
+  }, [collapsed])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const isMobile = window.matchMedia('(max-width: 767px)').matches
+    if (!pricesCollapsed && isMobile) {
+      const firstElement = document.querySelector<HTMLElement>(
+        '#prices-panel [tabindex], #prices-panel button, #prices-panel a'
+      )
+      firstElement?.focus()
+    } else if (pricesCollapsed) {
+      rightToggleRef.current?.focus()
+    }
+  }, [pricesCollapsed])
+
+  const headerActions = useMemo<HeaderMenuAction[]>(
+    () => [
       {
         label: 'Rename',
         onClick: () => {
@@ -93,23 +122,27 @@ export function ChatHeader() {
       },
     ],
     [currentId, streamingActive]
-  );
+  )
 
   return (
     <div className="flex items-center gap-3 px-6 py-3 border-b justify-between bg-card/50 transition-[padding] duration-300 ease-in-out">
       <div className="flex gap-2 items-center flex-wrap">
         <button
+          ref={leftToggleRef}
           className="md:hidden inline-flex items-center justify-center p-2 rounded border hover:bg-muted/50"
           aria-label="Toggle sidebar"
           aria-controls="sidebar"
+          aria-expanded={!collapsed}
           onClick={() => useSidebar.getState().toggleCollapsed()}
         >
           <Menu className="h-4 w-4" />
         </button>
         <button
+          ref={rightToggleRef}
           className="md:hidden inline-flex items-center justify-center p-2 rounded border hover:bg-muted/50"
           aria-label="Toggle prices panel"
           aria-controls="prices-panel"
+          aria-expanded={!pricesCollapsed}
           onClick={() => usePanels.getState().togglePricesCollapsed()}
         >
           <BarChart3 className="h-4 w-4" />

@@ -6,20 +6,17 @@ export function getHandlers(http: any) {
         if (pathname === '/api/catalog/products') {
           return res(
             ctx.status(200),
-            ctx.json({ products: [ { sku: 'SKU123' }, { sku: 'SKU456' } ] })
+            ctx.json({ products: [{ sku: 'SKU123' }, { sku: 'SKU456' }] })
           )
         }
-      } catch (e) {
+      } catch {
+        // Ignore URL parsing errors
       }
       return res(ctx.status(404))
     }),
     http.get('/api/products/:sku', (req: any, res: any, ctx: any) => {
       const { sku } = req.params
-      return res(
-        ctx.status(200),
-        ctx.json({ sku, price: 123.45, title: `Mock product ${sku}` })
-      )
+      return res(ctx.status(200), ctx.json({ sku, price: 123.45, title: `Mock product ${sku}` }))
     }),
   ]
 }
-
