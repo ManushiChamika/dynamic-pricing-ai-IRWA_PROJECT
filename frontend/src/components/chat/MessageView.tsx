@@ -109,7 +109,7 @@ function MessageViewComponent({
             <Sparkles className="w-5 h-5 text-white" strokeWidth={1.5} />
           )}
         </div>
-        <div className={`${m.role === 'user' ? 'flex justify-end' : 'flex-1'}`}>
+        <div className={`${m.role === 'user' ? 'flex-1 flex flex-col items-end' : 'flex-1'}`}>
           <div
             className={`${m.role === 'user' ? 'bg-primary/10 border border-primary/20 text-right inline-block max-w-fit' : 'border border-primary/20 w-full'} rounded-lg px-4 py-3 transition-colors leading-normal`}
             style={
