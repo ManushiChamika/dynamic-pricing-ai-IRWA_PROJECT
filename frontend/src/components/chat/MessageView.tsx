@@ -89,15 +89,6 @@ function MessageViewComponent({
       onMouseLeave={() => setHovered(false)}
       data-message-id={m.id}
     >
-      {showAgentBadges ? (
-        <div className="mb-2">
-          <AgentBadgeGroup
-            agents={agentNames}
-            activeAgent={streamingActive ? liveActiveAgent : null}
-            variant="pill"
-          />
-        </div>
-      ) : null}
       {m.id === -1 ? <LiveStatus liveActiveAgent={liveActiveAgent} liveTool={liveTool} /> : null}
       <div className={`flex gap-3 items-start ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
         <div
@@ -154,6 +145,16 @@ function MessageViewComponent({
                 }
               }}
             />
+          ) : null}
+
+          {showAgentBadges ? (
+            <div className="mt-2">
+              <AgentBadgeGroup
+                agents={agentNames}
+                activeAgent={streamingActive ? liveActiveAgent : null}
+                variant="pill"
+              />
+            </div>
           ) : null}
 
           <MessageActions m={m} />
