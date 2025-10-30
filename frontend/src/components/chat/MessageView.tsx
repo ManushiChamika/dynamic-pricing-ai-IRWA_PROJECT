@@ -111,10 +111,8 @@ function MessageViewComponent({
         </div>
         <div className={`${m.role === 'user' ? 'flex-1 flex flex-col items-end' : 'flex-1'} space-y-2`}>
           <div
-            className={`${m.role === 'user' ? 'bg-primary/10 border border-primary/20 text-right inline-block max-w-[85%] md:max-w-[70%] shadow-sm' : 'border border-primary/20 w-full md:max-w-[85%]'} rounded-2xl px-4 py-3 transition-colors leading-relaxed backdrop-blur-[1px]`}
-            style={
-              m.role === 'assistant' ? { background: 'var(--message-assistant-bg)' } : undefined
-            }
+            className={`${m.role === 'user' ? 'bg-primary/10 border border-primary/20 text-right inline-block max-w-[85%] md:max-w-[70%] shadow-sm rounded-2xl px-4 py-3' : 'w-full md:max-w-[85%] px-0 py-0'} transition-colors leading-relaxed`}
+            style={undefined}
           >
             {m.role === 'assistant' ? (
               <MarkdownRenderer content={m.content || ''} />
