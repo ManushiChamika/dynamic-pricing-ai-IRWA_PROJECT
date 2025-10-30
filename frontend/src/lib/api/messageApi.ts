@@ -10,11 +10,14 @@ export async function fetchMessages(threadId: number | string): Promise<Message[
 export async function sendMessage(
   threadId: number,
   content: string,
-  userName: string
+  userName: string,
+  parentId?: number
 ): Promise<void> {
+  const body: any = { content, user_name: userName }
+  if (typeof parentId === 'number') body.parent_id = parentId
   await api(`/api/threads/${threadId}/messages`, {
     method: 'POST',
-    json: { content, user_name: userName },
+    json: body,
   })
 }
 

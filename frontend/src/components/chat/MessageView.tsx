@@ -55,8 +55,11 @@ function MessageViewComponent({
         useMessages
           .getState()
           .edit(m.id, m.content)
-          .then(() => {
-            if (currentId) refresh(currentId)
+          .then(async () => {
+            if (currentId) {
+              await useMessages.getState().branch(currentId as number, m.id, m.content, 'user')
+              await refresh(currentId)
+            }
           })
       } else if (e.key === 'Delete' && m.role === 'user') {
         useConfirm.getState().openConfirm({

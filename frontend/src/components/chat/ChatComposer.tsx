@@ -46,10 +46,13 @@ export function ChatComposer({ currentId, streaming }: ChatComposerProps) {
                     defaultValue: lastUser.content,
                     textarea: true,
                     confirmText: 'Save',
-                    onSubmit: async (content) => {
-                      await useMessages.getState().edit(lastUser.id, content)
-                      if (currentId) await refresh(currentId)
-                    },
+                      onSubmit: async (content) => {
+                        await useMessages.getState().edit(lastUser.id, content)
+                        if (currentId) {
+                          await useMessages.getState().branch(currentId as number, lastUser.id, content, 'user')
+                          await refresh(currentId)
+                        }
+                      },
                   })
                 }
               }

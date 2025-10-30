@@ -24,7 +24,10 @@ function MessageActionsComponent({ m }: { m: Message }) {
       confirmText: 'Save',
       onSubmit: async (content) => {
         await edit(m.id, content)
-        if (currentId) await refresh(currentId)
+        if (currentId) {
+          await branch(currentId, m.id, content, 'user')
+          await refresh(currentId)
+        }
       },
     })
   }
