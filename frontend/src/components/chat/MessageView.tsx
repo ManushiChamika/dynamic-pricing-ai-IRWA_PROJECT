@@ -1,11 +1,9 @@
 import React, { useEffect, useRef, useState, lazy, Suspense } from 'react'
 import { MarkdownRenderer } from './MarkdownRenderer'
-import { AgentBadgeGroup } from '../AgentBadge'
 import { BranchNavigator } from '../BranchNavigator'
 import { ThinkingTokens } from '../ThinkingTokens'
 import { MessageActions } from './MessageActions'
 import { MessageMetadata } from './MessageMetadata'
-import { LiveStatus } from '../LiveStatus'
 import {
   useMessages,
   useMessagesActions,
@@ -34,7 +32,7 @@ function MessageViewComponent({
   allMessages: Message[]
 }) {
   const { del, refresh } = useMessagesActions()
-  const { streamingActive, liveActiveAgent, liveTool } = useStreamingState()
+  const { streamingActive } = useStreamingState()
   const currentId = useCurrentThread()
   const showThinking = useSettings((state) => state.showThinking)
 
@@ -78,8 +76,6 @@ function MessageViewComponent({
     return () => window.removeEventListener('keydown', onKey)
   }, [m.id, m.content, m.role, streamingActive, currentId, refresh, del])
 
-  const agentNames = m.agents?.activated || []
-  const showAgentBadges = m.role === 'assistant' && agentNames.length > 0
 
   return (
     <div
@@ -92,7 +88,6 @@ function MessageViewComponent({
       onMouseLeave={() => setHovered(false)}
       data-message-id={m.id}
     >
-      {m.id === -1 ? <LiveStatus liveActiveAgent={liveActiveAgent} liveTool={liveTool} /> : null}
       <div className={`flex gap-3 items-start ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
         <div
           className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ring-1 ring-white/10 ${m.role === 'user' ? 'bg-muted border-2 border-foreground/40' : 'bg-gradient-to-br from-purple-500 via-violet-500 to-indigo-500 shadow-sm'}`}
@@ -150,15 +145,6 @@ function MessageViewComponent({
             />
           ) : null}
 
-          {showAgentBadges ? (
-            <div className="mt-2">
-              <AgentBadgeGroup
-                agents={agentNames}
-                activeAgent={streamingActive ? liveActiveAgent : null}
-                variant="pill"
-              />
-            </div>
-          ) : null}
 
           <MessageActions m={m} />
           <MessageMetadata
