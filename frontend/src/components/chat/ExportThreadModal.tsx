@@ -21,7 +21,7 @@ export function ExportThreadModal({
   const [working, setWorking] = useState(false)
   const [progress, setProgress] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
-  const toasts = useToasts()
+  const toasts = useToasts.getState()
 
   useEffect(() => {
     if (open) {
@@ -65,7 +65,7 @@ export function ExportThreadModal({
           type: 'application/json;charset=utf-8',
         })
         downloadBlob(blob, sanitizeFileName(filename))
-        toasts.getState().push({ type: 'success', text: 'Exported thread JSON' })
+        toasts.push({ type: 'success', text: 'Exported thread JSON' })
       } else {
         setProgress('Fetching thread data...')
         const { ok, data } = await api(`/api/threads/${threadId}/export`, {
@@ -79,18 +79,14 @@ export function ExportThreadModal({
         const md = buildMarkdown(data.thread, data.messages, includeMeta)
         const mime = format === 'md' ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8'
         downloadBlob(new Blob([md], { type: mime }), sanitizeFileName(filename))
-        toasts
-          .getState()
-          .push({ type: 'success', text: `Exported thread as ${format.toUpperCase()}` })
+        toasts.push({ type: 'success', text: `Exported thread as ${format.toUpperCase()}` })
       }
     } catch (e: any) {
       if (e.name === 'AbortError') {
-        toasts.getState().push({ type: 'info', text: 'Export cancelled' })
+        toasts.push({ type: 'info', text: 'Export cancelled' })
       } else {
         console.error('Export error:', e)
-        toasts
-          .getState()
-          .push({ type: 'error', text: e instanceof Error ? e.message : 'Export failed' })
+        toasts.push({ type: 'error', text: e instanceof Error ? e.message : 'Export failed' })
       }
     } finally {
       setWorking(false)
@@ -144,7 +140,7 @@ export function ExportThreadModal({
           <Button variant="outline" onClick={handleClose} disabled={working}>
             Cancel
           </Button>
-          <Button onClick={handleExport} disabled={working || !threadId}>
+          <Button onClick={handleExport} disabled={working || typeof threadId !== 'number'}>
             {working ? 'Exporting…' : 'Export & Save'}
           </Button>
         </DialogFooter>

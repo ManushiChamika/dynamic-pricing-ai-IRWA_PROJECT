@@ -268,7 +268,7 @@ export function ChatHeader() {
         <SettingsButton />
         <HeaderOverflowMenu actions={headerActions} />
       </div>
-      <ExportThreadModal open={exportOpen} onOpenChange={setExportOpen} threadId={currentId} />
+      <ExportThreadModal open={exportOpen} onOpenChange={setExportOpen} threadId={typeof currentId === 'number' ? currentId : null} />
     </div>
   )
 }
