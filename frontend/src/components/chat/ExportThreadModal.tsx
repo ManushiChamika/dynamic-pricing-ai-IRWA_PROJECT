@@ -47,7 +47,7 @@ export function ExportThreadModal({
 
   const handleExport = async () => {
     if (!threadId) {
-      toasts.getState().push({ type: 'error', text: 'No thread selected' })
+      toasts.push({ type: 'error', text: 'No thread selected' })
       return
     }
     setWorking(true)
@@ -56,11 +56,11 @@ export function ExportThreadModal({
     try {
       if (format === 'json') {
         setProgress('Fetching thread data...')
-        const { ok, data } = await api(`/api/threads/${threadId}/export`, {
+        const { ok, data } = await api<Record<string, unknown>>(`/api/threads/${threadId}/export`, {
           signal: abortRef.current.signal,
         })
         if (!ok || !data) throw new Error('Export failed: No data received')
-        setProgress('Creating file...')
+        setProgress('Creating file...' )
         const blob = new Blob([JSON.stringify(data, null, 2)], {
           type: 'application/json;charset=utf-8',
         })
@@ -68,11 +68,14 @@ export function ExportThreadModal({
         toasts.push({ type: 'success', text: 'Exported thread JSON' })
       } else {
         setProgress('Fetching thread data...')
-        const { ok, data } = await api(`/api/threads/${threadId}/export`, {
-          signal: abortRef.current.signal,
-        })
+        const { ok, data } = await api<{ thread: unknown; messages: unknown[] }>(
+          `/api/threads/${threadId}/export`,
+          {
+            signal: abortRef.current.signal,
+          }
+        )
         if (!ok || !data) throw new Error('Export failed: No data received')
-        if (!data.messages || data.messages.length === 0) {
+        if (!Array.isArray(data.messages) || data.messages.length === 0) {
           throw new Error('Cannot export empty thread')
         }
         setProgress('Formatting...')
