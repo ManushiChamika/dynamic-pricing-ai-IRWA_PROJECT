@@ -81,7 +81,7 @@ function MessageViewComponent({
   return (
     <div
       ref={rowRef}
-      className={`group/message w-full max-w-3xl mx-auto animate-slideIn origin-left transition-colors duration-200 rounded-lg ${m.role === 'user' ? 'pl-8 md:pl-16' : 'pr-8 md:pr-16'}`}
+      className={`group/message w-full max-w-3xl mx-auto animate-slideIn origin-left transition-colors duration-200 rounded-lg mb-4 md:mb-6 py-2 md:py-3 ${m.role === 'user' ? 'pl-8 md:pl-16' : 'pr-8 md:pr-16'}`}
       role="article"
       aria-label={`${m.role} message`}
       style={{ backgroundColor: hovered ? 'hsl(var(--accent) / 0.05)' : 'transparent' }}
@@ -101,7 +101,7 @@ function MessageViewComponent({
       {m.id === -1 ? <LiveStatus liveActiveAgent={liveActiveAgent} liveTool={liveTool} /> : null}
       <div className={`flex gap-3 items-start ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
         <div
-          className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${m.role === 'user' ? 'bg-muted border-2 border-foreground/40' : 'bg-gradient-to-br from-purple-500 via-violet-500 to-indigo-500 shadow-sm'}`}
+          className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ring-1 ring-white/10 ${m.role === 'user' ? 'bg-muted border-2 border-foreground/40' : 'bg-gradient-to-br from-purple-500 via-violet-500 to-indigo-500 shadow-sm'}`}
         >
           {m.role === 'user' ? (
             <User className="w-5 h-5 text-foreground" strokeWidth={2} />
@@ -109,9 +109,9 @@ function MessageViewComponent({
             <Sparkles className="w-5 h-5 text-white" strokeWidth={1.5} />
           )}
         </div>
-        <div className={`${m.role === 'user' ? 'flex-1 flex flex-col items-end' : 'flex-1'}`}>
+        <div className={`${m.role === 'user' ? 'flex-1 flex flex-col items-end' : 'flex-1'} space-y-2`}>
           <div
-            className={`${m.role === 'user' ? 'bg-primary/10 border border-primary/20 text-right inline-block max-w-fit' : 'border border-primary/20 w-full'} rounded-lg px-4 py-3 transition-colors leading-normal`}
+            className={`${m.role === 'user' ? 'bg-primary/10 border border-primary/20 text-right inline-block max-w-[85%] md:max-w-[70%] shadow-sm' : 'border border-primary/20 w-full md:max-w-[85%]'} rounded-2xl px-4 py-3 transition-colors leading-relaxed backdrop-blur-[1px]`}
             style={
               m.role === 'assistant' ? { background: 'var(--message-assistant-bg)' } : undefined
             }
@@ -119,7 +119,8 @@ function MessageViewComponent({
             {m.role === 'assistant' ? (
               <MarkdownRenderer content={m.content || ''} />
             ) : (
-              <pre className="whitespace-pre-wrap text-right">{m.content}</pre>
+               <pre className="whitespace-pre-wrap text-right leading-relaxed">{m.content}</pre>
+
             )}
           </div>
           {showThinking && m.thinking && m.role === 'assistant' ? (
