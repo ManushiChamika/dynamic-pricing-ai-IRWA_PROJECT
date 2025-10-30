@@ -26,10 +26,6 @@ export function ChatHeader() {
   const rightToggleRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
-    console.log('[ChatHeader] streamingActive:', streamingActive, 'turnStats:', turnStats)
-  }, [streamingActive, turnStats])
-
-  useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return
     const isMobile = window.matchMedia('(max-width: 767px)').matches
     if (!collapsed && isMobile) {
@@ -128,9 +124,11 @@ export function ChatHeader() {
     [currentId, streamingActive]
   )
 
+  const summaryThreadId = typeof currentId === 'number' ? currentId : undefined
+
   return (
     <div className="flex items-center gap-3 px-6 py-3 border-b justify-between bg-card/50 transition-[padding] duration-300 ease-in-out">
-      <div className="flex gap-2 items-center flex-wrap">
+      <div className="flex gap-2 items-center flex-wrap min-w-0">
         <button
           ref={leftToggleRef}
           className="md:hidden inline-flex items-center justify-center p-2 rounded border hover:bg-muted/50"
@@ -155,8 +153,9 @@ export function ChatHeader() {
         <span>#{currentId ?? '-'}</span>
         {streamingActive ? (
           <span
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-accent/20 text-accent border border-accent/30"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-accent/20 text-accent border border-accent/30 whitespace-nowrap overflow-hidden text-ellipsis max-w-[40vw] md:max-w-none"
             title="Model is streaming a reply"
+            aria-live="polite"
           >
             <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
             Streaming…
@@ -164,7 +163,7 @@ export function ChatHeader() {
         ) : null}
         {streamingActive && liveActiveAgent ? (
           <span
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-500/20 text-purple-400 border border-purple-500/30"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-500/20 text-purple-400 border border-purple-500/30 whitespace-nowrap overflow-hidden text-ellipsis max-w-[40vw] md:max-w-none"
             title="Active agent"
           >
             Agent: {liveActiveAgent}
@@ -172,7 +171,7 @@ export function ChatHeader() {
         ) : null}
         {streamingActive && Array.isArray(liveAgents) && liveAgents.length ? (
           <span
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted/30 text-muted border border-muted/20"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted/30 text-muted border border-muted/20 whitespace-nowrap overflow-hidden text-ellipsis max-w-[40vw] md:max-w-none"
             title={`Agents: ${liveAgents.join(', ')}`}
           >
             agents {liveAgents.length}
@@ -180,7 +179,7 @@ export function ChatHeader() {
         ) : null}
         {streamingActive && liveTool ? (
           <span
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${liveTool.status === 'running' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-green-500/20 text-green-400 border border-green-500/30'}`}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap overflow-hidden text-ellipsis max-w-[40vw] md:max-w-none ${liveTool.status === 'running' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-green-500/20 text-green-400 border border-green-500/30'}`}
             title={liveTool.status === 'running' ? 'Tool running' : 'Tool finished'}
           >
             {liveTool.status === 'running' ? (
@@ -199,7 +198,7 @@ export function ChatHeader() {
                 turnStats.cost_usd != null)
             ) ? (
               <span
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted/30 text-muted border border-muted/20"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted/30 text-muted border border-muted/20 whitespace-nowrap overflow-hidden text-ellipsis max-w-[40vw] md:max-w-none"
                 title="Model used"
               >
                 {turnStats.provider
@@ -209,7 +208,7 @@ export function ChatHeader() {
             ) : null}
             {turnStats.token_in != null || turnStats.token_out != null ? (
               <span
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted/30 text-muted border border-muted/20"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted/30 text-muted border border-muted/20 whitespace-nowrap overflow-hidden text-ellipsis max-w-[40vw] md:max-w-none"
                 title="Prompt/Completion tokens"
               >
                 tokens {turnStats.token_in ?? 0}/{turnStats.token_out ?? 0}
@@ -217,7 +216,7 @@ export function ChatHeader() {
             ) : null}
             {turnStats.cost_usd != null ? (
               <span
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted/30 text-muted border border-muted/20"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted/30 text-muted border border-muted/20 whitespace-nowrap overflow-hidden text-ellipsis max-w-[40vw] md:max-w-none"
                 title="Estimated cost"
               >
                 ${String(turnStats.cost_usd)}
@@ -225,7 +224,7 @@ export function ChatHeader() {
             ) : null}
             {turnStats.api_calls != null ? (
               <span
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted/30 text-muted border border-muted/20"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted/30 text-muted border border-muted/20 whitespace-nowrap overflow-hidden text-ellipsis max-w-[40vw] md:max-w-none"
                 title="API calls"
               >
                 calls {turnStats.api_calls}
@@ -233,7 +232,7 @@ export function ChatHeader() {
             ) : null}
             {Array.isArray(turnStats.agents) && turnStats.agents.length ? (
               <span
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted/30 text-muted border border-muted/20"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted/30 text-muted border border-muted/20 whitespace-nowrap overflow-hidden text-ellipsis max-w-[40vw] md:max-w-none"
                 title={`Agents: ${turnStats.agents.join(', ')}`}
               >
                 agents {turnStats.agents.length}
@@ -241,7 +240,7 @@ export function ChatHeader() {
             ) : null}
             {Array.isArray(turnStats.tools) && turnStats.tools.length ? (
               <span
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted/30 text-muted border border-muted/20"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted/30 text-muted border border-muted/20 whitespace-nowrap overflow-hidden text-ellipsis max-w-[40vw] md:max-w-none"
                 title={`Tools: ${turnStats.tools.join(', ')}`}
               >
                 tools {turnStats.tools.length}
@@ -251,7 +250,7 @@ export function ChatHeader() {
         ) : null}
       </div>
       <div className="flex gap-2 items-center">
-        {currentId && typeof currentId === 'number' && <SummaryIndicator threadId={currentId} />}
+        <SummaryIndicator threadId={summaryThreadId} />
         <Button
           variant="ghost"
           size="sm"
