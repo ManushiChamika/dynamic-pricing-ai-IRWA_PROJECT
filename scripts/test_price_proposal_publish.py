@@ -4,7 +4,8 @@ import asyncio
 from typing import List
 
 from core.agents.data_collector.repo import DataRepo
-from core.agents.alert_notifier import AlertNotifier, Thresholds
+from core.agents.alert_service.repo import Repo as AlertRepo
+from core.agents.alert_service.engine import AlertEngine
 from core.agents.data_collector import mcp_server as svc
 import asyncio
 from core.agents.price_optimizer.agent import PricingOptimizerAgent
@@ -64,7 +65,7 @@ async def main() -> int:
                 break
             await asyncio.sleep(0.2)
 
-    # Start alert notifier to capture PRICE_PROPOSAL alerts (e.g., MARGIN_BREACH)
+    # Start alert engine to capture PRICE_PROPOSAL alerts
     alerts: List[str] = []
 
     async def ui_sink(a):
@@ -72,8 +73,9 @@ async def main() -> int:
         print("ALERT:", line)
         alerts.append(line)
 
-    notifier = AlertNotifier(Thresholds(undercut_delta=0.01, demand_spike=0.5, min_margin=0.95), sinks=[ui_sink])
-    await notifier.start()
+    alert_repo = AlertRepo()
+    engine = AlertEngine(alert_repo)
+    await engine.start()
 
     # Run pricing optimizer workflow (now async)
     agent = PricingOptimizerAgent()

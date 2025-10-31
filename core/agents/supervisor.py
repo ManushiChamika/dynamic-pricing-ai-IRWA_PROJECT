@@ -6,6 +6,7 @@ import sqlite3
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 
+from core.tool_registry import get_tool_registry
 from core.agents.data_collector.repo import DataRepo
 from core.agents.data_collector.collector import DataCollector
 from core.agents.agent_sdk.mcp_client import get_data_collector_client
@@ -13,6 +14,7 @@ import uuid
 from core.agents.price_optimizer.agent import PricingOptimizerAgent
 from core.agents.agent_sdk.bus_factory import get_bus
 from core.agents.agent_sdk.protocol import Topic
+from core.workflow_templates import collect_and_optimize_prelude
 
 
 
@@ -29,12 +31,15 @@ class Supervisor:
         collector: Optional[DataCollector] = None,
         optimizer: Optional[PricingOptimizerAgent] = None,
         concurrency: int = 4,
+        use_templates: bool = True,
     ) -> None:
         self.repo = repo or DataRepo()
         self.collector = collector or DataCollector(self.repo)
         self.optimizer = optimizer or PricingOptimizerAgent()
         self.dc_client = get_data_collector_client()
+        self.tool_registry = get_tool_registry()
         self.concurrency = max(1, int(concurrency))
+        self.use_templates = bool(use_templates)
 
     async def run_for_catalog(
         self, rows: List[Dict[str, Any]], apply_auto: bool = False, timeout_s: int = 60
@@ -55,46 +60,51 @@ class Supervisor:
             async with sem:
                 summary: Dict[str, Any] = {"sku": sku}
                 try:
-                    # 1) Upsert product row
-                    await self.repo.upsert_products([row])
+                    if self.use_templates:
+                        pre = await collect_and_optimize_prelude(row, timeout_s=timeout_s)
+                        summary.update({k: v for k, v in pre.items() if k in {"job_id", "job_status"}})
+                        if not pre.get("ok") or pre.get("job_status") != "DONE":
+                            results[sku] = summary
+                            return
+                    else:
+                        await self.tool_registry.execute_tool("upsert_product", product_data=row)
+                        start_res = await self.tool_registry.execute_tool(
+                            "start_data_collection",
+                            sku=sku,
+                            market=market,
+                            connector=connector,
+                            depth=depth,
+                        )
+                        if not start_res.get("ok"):
+                            summary.update({"job_start": "error", "error": start_res})
+                            results[sku] = summary
+                            return
+                        job_id = start_res["job_id"]
+                        summary["job_id"] = job_id
+                        t0 = time.time()
+                        status = None
+                        while time.time() - t0 < timeout_s:
+                            st = await self.tool_registry.execute_tool("get_job_status", job_id=job_id)
+                            job = st.get("job") if st.get("ok") else None
+                            status = (job or {}).get("status")
+                            if status in {"DONE", "FAILED", "CANCELLED"}:
+                                break
+                            await asyncio.sleep(0.25)
+                        summary["job_status"] = status or "UNKNOWN"
+                        if status != "DONE":
+                            results[sku] = summary
+                            return
 
-                    # 2) Start collection job via MCP
-                    start_res = await self.dc_client.start_collection(
-                        sku, market=market, connector=connector, depth=depth
-                    )
-                    if not start_res.get("ok"):
-                        summary.update({"job_start": "error", "error": start_res})
-                        results[sku] = summary
-                        return
-                    job_id = start_res["job_id"]
-                    summary["job_id"] = job_id
-
-                    # 3) Poll job status until DONE/FAILED (timeout)
-                    t0 = time.time()
-                    status = None
-                    while time.time() - t0 < timeout_s:
-                        st = await self.dc_client.get_job_status(job_id)
-                        job = st.get("job") if st.get("ok") else None
-                        status = (job or {}).get("status")
-                        if status in {"DONE", "FAILED", "CANCELLED"}:
-                            break
-                        await asyncio.sleep(0.25)
-                    summary["job_status"] = status or "UNKNOWN"
-                    if status != "DONE":
-                        results[sku] = summary
-                        return
-
-                    # Ensure app/data.db has some data for optimizer to read
                     self._seed_market_if_needed(sku)
 
-                    # 4) Run optimizer (folder-based version is async)
-                    opt_res = await self.optimizer.process_full_workflow(
-                        "maximize profit", sku
+                    opt_res = await self.tool_registry.execute_tool(
+                        "optimize_price", sku=sku, objective="maximize profit"
                     )
                     summary["optimizer"] = opt_res
                     if not isinstance(opt_res, dict) or opt_res.get("status") != "ok":
                         results[sku] = summary
                         return
+
 
                     price = opt_res.get("recommended_price") or opt_res.get("price")
                     algorithm = opt_res.get("algorithm")

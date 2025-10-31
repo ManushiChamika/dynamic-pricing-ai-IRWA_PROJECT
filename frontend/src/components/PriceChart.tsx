@@ -25,18 +25,18 @@ ChartJS.register(
   Filler
 )
 
-type PricePoint = { ts: number; price: number }
+import type { PricePoint } from '../lib/types'
 
 interface PriceChartProps {
   data: PricePoint[]
   sku: string
-  theme?: 'light' | 'dark'
+  theme?: 'light' | 'dark' | 'ocean' | 'forest' | 'sunset' | 'midnight' | 'rose'
 }
 
 export function PriceChart({ data, sku, theme = 'dark' }: PriceChartProps) {
   const chartRef = useRef<ChartJS<'line'>>(null)
 
-  const isDark = theme === 'dark'
+  const isDark = theme !== 'light'
   const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
   const textColor = isDark ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)'
 

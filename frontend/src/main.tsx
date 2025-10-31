@@ -2,7 +2,7 @@ import React, { Suspense, lazy, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { ThemeProvider } from './contexts/ThemeContext'
+import { ThemeProvider } from './contexts/ThemeContext.tsx'
 import './styles.css'
 import { setUnauthorizedHandler } from './lib/apiClient'
 import { useToasts } from './stores/toastStore'
@@ -70,6 +70,14 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/auth" element={<AuthPage />} />
               <Route
                 path="/chat"
+                element={
+                  <ChatPage>
+                    <App />
+                  </ChatPage>
+                }
+              />
+              <Route
+                path="/chat/:threadId"
                 element={
                   <ChatPage>
                     <App />

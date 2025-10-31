@@ -364,7 +364,7 @@ each stage completes before moving to next."
 2. **Agents** (`core/agents/`)
    - `supervisor.py`: Orchestration (lines 19-156)
    - `pricing_optimizer.py`: Price algorithms (rule_based, ml_model)
-   - `alert_notifier.py`: Fairness validation (lines 14-47)
+   - `alert_service/engine.py`: Alert engine with rule evaluation (lines 17-119)
    - `user_interact/user_interaction_agent.py`: Chat NLP
 
 3. **Events** (`core/events/`)

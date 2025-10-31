@@ -46,7 +46,7 @@ class DataCollector:
         }
         await self.repo.insert_tick(payload)
         # Publish MARKET_TICK as a typed dataclass on the global bus so downstream
-        # consumers (e.g., AlertNotifier) receive the expected structure.
+        # consumers (e.g., AlertEngine) receive the expected structure.
         competitor_price_value = payload.get("competitor_price")
         comp_price: Optional[float] = (
             float(competitor_price_value) if competitor_price_value is not None else None

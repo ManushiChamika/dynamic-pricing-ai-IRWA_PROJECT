@@ -1,0 +1,177 @@
+httpx - DEBUG - load_ssl_context verify=True cert=None trust_env=True http2=False
+httpx - DEBUG - load_verify_locations cafile='C:\\Users\\SASINDU\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\site-packages\\certifi\\cacert.pem'
+core.agents.llm - DEBUG - Registered provider openrouter | model=z-ai/glm-4.5-air:free base_url=https://openrouter.ai/api/v1
+httpx - DEBUG - load_ssl_context verify=True cert=None trust_env=True http2=False
+httpx - DEBUG - load_verify_locations cafile='C:\\Users\\SASINDU\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\site-packages\\certifi\\cacert.pem'
+core.agents.llm - DEBUG - Registered provider gemini | model=gemini-2.5-flash base_url=https://generativelanguage.googleapis.com/v1beta/openai/
+httpx - DEBUG - load_ssl_context verify=True cert=None trust_env=True http2=False
+httpx - DEBUG - load_verify_locations cafile='C:\\Users\\SASINDU\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\site-packages\\certifi\\cacert.pem'
+core.agents.llm - DEBUG - Registered provider gemini_2 | model=gemini-2.5-flash base_url=https://generativelanguage.googleapis.com/v1beta/openai/
+httpx - DEBUG - load_ssl_context verify=True cert=None trust_env=True http2=False
+httpx - DEBUG - load_verify_locations cafile='C:\\Users\\SASINDU\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\site-packages\\certifi\\cacert.pem'
+core.agents.llm - DEBUG - Registered provider gemini_3 | model=gemini-2.5-flash base_url=https://generativelanguage.googleapis.com/v1beta/openai/
+core.agents.llm - DEBUG - Active provider set to: openrouter (model: z-ai/glm-4.5-air:free)
+core.agents.llm - DEBUG - Sending chat completion | provider=openrouter model=z-ai/glm-4.5-air:free msgs=2 max_tokens=50 temp=0.10
+openai._base_client - DEBUG - Request options: {'method': 'post', 'url': '/chat/completions', 'files': None, 'idempotency_key': 'stainless-python-retry-fb7eb9d8-0ff3-46eb-924b-bf2d034076f3', 'json_data': {'messages': [{'role': 'system', 'content': 'You are a helpful assistant.'}, {'role': 'user', 'content': "Say 'Hello from provider test' and nothing else."}], 'model': 'z-ai/glm-4.5-air:free', 'max_tokens': 50, 'temperature': 0.1}}
+openai._base_client - DEBUG - Sending HTTP Request: POST https://openrouter.ai/api/v1/chat/completions
+httpcore.connection - DEBUG - connect_tcp.started host='openrouter.ai' port=443 local_address=None timeout=5.0 socket_options=None
+httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x000001E6315D0050>
+httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x000001E6310C98B0> server_hostname='openrouter.ai' timeout=5.0
+httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x000001E6314A6C10>
+httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+httpcore.http11 - DEBUG - send_request_headers.complete
+httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+httpcore.http11 - DEBUG - send_request_body.complete
+httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 429, b'Too Many Requests', [(b'Date', b'Sat, 18 Oct 2025 19:10:36 GMT'), (b'Content-Type', b'application/json'), (b'Transfer-Encoding', b'chunked'), (b'Connection', b'keep-alive'), (b'CF-RAY', b'990a562999c692f6-CMB'), (b'Access-Control-Allow-Origin', b'*'), (b'X-RateLimit-Limit', b'50'), (b'X-RateLimit-Remaining', b'0'), (b'X-RateLimit-Reset', b'1760832000000'), (b'Vary', b'Accept-Encoding'), (b'Permissions-Policy', b'payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com" "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")'), (b'Referrer-Policy', b'no-referrer, strict-origin-when-cross-origin'), (b'X-Content-Type-Options', b'nosniff'), (b'Server', b'cloudflare')])
+httpx - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+httpcore.http11 - DEBUG - receive_response_body.complete
+httpcore.http11 - DEBUG - response_closed.started
+httpcore.http11 - DEBUG - response_closed.complete
+openai._base_client - DEBUG - HTTP Response: POST https://openrouter.ai/api/v1/chat/completions "429 Too Many Requests" Headers({'date': 'Sat, 18 Oct 2025 19:10:36 GMT', 'content-type': 'application/json', 'transfer-encoding': 'chunked', 'connection': 'keep-alive', 'cf-ray': '990a562999c692f6-CMB', 'access-control-allow-origin': '*', 'x-ratelimit-limit': '50', 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1760832000000', 'vary': 'Accept-Encoding', 'permissions-policy': 'payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com" "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")', 'referrer-policy': 'no-referrer, strict-origin-when-cross-origin', 'x-content-type-options': 'nosniff', 'server': 'cloudflare'})
+openai._base_client - DEBUG - request_id: None
+openai._base_client - DEBUG - Encountered httpx.HTTPStatusError
+Traceback (most recent call last):
+  File "C:\Users\SASINDU\AppData\Local\Programs\Python\Python313\Lib\site-packages\openai\_base_client.py", line 1027, in request
+    response.raise_for_status()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\SASINDU\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_models.py", line 763, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '429 Too Many Requests' for url 'https://openrouter.ai/api/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+openai._base_client - DEBUG - Retrying due to status code 429
+openai._base_client - DEBUG - 2 retries left
+openai._base_client - INFO - Retrying request to /chat/completions in 0.472766 seconds
+openai._base_client - DEBUG - Request options: {'method': 'post', 'url': '/chat/completions', 'files': None, 'idempotency_key': 'stainless-python-retry-fb7eb9d8-0ff3-46eb-924b-bf2d034076f3', 'json_data': {'messages': [{'role': 'system', 'content': 'You are a helpful assistant.'}, {'role': 'user', 'content': "Say 'Hello from provider test' and nothing else."}], 'model': 'z-ai/glm-4.5-air:free', 'max_tokens': 50, 'temperature': 0.1}}
+openai._base_client - DEBUG - Sending HTTP Request: POST https://openrouter.ai/api/v1/chat/completions
+httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+httpcore.http11 - DEBUG - send_request_headers.complete
+httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+httpcore.http11 - DEBUG - send_request_body.complete
+httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 429, b'Too Many Requests', [(b'Date', b'Sat, 18 Oct 2025 19:10:39 GMT'), (b'Content-Type', b'application/json'), (b'Transfer-Encoding', b'chunked'), (b'Connection', b'keep-alive'), (b'CF-RAY', b'990a563a9bd892f6-CMB'), (b'Access-Control-Allow-Origin', b'*'), (b'X-RateLimit-Limit', b'50'), (b'X-RateLimit-Remaining', b'0'), (b'X-RateLimit-Reset', b'1760832000000'), (b'Vary', b'Accept-Encoding'), (b'Permissions-Policy', b'payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com" "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")'), (b'Referrer-Policy', b'no-referrer, strict-origin-when-cross-origin'), (b'X-Content-Type-Options', b'nosniff'), (b'Server', b'cloudflare')])
+httpx - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+httpcore.http11 - DEBUG - receive_response_body.complete
+httpcore.http11 - DEBUG - response_closed.started
+httpcore.http11 - DEBUG - response_closed.complete
+openai._base_client - DEBUG - HTTP Response: POST https://openrouter.ai/api/v1/chat/completions "429 Too Many Requests" Headers({'date': 'Sat, 18 Oct 2025 19:10:39 GMT', 'content-type': 'application/json', 'transfer-encoding': 'chunked', 'connection': 'keep-alive', 'cf-ray': '990a563a9bd892f6-CMB', 'access-control-allow-origin': '*', 'x-ratelimit-limit': '50', 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1760832000000', 'vary': 'Accept-Encoding', 'permissions-policy': 'payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com" "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")', 'referrer-policy': 'no-referrer, strict-origin-when-cross-origin', 'x-content-type-options': 'nosniff', 'server': 'cloudflare'})
+openai._base_client - DEBUG - request_id: None
+openai._base_client - DEBUG - Encountered httpx.HTTPStatusError
+Traceback (most recent call last):
+  File "C:\Users\SASINDU\AppData\Local\Programs\Python\Python313\Lib\site-packages\openai\_base_client.py", line 1027, in request
+    response.raise_for_status()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\SASINDU\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_models.py", line 763, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '429 Too Many Requests' for url 'https://openrouter.ai/api/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+openai._base_client - DEBUG - Retrying due to status code 429
+openai._base_client - DEBUG - 1 retry left
+openai._base_client - INFO - Retrying request to /chat/completions in 0.857886 seconds
+openai._base_client - DEBUG - Request options: {'method': 'post', 'url': '/chat/completions', 'files': None, 'idempotency_key': 'stainless-python-retry-fb7eb9d8-0ff3-46eb-924b-bf2d034076f3', 'json_data': {'messages': [{'role': 'system', 'content': 'You are a helpful assistant.'}, {'role': 'user', 'content': "Say 'Hello from provider test' and nothing else."}], 'model': 'z-ai/glm-4.5-air:free', 'max_tokens': 50, 'temperature': 0.1}}
+openai._base_client - DEBUG - Sending HTTP Request: POST https://openrouter.ai/api/v1/chat/completions
+httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+httpcore.http11 - DEBUG - send_request_headers.complete
+httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+httpcore.http11 - DEBUG - send_request_body.complete
+httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 429, b'Too Many Requests', [(b'Date', b'Sat, 18 Oct 2025 19:10:40 GMT'), (b'Content-Type', b'application/json'), (b'Transfer-Encoding', b'chunked'), (b'Connection', b'keep-alive'), (b'CF-RAY', b'990a564ccfa392f6-CMB'), (b'Access-Control-Allow-Origin', b'*'), (b'X-RateLimit-Limit', b'50'), (b'X-RateLimit-Remaining', b'0'), (b'X-RateLimit-Reset', b'1760832000000'), (b'Vary', b'Accept-Encoding'), (b'Permissions-Policy', b'payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com" "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")'), (b'Referrer-Policy', b'no-referrer, strict-origin-when-cross-origin'), (b'X-Content-Type-Options', b'nosniff'), (b'Server', b'cloudflare')])
+httpx - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+httpcore.http11 - DEBUG - receive_response_body.complete
+httpcore.http11 - DEBUG - response_closed.started
+httpcore.http11 - DEBUG - response_closed.complete
+openai._base_client - DEBUG - HTTP Response: POST https://openrouter.ai/api/v1/chat/completions "429 Too Many Requests" Headers({'date': 'Sat, 18 Oct 2025 19:10:40 GMT', 'content-type': 'application/json', 'transfer-encoding': 'chunked', 'connection': 'keep-alive', 'cf-ray': '990a564ccfa392f6-CMB', 'access-control-allow-origin': '*', 'x-ratelimit-limit': '50', 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1760832000000', 'vary': 'Accept-Encoding', 'permissions-policy': 'payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com" "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")', 'referrer-policy': 'no-referrer, strict-origin-when-cross-origin', 'x-content-type-options': 'nosniff', 'server': 'cloudflare'})
+openai._base_client - DEBUG - request_id: None
+openai._base_client - DEBUG - Encountered httpx.HTTPStatusError
+Traceback (most recent call last):
+  File "C:\Users\SASINDU\AppData\Local\Programs\Python\Python313\Lib\site-packages\openai\_base_client.py", line 1027, in request
+    response.raise_for_status()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\SASINDU\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_models.py", line 763, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '429 Too Many Requests' for url 'https://openrouter.ai/api/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+openai._base_client - DEBUG - Re-raising status error
+core.agents.llm - WARNING - Provider openrouter failed for chat (RateLimitError): Error code: 429 - {'error': {'message': 'Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day', 'code': 429, 'metadata': {'headers': {'X-RateLimit-Limit': '50', 'X-RateLimit-Remaining': '0', 'X-RateLimit-Reset': '1760832000000'}, 'provider_name': None}}, 'user_id': 'user_31advEwli6nBawW36tITmnmYCJj'}
+core.agents.llm - DEBUG - Sending chat completion | provider=gemini model=gemini-2.5-flash msgs=2 max_tokens=50 temp=0.10
+openai._base_client - DEBUG - Request options: {'method': 'post', 'url': '/chat/completions', 'files': None, 'idempotency_key': 'stainless-python-retry-c39aa7d2-146f-441a-ae28-d3eb7a2de620', 'json_data': {'messages': [{'role': 'system', 'content': 'You are a helpful assistant.'}, {'role': 'user', 'content': "Say 'Hello from provider test' and nothing else."}], 'model': 'gemini-2.5-flash', 'max_tokens': 50, 'temperature': 0.1}}
+openai._base_client - DEBUG - Sending HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
+httpcore.connection - DEBUG - connect_tcp.started host='generativelanguage.googleapis.com' port=443 local_address=None timeout=5.0 socket_options=None
+httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x000001E631621590>
+httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x000001E6310C9DB0> server_hostname='generativelanguage.googleapis.com' timeout=5.0
+httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x000001E631213100>
+httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+httpcore.http11 - DEBUG - send_request_headers.complete
+httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+httpcore.http11 - DEBUG - send_request_body.complete
+httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json'), (b'P3P', b'CP="This is not a P3P policy! See g.co/p3phelp for more info."'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 18 Oct 2025 19:10:41 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=993'), (b'Set-Cookie', b'NID=525=m8AyjeSFgSlAcnlT-KG-_SRrLrORoCOfkei6-F0O0wm-3boeW_0chZ-dFjNiwW5c_cghiDN8EIPZ-6_YWu6iOUH_0Yo7wcsX7dUtKXBXSn04CuGOdJ96VjsmjRYJtq12HXcU0isGWxRuBwZkkA1cNouod5IAh9x8_GshviXisyDRz01CFE4; expires=Sun, 19-Apr-2026 19:10:40 GMT; path=/; domain=.generativelanguage.googleapis.com; HttpOnly'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Expires', b'Sat, 18 Oct 2025 19:10:41 GMT'), (b'Cache-Control', b'private'), (b'Transfer-Encoding', b'chunked')])
+httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/openai/chat/completions "HTTP/1.1 200 OK"
+httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+httpcore.http11 - DEBUG - receive_response_body.complete
+httpcore.http11 - DEBUG - response_closed.started
+httpcore.http11 - DEBUG - response_closed.complete
+openai._base_client - DEBUG - HTTP Response: POST https://generativelanguage.googleapis.com/v1beta/openai/chat/completions "200 OK" Headers([('content-type', 'application/json'), ('p3p', 'CP="This is not a P3P policy! See g.co/p3phelp for more info."'), ('vary', 'Origin'), ('vary', 'X-Origin'), ('vary', 'Referer'), ('content-encoding', 'gzip'), ('date', 'Sat, 18 Oct 2025 19:10:41 GMT'), ('server', 'scaffolding on HTTPServer2'), ('x-xss-protection', '0'), ('x-frame-options', 'SAMEORIGIN'), ('x-content-type-options', 'nosniff'), ('server-timing', 'gfet4t7; dur=993'), ('set-cookie', 'NID=525=m8AyjeSFgSlAcnlT-KG-_SRrLrORoCOfkei6-F0O0wm-3boeW_0chZ-dFjNiwW5c_cghiDN8EIPZ-6_YWu6iOUH_0Yo7wcsX7dUtKXBXSn04CuGOdJ96VjsmjRYJtq12HXcU0isGWxRuBwZkkA1cNouod5IAh9x8_GshviXisyDRz01CFE4; expires=Sun, 19-Apr-2026 19:10:40 GMT; path=/; domain=.generativelanguage.googleapis.com; HttpOnly'), ('alt-svc', 'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), ('expires', 'Sat, 18 Oct 2025 19:10:41 GMT'), ('cache-control', 'private'), ('transfer-encoding', 'chunked')])
+openai._base_client - DEBUG - request_id: None
+core.agents.llm - DEBUG - Active provider set to: gemini (model: gemini-2.5-flash)
+core.agents.llm - DEBUG - LLM response chars=24
+================================================================================
+LLM PROVIDER VERIFICATION TEST
+================================================================================
+
+1. CHECKING CONFIGURATION
+--------------------------------------------------------------------------------
+OpenRouter Key Present: False
+OpenRouter Key (first 10 chars): N/A
+OpenRouter Model: default
+OpenAI Key Present: False
+OpenAI Key (first 10 chars): N/A
+OpenAI Model: default
+Gemini Keys Count: 0
+Gemini Model: default
+
+2. INITIALIZING LLM CLIENT
+--------------------------------------------------------------------------------
+Client Available: True
+Total Providers Registered: 4
+Active Provider Index: 0
+Active Provider Name: openrouter
+Active Model: z-ai/glm-4.5-air:free
+
+3. REGISTERED PROVIDERS LIST
+--------------------------------------------------------------------------------
+  [0] openrouter           | z-ai/glm-4.5-air:free                    [ACTIVE]
+  [1] gemini               | gemini-2.5-flash                        
+  [2] gemini_2             | gemini-2.5-flash                        
+  [3] gemini_3             | gemini-2.5-flash                        
+
+4. TESTING ACTUAL API CALL
+--------------------------------------------------------------------------------
+Sending test message...
+
+[SUCCESS] Response received: Hello from provider test
+
+5. USAGE METADATA
+--------------------------------------------------------------------------------
+  provider: gemini
+  model: gemini-2.5-flash
+  prompt_tokens: 19
+  completion_tokens: 4
+  total_tokens: 46
+
+6. PROVIDER AFTER API CALL
+--------------------------------------------------------------------------------
+Current Provider: gemini
+Current Model: gemini-2.5-flash
+Active Index: 1
+
+================================================================================
+TEST COMPLETE
+================================================================================
+httpcore.connection - DEBUG - close.started
+httpcore.connection - DEBUG - close.complete
+httpcore.connection - DEBUG - close.started
+httpcore.connection - DEBUG - close.complete

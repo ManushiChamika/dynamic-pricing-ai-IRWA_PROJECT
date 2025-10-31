@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, startTransition } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Virtuoso } from 'react-virtuoso'
 import { Button } from './ui/button'
 import { ThreadItem } from './sidebar/ThreadItem'
 import {
@@ -12,28 +13,57 @@ import { useConfirm } from '../stores/confirmStore'
 import { useAuthUser, useAuthActions } from '../stores/authStore'
 import { useSettings } from '../stores/settingsStore'
 import { useCatalogStore } from '../stores/catalogStore'
-import { Package, Settings, LogOut, MessageSquarePlus, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useSidebar } from '../stores/sidebarStore'
+import {
+  Package,
+  Settings,
+  LogOut,
+  MessageSquarePlus,
+  ChevronLeft,
+  ChevronRight,
+  Home,
+  Sparkles,
+} from 'lucide-react'
+import { CollapsedNavItem } from './sidebar/CollapsedNavItem'
 
 export function Sidebar() {
+  const navigate = useNavigate()
   const threads = useThreadList()
   const currentId = useCurrentThread()
   const draftId = useDraftId()
   const { setCurrent, refresh, createDraftThread } = useThreadActions()
-  const [collapsed, setCollapsed] = useState(localStorage.getItem('sidebarCollapsed') === '1')
+  const { collapsed, toggleCollapsed } = useSidebar()
   const user = useAuthUser()
   const { logout } = useAuthActions()
-  const navigate = useNavigate()
+
+  const uiCollapsed = collapsed
+
+  const allItems = useMemo(() => {
+    const items = []
+    if (draftId) {
+      items.push({ id: draftId, title: 'New Chat (unsaved)', isDraft: true, updated_at: '' })
+    }
+    items.push(
+      ...threads.map((t) => ({
+        id: t.id,
+        title: t.title || 'Untitled',
+        isDraft: false,
+        updated_at: t.updated_at,
+      }))
+    )
+    return items
+  }, [draftId, threads])
 
   useEffect(() => {
     refresh().then(() => {
       const last = Number(localStorage.getItem('lastThreadId') || '')
-      if (last) setCurrent(last)
+      if (last && !currentId) {
+        setCurrent(last)
+      } else if (!currentId) {
+        createDraftThread()
+      }
     })
-  }, [refresh, setCurrent])
-
-  useEffect(() => {
-    document.querySelector('.sidebar')?.classList.toggle('collapsed', collapsed)
-  }, [collapsed])
+  }, [refresh, setCurrent, createDraftThread])
 
   const handleLogout = async () => {
     useConfirm.getState().openConfirm({
@@ -44,7 +74,6 @@ export function Sidebar() {
         try {
           await logout()
         } catch {
-          /* ignore */
         }
         window.location.href = '/auth'
       },
@@ -53,111 +82,159 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`sidebar ${collapsed ? 'w-14' : 'w-[280px]'} border-r border-border p-[var(--space-4)] overflow-auto bg-[rgba(17,24,39,0.85)] backdrop-blur-3xl transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}
+      id="sidebar"
+      className={`sidebar fixed inset-y-0 left-0 z-40 overflow-hidden transition-all duration-250 ease-in-out motion-reduce:transition-none ${uiCollapsed ? 'w-16 -translate-x-full md:translate-x-0 md:w-16 bg-[rgb(2,8,23)] border-r' : 'w-64 translate-x-0 md:w-64 bg-background/0 backdrop-blur-0 border-r border-border/0'}`}
       aria-label="Threads sidebar"
     >
-      <div className="flex flex-col h-full">
-        <div className="flex gap-[var(--space-2)] mb-[var(--space-4)]">
+      <div className={`will-change-transform transition-transform duration-250 ease-in-out motion-reduce:transition-none h-full`}>
+        <div className={`flex flex-col h-svh gap-3 ${uiCollapsed ? 'p-2 items-center' : 'p-3'}`}>
+        <div className={"flex gap-2 shrink-0"}>
           <Button
             variant="ghost"
             size="icon"
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            onClick={() =>
-              setCollapsed((c) => {
-                const n = !c
-                localStorage.setItem('sidebarCollapsed', n ? '1' : '0')
-                return n
-              })
-            }
-            aria-expanded={!collapsed}
+            aria-label={uiCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            onClick={toggleCollapsed}
+            aria-expanded={!uiCollapsed}
             aria-controls="thread-list"
           >
-            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            {uiCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
-          {!collapsed && (
+          {!uiCollapsed && (
             <Button
-              onClick={() => createDraftThread()}
+              onClick={() => {
+                navigate('/chat')
+                createDraftThread()
+              }}
               aria-label="Create new thread"
+              variant="gradient"
+              size="lg"
               className="flex-1"
             >
-              <MessageSquarePlus className="w-4 h-4 mr-2" />
-              New Chat
+              <Sparkles className="h-5 w-5" />
+              <span className="text-[0.9375rem] tracking-wide">New Chat</span>
             </Button>
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto mb-[var(--space-4)]">
-          <ul id="thread-list" className="list-none m-0 p-0">
-            {draftId && (
-              <ThreadItem
-                id={draftId}
-                title="New Chat (unsaved)"
-                isActive={currentId === draftId}
-                isDraft
-                onSelect={() => setCurrent(draftId)}
-              />
+        {!uiCollapsed ? (
+          <div className="flex-1 overflow-y-auto py-2 bg-popover/40" id="thread-list">
+            <Virtuoso
+              data={allItems}
+              totalCount={allItems.length}
+              itemContent={(index, item) => (
+                <ThreadItem
+                  key={item.id}
+                  id={item.id}
+                  title={item.title}
+                  isActive={currentId === item.id}
+                  isDraft={item.isDraft}
+                  updatedAt={item.updated_at}
+                  onSelect={() => startTransition(() => setCurrent(item.id))}
+                  collapsed={false}
+                />
+              )}
+              style={{ height: '100%', padding: '0 4px' }}
+            />
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto py-2 bg-transparent flex items-start justify-center" id="thread-list">
+            <div className="space-y-1">
+              {allItems.map((item) => (
+                <ThreadItem
+                  key={item.id}
+                  id={item.id}
+                  title={item.title}
+                  isActive={currentId === item.id}
+                  isDraft={item.isDraft}
+                  updatedAt={item.updated_at}
+                  onSelect={() => startTransition(() => setCurrent(item.id))}
+                  collapsed={true}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className={`${uiCollapsed ? '' : 'border-t bg-muted/20'} mt-auto pt-3 flex flex-col gap-1 -mx-3 px-3 -mb-3 pb-3 shrink-0 sticky bottom-0`}
+        >
+            {uiCollapsed ? (
+              <CollapsedNavItem title="Home" onClick={() => (window.location.href = '/') }>
+                <Home className="h-4 w-4" />
+              </CollapsedNavItem>
+            ) : (
+              <Button
+                variant="ghost"
+                onClick={() => (window.location.href = '/')}
+                className="justify-start"
+                size={uiCollapsed ? 'icon' : 'default'}
+                aria-label="Back to home"
+              >
+                <Home className="h-4 w-4" />
+                <span className="ml-2">Home</span>
+              </Button>
             )}
-            {threads.map((t) => (
-              <ThreadItem
-                key={t.id}
-                id={t.id}
-                title={t.title || `Thread #${t.id}`}
-                isActive={currentId === t.id}
-                onSelect={() => setCurrent(t.id)}
-              />
-            ))}
-          </ul>
-        </div>
 
-        <div className="border-t border-[var(--border-color)] pt-[var(--space-3)] flex flex-col gap-[var(--space-2)]">
-          <Button
-            variant="outline"
-            onClick={() => navigate('/')}
-            className="flex items-center gap-2"
-            aria-label="Back to Home"
-          >
-            <span>↩️</span>
-            <span>Back to Home</span>
-          </Button>
-           <Button
-             variant="outline"
-             onClick={() => useCatalogStore.getState().setCatalogOpen(true)}
-             className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2'} hover:bg-indigo-500/10 hover:border-indigo-500/30 transition-colors`}
-             aria-label="Open catalog"
-           >
-             <Package className="w-4 h-4" />
-             {!collapsed && <span>Catalog</span>}
-           </Button>
+            {uiCollapsed ? (
+              <CollapsedNavItem title="Catalog" onClick={() => useCatalogStore.getState().setCatalogOpen(true)}>
+                <Package className="h-4 w-4" />
+              </CollapsedNavItem>
+            ) : (
+              <Button
+                variant="ghost"
+                onClick={() => useCatalogStore.getState().setCatalogOpen(true)}
+                className="justify-start"
+                size={uiCollapsed ? 'icon' : 'default'}
+                aria-label="Open catalog"
+              >
+                <Package className="h-4 w-4" />
+                <span className="ml-2">Catalog</span>
+              </Button>
+            )}
 
-           <Button
-             variant="outline"
-             onClick={() => useSettings.getState().setSettingsOpen(true)}
-             className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2'}`}
-             aria-label="Open settings"
-           >
-             <Settings className="w-4 h-4" />
-             {!collapsed && <span>Settings</span>}
-           </Button>
+            {uiCollapsed ? (
+              <CollapsedNavItem title="Settings" onClick={() => useSettings.getState().setSettingsOpen(true)}>
+                <Settings className="h-4 w-4" />
+              </CollapsedNavItem>
+            ) : (
+              <Button
+                variant="ghost"
+                onClick={() => useSettings.getState().setSettingsOpen(true)}
+                className="justify-start"
+                size={uiCollapsed ? 'icon' : 'default'}
+                aria-label="Open settings"
+              >
+                <Settings className="h-4 w-4" />
+                <span className="ml-2">Settings</span>
+              </Button>
+            )}
 
-          {user && !collapsed && (
-            <div className="px-3 py-2.5 bg-[var(--panel)] border border-[var(--border-color)] rounded-lg text-[var(--font-sm)]">
-              <div className="opacity-70 mb-1">Signed in as</div>
+          {user && !uiCollapsed && (
+            <div className="mt-2 px-3 py-2 bg-muted/50 rounded-lg text-xs">
+              <div className="text-muted-foreground mb-1">Signed in as</div>
               <div className="font-medium overflow-hidden text-ellipsis whitespace-nowrap">
                 {user.full_name || user.email}
               </div>
             </div>
           )}
 
-          <Button
-            variant="destructive"
-            onClick={handleLogout}
-            className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2'}`}
-            aria-label="Sign out"
-          >
-            <LogOut className="w-4 h-4" />
-            {!collapsed && <span>Sign Out</span>}
-          </Button>
+            {uiCollapsed ? (
+              <CollapsedNavItem title="Sign out" onClick={handleLogout} className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                <LogOut className="h-4 w-4" />
+              </CollapsedNavItem>
+            ) : (
+              <Button
+                variant="ghost"
+                onClick={handleLogout}
+                className="justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
+                size={uiCollapsed ? 'icon' : 'default'}
+                aria-label="Sign out"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="ml-2">Sign Out</span>
+              </Button>
+            )}
         </div>
+      </div>
       </div>
     </aside>
   )

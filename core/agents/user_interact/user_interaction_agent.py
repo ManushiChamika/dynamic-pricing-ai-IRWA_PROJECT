@@ -3,8 +3,6 @@ import sqlite3
 from pathlib import Path
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-import subprocess
-import platform
 
 # Load .env variables if available
 try:
@@ -27,6 +25,19 @@ try:
 except Exception:
     TOOLS_MAP = {}
 
+<<<<<<< HEAD
+=======
+try:
+    from .prompts import get_system_prompt
+except Exception:
+    get_system_prompt = None
+
+try:
+    from .tool_schemas import TOOL_SCHEMAS, get_agent_for_tool
+except Exception:
+    TOOL_SCHEMAS = []
+    get_agent_for_tool = lambda name: ""
+>>>>>>> 379c70e69f421885ef6145953fb8ca8741ed7a4e
 
 class UserInteractionAgent:
     def __init__(self, user_name: str, mode: str = "user"):
@@ -39,8 +50,11 @@ class UserInteractionAgent:
             "price", "pricing", "discount", "offer", "demand", "supply",
             "cost", "profit", "margin", "dynamic pricing", "price optimization"
         ]
+<<<<<<< HEAD
         # Feature flags
         self.enable_sound = str(os.getenv("SOUND_NOTIFICATIONS", "0")).strip().lower() in {"1", "true", "yes", "on"}
+=======
+>>>>>>> 379c70e69f421885ef6145953fb8ca8741ed7a4e
         # Memory to store conversation history
         self.memory: List[Dict[str, str]] = []
 
@@ -56,6 +70,7 @@ class UserInteractionAgent:
         self.last_provider: Optional[str] = None
         self.last_usage: Dict[str, Any] = {}
 
+<<<<<<< HEAD
     def _play_completion_sound(self):
         """Play a sound to indicate task completion (guarded by feature flag)."""
         if not getattr(self, "enable_sound", False):
@@ -74,6 +89,10 @@ class UserInteractionAgent:
 
     def is_dynamic_pricing_related(self, message: str) -> bool:
         message_lower = (message or "").lower()
+=======
+    def is_dynamic_pricing_related(self, message):
+        message_lower = message.lower()
+>>>>>>> 379c70e69f421885ef6145953fb8ca8741ed7a4e
         return any(keyword in message_lower for keyword in self.keywords)
 
     def add_to_memory(self, role: str, content: str):
@@ -131,6 +150,7 @@ class UserInteractionAgent:
         if not self.memory or self.memory[-1].get("role") != "user" or self.memory[-1].get("content") != message:
             self.add_to_memory("user", message)
 
+<<<<<<< HEAD
         base_guidance = (
             "📊 You are a specialized assistant for the dynamic pricing system.\n"
             "🔧 You can call tools to retrieve data and recommend prices.\n"
@@ -177,6 +197,12 @@ class UserInteractionAgent:
             "📊 Use simple tables for comparisons.\n"
         )
         system_prompt = base_guidance + (dev_style if self.mode == "developer" else user_style)
+=======
+        if get_system_prompt is not None:
+            system_prompt = get_system_prompt(self.mode)
+        else:
+            system_prompt = "You are a helpful assistant."
+>>>>>>> 379c70e69f421885ef6145953fb8ca8741ed7a4e
 
         # Stream via LLM client
         try:
@@ -194,6 +220,7 @@ class UserInteractionAgent:
                     max_tokens_cfg = ui_max_tokens if ui_max_tokens > 0 else 1024
                     temperature = 0.2 if self.mode == "user" else 0.3
 
+<<<<<<< HEAD
 # Tool-Streaming Chat → real-time LLM dialogue with function calling
 # NLP pattern: Prompted, tool-augmented generation
 #  with streaming and bounded multi-turn tool orchestration.
@@ -293,13 +320,15 @@ class UserInteractionAgent:
                         }
                         return mapping.get(name or "")
 
+=======
+>>>>>>> 379c70e69f421885ef6145953fb8ca8741ed7a4e
                     # Accumulate full content for memory on completion
                     full_parts: List[str] = []
 
                     try:
                         for event in llm.chat_with_tools_stream(
                             messages=msgs,
-                            tools=tools,
+                            tools=TOOL_SCHEMAS,
                             functions_map=TOOLS_MAP,
                             tool_choice="auto",
                             max_rounds=(4 if self.mode == "user" else 5),
@@ -312,13 +341,12 @@ class UserInteractionAgent:
                                     text = event.get("text")
                                     if text:
                                         full_parts.append(text)
-                                        # Back-compat: yield as raw string
                                         yield text
                                 elif et == "tool_call":
                                     name = event.get("name")
                                     status = event.get("status")
                                     if status == "start":
-                                        agent = _agent_for_tool(name)
+                                        agent = get_agent_for_tool(name)
                                         if agent:
                                             yield {"type": "agent", "name": agent}
                                     yield {"type": "tool_call", "name": name, "status": status}
@@ -346,7 +374,6 @@ class UserInteractionAgent:
                     answer = ("".join(full_parts)).strip()
                     if answer:
                         self.add_to_memory("assistant", answer)
-                    self._play_completion_sound()
                     return
         except Exception:
             pass
@@ -357,5 +384,4 @@ class UserInteractionAgent:
             self.add_to_memory("assistant", fallback)
         except Exception:
             pass
-        self._play_completion_sound()
         yield fallback

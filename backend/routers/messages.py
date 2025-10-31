@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException
 from core.chat_db import (
     get_message,
     delete_message,
+    delete_message_cascade,
     update_message,
     get_thread_messages,
 )
@@ -28,7 +29,7 @@ def api_edit_message(message_id: int, req: EditMessageRequest):
 
 @router.delete("/messages/{message_id}", response_model=DeleteMessageResponse)
 def api_delete_message(message_id: int):
-    ok = delete_message(message_id)
+    ok = delete_message_cascade(message_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Message not found")
     return DeleteMessageResponse(ok=True)
