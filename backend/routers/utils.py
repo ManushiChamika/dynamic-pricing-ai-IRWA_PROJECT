@@ -89,6 +89,7 @@ def assemble_memory(thread_id: int) -> List[Dict[str, str]]:
 
     max_msgs = env_int("UI_HISTORY_MAX_MSGS", 200)
     tail_after_summary = env_int("UI_HISTORY_TAIL_AFTER_SUMMARY", 12)
+    boundary_context_msgs = env_int("UI_SUMMARY_BOUNDARY_CONTEXT", 3)
 
     latest = get_latest_summary(thread_id)
     cutoff_id = 0
@@ -98,6 +99,16 @@ def assemble_memory(thread_id: int) -> List[Dict[str, str]]:
             "content": f"Conversation summary up to message {latest.upto_message_id}:\n" + str(latest.content)
         })
         cutoff_id = int(latest.upto_message_id or 0)
+
+    if cutoff_id > 0:
+        boundary_msgs: List[ChatMessage] = [
+            m for m in msgs 
+            if m.id <= cutoff_id 
+            and m.id > cutoff_id - boundary_context_msgs * 2
+            and m.role in ("system", "user", "assistant")
+        ]
+        for m in boundary_msgs[-boundary_context_msgs:]:
+            mem.append({"role": m.role, "content": m.content})
 
     tail: List[ChatMessage] = [m for m in msgs if m.id > cutoff_id and m.role in ("system", "user", "assistant")]
     cap = max_msgs if cutoff_id == 0 else tail_after_summary
