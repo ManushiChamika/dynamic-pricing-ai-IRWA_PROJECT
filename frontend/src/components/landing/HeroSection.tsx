@@ -67,7 +67,7 @@ export function HeroSection({
             language—no coding required.
           </p>
 
-          <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center mb-10">
+          <div className="flex flex-col items-center gap-5 sm:flex-row sm:justify-center mb-8">
             {user ? (
               <Button
                 className="text-lg h-14 px-10 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0 shadow-[0_18px_40px_rgba(79,70,229,0.25)]"

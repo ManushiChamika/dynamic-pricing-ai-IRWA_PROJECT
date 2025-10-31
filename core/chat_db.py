@@ -107,6 +107,9 @@ def add_message(thread_id: int, role: str, content: str, **kwargs) -> Message:
     with SessionLocal() as db:
         m = Message(thread_id=thread_id, role=role, content=content, **kwargs)
         db.add(m)
+        t = db.get(Thread, thread_id)
+        if t:
+            t.updated_at = func.now()
         db.commit()
         db.refresh(m)
         return m

@@ -37,9 +37,10 @@ except Exception:
     get_agent_for_tool = lambda name: ""
 
 class UserInteractionAgent:
-    def __init__(self, user_name, mode: str = "user"):
+    def __init__(self, user_name, mode: str = "user", owner_id: Optional[str] = None):
         self.user_name = user_name
         self.mode = (mode or "user").lower()
+        self.owner_id = owner_id
         self.api_key = os.getenv("OPENROUTER_API_KEY")
         self.base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
         self.model_name = os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-r1-0528:free")
@@ -122,6 +123,13 @@ class UserInteractionAgent:
         # usually already contains the assembled history plus this user turn).
         if not self.memory or self.memory[-1].get("role") != "user" or self.memory[-1].get("content") != message:
             self.add_to_memory("user", message)
+
+        try:
+            from .context import set_owner_id
+            if self.owner_id:
+                set_owner_id(str(self.owner_id))
+        except Exception:
+            pass
 
         if get_system_prompt is not None:
             system_prompt = get_system_prompt(self.mode)

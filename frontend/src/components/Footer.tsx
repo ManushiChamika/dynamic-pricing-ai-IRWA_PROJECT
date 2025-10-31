@@ -23,8 +23,8 @@ export function Footer() {
 
   return (
     <footer className={`border-t ${footerBg} transition-colors`}>
-      <div className="container mx-auto px-6 py-16">
-        <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-5">
+        <div className="container mx-auto px-6 py-16">
+          <div className="grid gap-14 md:gap-16 md:grid-cols-2 lg:grid-cols-5">
           {/* Brand Section */}
           <div className="lg:col-span-2">
             <div className="flex items-center gap-2 mb-4">

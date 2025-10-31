@@ -211,6 +211,9 @@ export const useMessages = create<MessagesState>((set, get) => ({
     } finally {
       set({ controller: null, streamingActive: false, liveActiveAgent: null, liveTool: null })
       await get().refresh(actualThreadId)
+      if (isDraft) {
+        await threadsState.refresh()
+      }
     }
   },
   edit: async (id, content) => {

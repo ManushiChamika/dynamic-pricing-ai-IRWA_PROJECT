@@ -89,6 +89,7 @@ def assemble_memory(thread_id: int) -> List[Dict[str, str]]:
 
     max_msgs = env_int("UI_HISTORY_MAX_MSGS", 200)
     tail_after_summary = env_int("UI_HISTORY_TAIL_AFTER_SUMMARY", 12)
+    boundary_context_msgs = env_int("UI_SUMMARY_BOUNDARY_CONTEXT", 3)
 
     latest = get_latest_summary(thread_id)
     cutoff_id = 0
@@ -98,6 +99,16 @@ def assemble_memory(thread_id: int) -> List[Dict[str, str]]:
             "content": f"Conversation summary up to message {latest.upto_message_id}:\n" + str(latest.content)
         })
         cutoff_id = int(latest.upto_message_id or 0)
+
+    if cutoff_id > 0:
+        boundary_msgs: List[ChatMessage] = [
+            m for m in msgs 
+            if m.id <= cutoff_id 
+            and m.id > cutoff_id - boundary_context_msgs * 2
+            and m.role in ("system", "user", "assistant")
+        ]
+        for m in boundary_msgs[-boundary_context_msgs:]:
+            mem.append({"role": m.role, "content": m.content})
 
     tail: List[ChatMessage] = [m for m in msgs if m.id > cutoff_id and m.role in ("system", "user", "assistant")]
     cap = max_msgs if cutoff_id == 0 else tail_after_summary
@@ -253,10 +264,11 @@ def summarize_assistant_response(content: str) -> str:
 
 def generate_thread_title(thread_id: int) -> Optional[str]:
     import logging
+    import os as _os
     logger = logging.getLogger("backend.routers.utils")
     
     try:
-        from core.agents.llm_client import get_llm_client
+        from core.agents.llm_client import LLMClient
     except Exception:
         return None
 
@@ -294,10 +306,20 @@ def generate_thread_title(thread_id: int) -> Optional[str]:
         transcript = "\n".join(lines)
 
     try:
-        llm = get_llm_client()
+        llm = LLMClient()
         if not llm.is_available():
             logger.warning("LLM client unavailable for title generation")
             return None
+        
+        # Switch to Flash provider if we're on Gemini Pro (indices 0-2 are Pro, 3-5 are Flash)
+        # This avoids the max_tokens issue with Gemini Pro
+        if hasattr(llm, '_active_index') and llm._active_index is not None:
+            if 0 <= llm._active_index <= 2 and len(llm._providers) >= 4:
+                # Try to switch to corresponding Flash provider
+                flash_index = llm._active_index + 3
+                if flash_index < len(llm._providers):
+                    logger.debug(f"Switching from provider {llm._active_index} to Flash provider {flash_index} for title generation")
+                    llm._set_active_provider(flash_index)
 
         system = (
             "You are a helpful assistant that creates concise, meaningful thread titles. "
@@ -306,11 +328,11 @@ def generate_thread_title(thread_id: int) -> Optional[str]:
         )
         prompt = f"Generate a thread title based on this conversation:\n\n{transcript}"
         
-        logger.debug(f"Requesting title generation for thread {thread_id}")
+        logger.debug(f"Requesting title generation for thread {thread_id} using provider {llm._provider}")
         title = llm.chat([
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},
-        ], max_tokens=200, temperature=0.3)
+        ], max_tokens=4096, temperature=0.3)
 
         logger.debug(f"LLM returned title: '{title}' (length={len(title)})")
         

@@ -2,6 +2,12 @@ import sqlite3
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 
+try:
+    from .context import get_owner_id
+except Exception:
+    def get_owner_id():
+        return None
+
 
 def get_db_paths():
     root = Path(__file__).resolve().parents[3]
@@ -22,37 +28,79 @@ def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
 def list_inventory_items(search: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
     db_paths = get_db_paths()
     db_path = str(db_paths["app"])
+    owner_id = get_owner_id()
+    
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"[DEBUG] list_inventory_items called with owner_id={owner_id}")
+    
     try:
         with sqlite3.connect(db_path) as conn:
             conn.row_factory = sqlite3.Row
             if not _table_exists(conn, "product_catalog"):
                 return {"items": [], "total": 0, "note": "product_catalog missing"}
+            
             q = "SELECT sku, title, currency, current_price, cost, stock, updated_at FROM product_catalog"
             params: List[Any] = []
+            
+            conditions = []
+            if owner_id:
+                conditions.append("owner_id = ?")
+                params.append(owner_id)
+                logger.info(f"[DEBUG] Filtering by owner_id={owner_id}")
+            else:
+                logger.warning("[DEBUG] No owner_id set - returning all items!")
+            
             if search:
-                q += " WHERE sku LIKE ? OR title LIKE ?"
+                conditions.append("(sku LIKE ? OR title LIKE ?)")
                 like = f"%{search}%"
                 params.extend([like, like])
+            
+            if conditions:
+                q += " WHERE " + " AND ".join(conditions)
+            
             q += " ORDER BY updated_at DESC LIMIT ?"
             params.append(int(limit))
+            logger.info(f"[DEBUG] Executing query: {q} with params: {params}")
             rows = [dict(r) for r in conn.execute(q, params).fetchall()]
+            logger.info(f"[DEBUG] Found {len(rows)} items")
+
+            if not rows and not search:
+                return {
+                    "message": (
+                        "Your inventory is currently empty. To get started, please upload your product catalog.\n"
+                        "1. Navigate to the **Catalog** page from the main menu.\n"
+                        "2. Click the **Upload CSV** button.\n"
+                        "3. Follow the on-screen instructions to format and upload your file."
+                    )
+                }
+            
             return {"items": rows, "total": len(rows)}
     except Exception as e:
+        logger.error(f"[DEBUG] Error in list_inventory_items: {e}")
         return {"error": str(e)}
 
 
 def get_inventory_item(sku: str) -> Dict[str, Any]:
     db_paths = get_db_paths()
     db_path = str(db_paths["app"])
+    owner_id = get_owner_id()
+    
     try:
         with sqlite3.connect(db_path) as conn:
             conn.row_factory = sqlite3.Row
             if not _table_exists(conn, "product_catalog"):
                 return {"item": None, "note": "product_catalog missing"}
-            row = conn.execute(
-                "SELECT sku, title, currency, current_price, cost, stock, updated_at FROM product_catalog WHERE sku=? LIMIT 1",
-                (sku,),
-            ).fetchone()
+            
+            q = "SELECT sku, title, currency, current_price, cost, stock, updated_at FROM product_catalog WHERE sku=?"
+            params = [sku]
+            
+            if owner_id:
+                q += " AND owner_id=?"
+                params.append(owner_id)
+            
+            q += " LIMIT 1"
+            row = conn.execute(q, params).fetchone()
             return {"item": dict(row) if row else None}
     except Exception as e:
         return {"error": str(e)}
@@ -82,19 +130,34 @@ def list_pricing_list(search: Optional[str] = None, limit: int = 50) -> Dict[str
 def list_price_proposals(sku: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
     db_paths = get_db_paths()
     db_path = str(db_paths["app"])
+    owner_id = get_owner_id()
+    
     try:
         with sqlite3.connect(db_path) as conn:
             conn.row_factory = sqlite3.Row
             if not _table_exists(conn, "price_proposals"):
                 return {"items": [], "total": 0, "note": "price_proposals missing"}
-            q = (
-                "SELECT id, sku, proposed_price, current_price, margin, algorithm, ts FROM price_proposals"
-            )
-            params: List[Any] = []
-            if sku:
-                q += " WHERE sku = ?"
-                params.append(sku)
-            q += " ORDER BY ts DESC LIMIT ?"
+            
+            if owner_id:
+                q = """
+                    SELECT pp.id, pp.sku, pp.proposed_price, pp.current_price, pp.margin, pp.algorithm, pp.ts 
+                    FROM price_proposals pp
+                    INNER JOIN product_catalog pc ON pp.sku = pc.sku
+                    WHERE pc.owner_id = ?
+                """
+                params: List[Any] = [owner_id]
+                
+                if sku:
+                    q += " AND pp.sku = ?"
+                    params.append(sku)
+            else:
+                q = "SELECT id, sku, proposed_price, current_price, margin, algorithm, ts FROM price_proposals"
+                params: List[Any] = []
+                if sku:
+                    q += " WHERE sku = ?"
+                    params.append(sku)
+            
+            q += " ORDER BY pp.ts DESC LIMIT ?" if owner_id else " ORDER BY ts DESC LIMIT ?"
             params.append(int(limit))
             rows = [dict(r) for r in conn.execute(q, params).fetchall()]
             return {"items": rows, "total": len(rows)}
@@ -136,6 +199,15 @@ def list_proposals(sku: str = "", limit: int = 10) -> Dict[str, Any]:
 
 
 def optimize_price(sku: str) -> Dict[str, Any]:
+    owner_id = get_owner_id()
+    
+    if owner_id:
+        item_check = get_inventory_item(sku)
+        if item_check.get("error"):
+            return {"ok": False, "error": f"Failed to verify SKU ownership: {item_check['error']}"}
+        if not item_check.get("item"):
+            return {"ok": False, "error": f"SKU '{sku}' not found in your inventory"}
+    
     try:
         from core.agents.price_optimizer.agent import PricingOptimizerAgent
         import asyncio
@@ -207,18 +279,31 @@ def check_stale_market_data(threshold_minutes: int = 60) -> Dict[str, Any]:
 def scan_for_alerts() -> Dict[str, Any]:
     db_paths = get_db_paths()
     db_path = str(db_paths["app"])
+    owner_id = get_owner_id()
+    
     try:
         with sqlite3.connect(db_path) as conn:
             conn.row_factory = sqlite3.Row
             if not _table_exists(conn, "incidents"):
                 return {"alerts": [], "total": 0, "note": "incidents table missing"}
             
-            rows = conn.execute(
-                """SELECT id, sku, title, severity, status, created_at, details 
-                   FROM incidents 
-                   ORDER BY created_at DESC 
-                   LIMIT 50"""
-            ).fetchall()
+            if owner_id:
+                rows = conn.execute(
+                    """SELECT i.id, i.sku, i.title, i.severity, i.status, i.created_at, i.details 
+                       FROM incidents i
+                       INNER JOIN product_catalog pc ON i.sku = pc.sku
+                       WHERE pc.owner_id = ?
+                       ORDER BY i.created_at DESC 
+                       LIMIT 50""",
+                    (owner_id,)
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """SELECT id, sku, title, severity, status, created_at, details 
+                       FROM incidents 
+                       ORDER BY created_at DESC 
+                       LIMIT 50"""
+                ).fetchall()
             
             alerts = [dict(r) for r in rows]
             open_count = sum(1 for a in alerts if a.get("status") == "OPEN")

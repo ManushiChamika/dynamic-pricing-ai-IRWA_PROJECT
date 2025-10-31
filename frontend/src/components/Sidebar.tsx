@@ -88,7 +88,7 @@ export function Sidebar() {
     >
       <div className={`will-change-transform transition-transform duration-250 ease-in-out motion-reduce:transition-none h-full`}>
         <div className={`flex flex-col h-svh gap-3 ${uiCollapsed ? 'p-2 items-center' : 'p-3'}`}>
-        <div className={"flex gap-2 shrink-0"}>
+        <div className={uiCollapsed ? 'flex flex-col items-center gap-2 shrink-0' : 'flex gap-2 shrink-0'}>
           <Button
             variant="ghost"
             size="icon"
@@ -99,7 +99,19 @@ export function Sidebar() {
           >
             {uiCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
-          {!uiCollapsed && (
+          {uiCollapsed ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Create new thread"
+              onClick={() => {
+                navigate('/chat')
+                createDraftThread()
+              }}
+            >
+              <Sparkles className="h-4 w-4" />
+            </Button>
+          ) : (
             <Button
               onClick={() => {
                 navigate('/chat')
