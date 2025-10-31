@@ -7,7 +7,9 @@ try:
     from dotenv import load_dotenv
 except Exception:
     load_dotenv = None
-from typing import Any, Dict, List, Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Load .env variables if available
 if 'load_dotenv' in globals() and callable(load_dotenv):
@@ -35,6 +37,9 @@ try:
 except Exception:
     TOOL_SCHEMAS = []
     get_agent_for_tool = lambda name: ""
+
+from typing import Optional, List
+
 
 class UserInteractionAgent:
     def __init__(self, user_name, mode: str = "user", owner_id: Optional[str] = None):
