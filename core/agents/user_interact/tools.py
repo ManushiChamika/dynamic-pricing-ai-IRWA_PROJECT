@@ -178,6 +178,15 @@ def list_proposals(sku: str = "", limit: int = 10) -> Dict[str, Any]:
 
 
 def optimize_price(sku: str) -> Dict[str, Any]:
+    owner_id = get_owner_id()
+    
+    if owner_id:
+        item_check = get_inventory_item(sku)
+        if item_check.get("error"):
+            return {"ok": False, "error": f"Failed to verify SKU ownership: {item_check['error']}"}
+        if not item_check.get("item"):
+            return {"ok": False, "error": f"SKU '{sku}' not found in your inventory"}
+    
     try:
         from core.agents.price_optimizer.agent import PricingOptimizerAgent
         import asyncio
@@ -249,18 +258,31 @@ def check_stale_market_data(threshold_minutes: int = 60) -> Dict[str, Any]:
 def scan_for_alerts() -> Dict[str, Any]:
     db_paths = get_db_paths()
     db_path = str(db_paths["app"])
+    owner_id = get_owner_id()
+    
     try:
         with sqlite3.connect(db_path) as conn:
             conn.row_factory = sqlite3.Row
             if not _table_exists(conn, "incidents"):
                 return {"alerts": [], "total": 0, "note": "incidents table missing"}
             
-            rows = conn.execute(
-                """SELECT id, sku, title, severity, status, created_at, details 
-                   FROM incidents 
-                   ORDER BY created_at DESC 
-                   LIMIT 50"""
-            ).fetchall()
+            if owner_id:
+                rows = conn.execute(
+                    """SELECT i.id, i.sku, i.title, i.severity, i.status, i.created_at, i.details 
+                       FROM incidents i
+                       INNER JOIN product_catalog pc ON i.sku = pc.sku
+                       WHERE pc.owner_id = ?
+                       ORDER BY i.created_at DESC 
+                       LIMIT 50""",
+                    (owner_id,)
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """SELECT id, sku, title, severity, status, created_at, details 
+                       FROM incidents 
+                       ORDER BY created_at DESC 
+                       LIMIT 50"""
+                ).fetchall()
             
             alerts = [dict(r) for r in rows]
             open_count = sum(1 for a in alerts if a.get("status") == "OPEN")
