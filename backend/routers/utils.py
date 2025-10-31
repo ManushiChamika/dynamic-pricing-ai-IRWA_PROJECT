@@ -253,10 +253,11 @@ def summarize_assistant_response(content: str) -> str:
 
 def generate_thread_title(thread_id: int) -> Optional[str]:
     import logging
+    import os as _os
     logger = logging.getLogger("backend.routers.utils")
     
     try:
-        from core.agents.llm_client import get_llm_client
+        from core.agents.llm_client import LLMClient
     except Exception:
         return None
 
@@ -294,10 +295,20 @@ def generate_thread_title(thread_id: int) -> Optional[str]:
         transcript = "\n".join(lines)
 
     try:
-        llm = get_llm_client()
+        llm = LLMClient()
         if not llm.is_available():
             logger.warning("LLM client unavailable for title generation")
             return None
+        
+        # Switch to Flash provider if we're on Gemini Pro (indices 0-2 are Pro, 3-5 are Flash)
+        # This avoids the max_tokens issue with Gemini Pro
+        if hasattr(llm, '_active_index') and llm._active_index is not None:
+            if 0 <= llm._active_index <= 2 and len(llm._providers) >= 4:
+                # Try to switch to corresponding Flash provider
+                flash_index = llm._active_index + 3
+                if flash_index < len(llm._providers):
+                    logger.debug(f"Switching from provider {llm._active_index} to Flash provider {flash_index} for title generation")
+                    llm._set_active_provider(flash_index)
 
         system = (
             "You are a helpful assistant that creates concise, meaningful thread titles. "
@@ -306,11 +317,11 @@ def generate_thread_title(thread_id: int) -> Optional[str]:
         )
         prompt = f"Generate a thread title based on this conversation:\n\n{transcript}"
         
-        logger.debug(f"Requesting title generation for thread {thread_id}")
+        logger.debug(f"Requesting title generation for thread {thread_id} using provider {llm._provider}")
         title = llm.chat([
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},
-        ], max_tokens=200, temperature=0.3)
+        ], max_tokens=4096, temperature=0.3)
 
         logger.debug(f"LLM returned title: '{title}' (length={len(title)})")
         
