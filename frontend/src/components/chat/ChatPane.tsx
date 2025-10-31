@@ -1,5 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { SCROLL_STICKY_THRESHOLD_PX } from '@/lib/constants'
+import React, { useEffect, useRef } from 'react'
 import { useMessages, useMessagesActions } from '../../stores/messageStore'
 import { useCurrentThread, useThreads } from '../../stores/threadStore'
 import { useSettings, useDisplaySettings, useAppMode } from '../../stores/settingsStore'
@@ -8,7 +7,7 @@ import { ChatHeader } from './ChatHeader'
 import { ChatComposer } from './ChatComposer'
 import { DraftMessageView } from './DraftMessageView'
 import { EmptyState } from './EmptyState'
-import { MessageList } from './MessageList'
+import { VirtualizedMessageList } from './VirtualizedMessageList'
 import { useChatSettings } from '../../hooks/useChatSettings'
 import { useChatKeyboardShortcuts } from '../../hooks/useChatKeyboardShortcuts'
 
@@ -20,23 +19,10 @@ export function ChatPane() {
   const displaySettings = useDisplaySettings()
   const { mode, streaming } = useAppMode()
   const token = useAuthToken()
-  const [_input, setInput] = useState('')
   const msgsRef = useRef<HTMLDivElement | null>(null)
-  const shouldStickRef = useRef(true)
 
   useChatSettings(token)
-  useChatKeyboardShortcuts(currentId, streamingActive, streaming, setInput)
-  useEffect(() => {
-    const el = msgsRef.current
-    if (!el) return
-    const onScroll = () => {
-      const nearBottom =
-        el.scrollTop + el.clientHeight >= el.scrollHeight - SCROLL_STICKY_THRESHOLD_PX
-      shouldStickRef.current = nearBottom
-    }
-    el.addEventListener('scroll', onScroll)
-    return () => el.removeEventListener('scroll', onScroll)
-  }, [])
+  useChatKeyboardShortcuts(currentId, streamingActive, streaming, () => {})
 
   useEffect(() => {
     if (currentId) {
@@ -55,13 +41,6 @@ export function ChatPane() {
     useMessages.setState({ turnStats: null })
   }, [currentId])
   useEffect(() => {
-    const el = msgsRef.current
-    if (!el || !shouldStickRef.current) return
-    requestAnimationFrame(() => {
-      el.scrollTop = el.scrollHeight
-    })
-  }, [messages])
-  useEffect(() => {
     if (mode === 'developer') {
       useSettings.setState({ showMeta: true, showTimestamps: true })
     }
@@ -71,7 +50,7 @@ export function ChatPane() {
     <main className="flex-1 min-w-0 flex flex-col bg-background transition-[padding] duration-300 ease-in-out motion-reduce:transition-none">
       <ChatHeader />
       <div
-        className="flex-1 overflow-auto px-3 md:px-6 py-4 flex flex-col items-center gap-4 scroll-smooth bg-gradient-to-b from-background to-muted/10"
+        className="flex-1 overflow-auto bg-gradient-to-b from-background to-muted/10 scroll-smooth"
         ref={msgsRef}
         role="log"
         aria-live="polite"
@@ -84,7 +63,7 @@ export function ChatPane() {
             return messages.length || isDraft ? (
               <>
                 {isDraft && <DraftMessageView />}
-                <MessageList
+                <VirtualizedMessageList
                   messages={messages}
                   showModel={displaySettings.showModel}
                   showTimestamps={displaySettings.showTimestamps}

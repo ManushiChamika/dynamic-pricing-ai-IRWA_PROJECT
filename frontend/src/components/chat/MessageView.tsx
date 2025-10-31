@@ -1,9 +1,13 @@
 import React, { useEffect, useRef, useState, lazy, Suspense } from 'react'
+import { motion } from 'framer-motion'
 import { MarkdownRenderer } from './MarkdownRenderer'
 import { BranchNavigator } from '../BranchNavigator'
 import { ThinkingTokens } from '../ThinkingTokens'
 import { MessageActions } from './MessageActions'
 import { MessageMetadata } from './MessageMetadata'
+import { AgentActivity } from './AgentActivity'
+import { TypingIndicator } from './TypingIndicator'
+import { messageVariants } from './animations'
 import {
   useMessages,
   useMessagesActions,
@@ -78,17 +82,21 @@ function MessageViewComponent({
 
 
   return (
-    <div
+    <motion.div
       ref={rowRef}
-      className={`group/message w-full max-w-3xl mx-auto animate-slideIn origin-left transition-colors duration-200 rounded-lg mb-4 md:mb-6 py-2 md:py-3 ${m.role === 'user' ? 'pl-8 md:pl-16' : 'pr-8 md:pr-16'}`}
+      className={`group/message w-full max-w-3xl mx-auto origin-left transition-colors duration-200 rounded-lg mb-6 md:mb-8 py-3 md:py-4 ${m.role === 'user' ? 'pl-8 md:pl-16' : 'pr-8 md:pr-16'}`}
       role="article"
       aria-label={`${m.role} message`}
       style={{ backgroundColor: hovered ? 'hsl(var(--accent) / 0.05)' : 'transparent' }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       data-message-id={m.id}
+      variants={messageVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
     >
-      <div className={`flex gap-3 items-start ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
+      <div className={`flex gap-4 items-start ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
         <div
           className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ring-1 ring-white/10 ${m.role === 'user' ? 'bg-muted border-2 border-foreground/40' : 'bg-gradient-to-br from-purple-500 via-violet-500 to-indigo-500 shadow-sm'}`}
         >
@@ -100,25 +108,28 @@ function MessageViewComponent({
         </div>
         <div className={`${m.role === 'user' ? 'flex-1 flex flex-col items-end' : 'flex-1'} space-y-2`}>
           <div
-            className={`${m.role === 'user' ? 'bg-primary/10 border border-primary/20 text-right inline-block max-w-[85%] md:max-w-[70%] shadow-sm rounded-2xl px-4 py-3' : 'w-full md:max-w-[85%] px-0 py-0'} transition-colors leading-relaxed`}
+            className={`${m.role === 'user' ? 'bg-primary/10 text-right inline-block max-w-[85%] md:max-w-[70%] shadow-[0_2px_12px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] rounded-2xl px-5 py-3.5' : 'w-full md:max-w-[85%] px-0 py-0'} transition-all duration-200 leading-[1.7]`}
             style={undefined}
           >
             {m.role === 'assistant' ? (
               <MarkdownRenderer content={m.content || ''} />
             ) : (
-               <pre className="whitespace-pre-wrap text-right leading-relaxed">{m.content}</pre>
+               <pre className="whitespace-pre-wrap text-right leading-[1.7] text-[15px]">{m.content}</pre>
 
             )}
           </div>
           {showThinking && m.thinking && m.role === 'assistant' ? (
             <ThinkingTokens thinking={m.thinking} />
           ) : null}
+          {m.role === 'assistant' && (m.agents?.count || 0) > 0 ? (
+            <AgentActivity agents={m.agents} tools={m.tools} />
+          ) : null}
           {m.metadata?.priceData && m.role === 'assistant' ? (
             <div className="mt-3">
               <Suspense
                 fallback={
                   <div className="text-center py-4 text-muted-foreground text-sm">
-                    Loading chart…
+                    <TypingIndicator />
                   </div>
                 }
               >
@@ -155,7 +166,7 @@ function MessageViewComponent({
           />
         </div>
       </div>
-    </div>
+    </motion.div>
   )
 }
 

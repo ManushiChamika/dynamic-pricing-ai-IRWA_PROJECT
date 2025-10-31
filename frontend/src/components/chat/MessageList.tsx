@@ -1,4 +1,5 @@
 import React from 'react'
+import { AnimatePresence } from 'framer-motion'
 import { MessageView } from './MessageView'
 import { type Message } from '../../stores/messageStore'
 
@@ -11,7 +12,7 @@ interface MessageListProps {
 
 function MessageListComponent({ messages, showModel, showTimestamps, showMeta }: MessageListProps) {
   return (
-    <>
+    <AnimatePresence mode="popLayout">
       {messages.map((m) => (
         <MessageView
           key={m.id}
@@ -22,7 +23,7 @@ function MessageListComponent({ messages, showModel, showTimestamps, showMeta }:
           allMessages={messages}
         />
       ))}
-    </>
+    </AnimatePresence>
   )
 }
 
