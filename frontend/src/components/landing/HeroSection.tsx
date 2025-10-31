@@ -61,12 +61,7 @@ export function HeroSection({
           </h1>
 
           <p
-            className={`mb-4 text-xl md:text-2xl leading-relaxed max-w-3xl mx-auto text-center ${mutedText}`}
-          >
-            Everything you need to optimize pricing and stay competitive
-          </p>
-          <p
-            className={`mb-12 text-lg md:text-xl leading-relaxed max-w-3xl mx-auto text-center ${mutedText}`}
+            className={`mb-12 text-xl md:text-2xl leading-relaxed max-w-3xl mx-auto text-center ${mutedText}`}
           >
             Let AI agents optimize your pricing in real-time. Control everything through natural
             language—no coding required.
