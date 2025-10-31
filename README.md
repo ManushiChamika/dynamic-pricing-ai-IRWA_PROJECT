@@ -5,31 +5,100 @@ A FastAPI backend with a lightweight static HTML/JS UI for chat-driven dynamic p
 
 ## Quickstart
 
-### Option 1: Easy Start (Windows)
-**Double-click `run_app.bat`** in the project root folder. This will:
+### Option 1: Easy Start with Full Stack (Windows)
+**Double-click `run_full_app.bat`** in the project root folder. This will:
+- Validate your environment (Python, Node.js, databases, API keys)
+- Check and install dependencies if needed
+- Clean up any stale processes on ports 8000 and 5173
+- Start both backend (port 8000) and frontend dev server (port 5173) with hot-reload
+- Show you the URLs to access the application
+
+**Recommended for development:** This gives you hot-reload on both frontend and backend.
+
+### Option 2: Production Start (Windows)
+**Double-click `run_app.bat`** for a production-like build:
 - Check Python installation
 - Install dependencies if needed  
 - Find an available port (8000, 8001, or 8002)
+- Build the frontend and serve it from the backend
 - Start the server and show you the URL to open
 
-### Option 2: Manual Setup
-1) Create and fill in your `.env` based on `.env.example`
-- Copy `.env.example` to `.env` and add any provider keys you have.
-- If you have no keys, the UI still works with a non‑LLM fallback response.
+### Option 3: Manual Setup
+1) **Validate your environment first**
+```bash
+python scripts/validate_startup.py
+```
+This checks:
+- Python version (3.8+)
+- Database files and schemas
+- API key configuration
+- Critical dependencies
 
-2) Install dependencies
-- Python 3.10+
-- pip install -r requirements.txt
+2) **Create and fill in your `.env`** based on `.env.example`
+```bash
+copy .env.example .env
+```
+Add at least one API key:
+- `GEMINI_API_KEY` (recommended - free tier available at https://ai.google.dev)
+- `OPENROUTER_API_KEY` (alternative - has free models)
+- `OPENAI_API_KEY` (alternative - paid)
 
-3) Build and run the application
-- cd frontend && npm install && npm run build && cd ..
-- uvicorn backend.main:app --reload --port 8000
-- Open http://localhost:8000 for the application
-- Or use run_full_app.bat for hot-reload development (backend + frontend dev server)
+3) **Install dependencies**
+- Python 3.10+ required
+```bash
+pip install -r requirements.txt
+cd frontend && npm install && cd ..
+```
 
-4) Optional: run tests
-- Backend: pytest -q
-- Frontend: cd frontend && npm test
+4) **Build and run the application**
+
+For production build:
+```bash
+cd frontend && npm run build && cd ..
+uvicorn backend.main:app --reload --port 8000
+```
+
+For development with hot-reload:
+```bash
+# Terminal 1: Backend
+uvicorn backend.main:app --reload --port 8000
+
+# Terminal 2: Frontend
+cd frontend && npm run dev
+```
+
+5) **Access the application**
+- Production: http://localhost:8000
+- Development: http://localhost:5173 (frontend) + http://localhost:8000 (backend API)
+
+6) **Optional: run tests**
+- Backend: `pytest -q`
+- Frontend: `cd frontend && npm test`
+
+### Troubleshooting Startup Issues
+
+If you encounter errors during startup:
+
+1. **Run validation to diagnose issues:**
+```bash
+python scripts/validate_startup.py
+```
+
+2. **Fix database schema issues:**
+```bash
+python scripts/fix_database_schema.py
+```
+
+3. **Check the detailed logs:**
+```
+app_launcher.log
+```
+
+4. **Common fixes:**
+- Missing API keys: Add them to `.env` file
+- Database errors: Run `python scripts/fix_database_schema.py`
+- Port conflicts: Close applications using ports 8000 or 5173
+- Dependency issues: Run `pip install -r requirements.txt`
 
 
 ## Architecture Overview

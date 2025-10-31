@@ -49,6 +49,15 @@ if errorlevel 1 (
 )
 echo [%date% %time%] INFO: Completed checkPrerequisites >> "%LOG_FILE%"
 
+:: Validate startup environment (databases, API keys, schemas)
+echo [%date% %time%] INFO: Starting startup validation >> "%LOG_FILE%"
+call :validateStartup
+if errorlevel 1 (
+    echo [%date% %time%] ERROR: Startup validation failed >> "%LOG_FILE%"
+    goto :errorExit
+)
+echo [%date% %time%] INFO: Completed startup validation >> "%LOG_FILE%"
+
 :: Clean up existing processes (run before port checks)
 echo [%date% %time%] INFO: Starting cleanupProcesses >> "%LOG_FILE%"
 call :cleanupProcesses
@@ -172,6 +181,46 @@ echo Checking prerequisites...
 
 echo.
 goto :eof
+
+:validateStartup
+echo Validating startup environment...
+echo [%date% %time%] INFO: Running startup validation script >> "%LOG_FILE%"
+
+:: Run the Python validation script
+python scripts/validate_startup.py >> "%LOG_FILE%" 2>&1
+set "VALIDATION_EXIT=%errorlevel%"
+
+if %VALIDATION_EXIT% equ 0 (
+    echo [OK] Startup validation passed
+    echo [%date% %time%] INFO: Startup validation passed >> "%LOG_FILE%"
+    exit /b 0
+)
+
+if %VALIDATION_EXIT% equ 2 (
+    echo [WARNING] Startup validation has warnings but can proceed
+    echo [%date% %time%] WARN: Startup validation has warnings >> "%LOG_FILE%"
+    echo Check %LOG_FILE% for details
+    echo.
+    choice /C YN /M "Continue anyway"
+    if errorlevel 2 (
+        echo [%date% %time%] INFO: User cancelled due to warnings >> "%LOG_FILE%"
+        exit /b 1
+    )
+    exit /b 0
+)
+
+:: Critical errors found (exit code 1)
+echo [ERROR] Startup validation failed with critical errors
+echo [%date% %time%] ERROR: Critical validation errors >> "%LOG_FILE%"
+echo.
+echo Please fix the issues above before launching the application.
+echo Common fixes:
+echo   1. Configure API keys in .env file
+echo   2. Run: python scripts/fix_database_schema.py
+echo   3. Run: pip install -r requirements.txt
+echo.
+echo Check %LOG_FILE% for detailed error information.
+exit /b 1
 
 :validatePorts
 echo Validating port availability...

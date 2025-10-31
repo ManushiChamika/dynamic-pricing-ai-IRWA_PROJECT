@@ -149,8 +149,11 @@ export function ChatHeader() {
         >
           <BarChart3 className="h-4 w-4" />
         </button>
-        <strong>Thread</strong>
-        <span>#{currentId ?? '-'}</span>
+        <strong className="truncate max-w-[200px] md:max-w-[400px]">
+          {currentId
+            ? useThreads.getState().threads.find((x) => x.id === currentId)?.title || 'Untitled Thread'
+            : 'No Thread Selected'}
+        </strong>
         {streamingActive ? (
           <span
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-accent/20 text-accent border border-accent/30 whitespace-nowrap overflow-hidden text-ellipsis max-w-[40vw] md:max-w-none"
