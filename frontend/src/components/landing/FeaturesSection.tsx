@@ -17,10 +17,7 @@ export function FeaturesSection({
     <section id="features" className={`px-6 py-24 ${secondarySurface} relative overflow-hidden`}>
       <div className="container mx-auto relative z-10">
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold mb-6">Powerful Features</h2>
-          <p className={`text-xl ${mutedText} max-w-2xl mx-auto`}>
-            Everything you need to optimize pricing and stay competitive
-          </p>
+          <h2 className="text-4xl font-bold">Powerful Features</h2>
         </div>
 
         <div className="grid gap-8 md:grid-cols-3 max-w-6xl mx-auto">
