@@ -30,6 +30,10 @@ def list_inventory_items(search: Optional[str] = None, limit: int = 50) -> Dict[
     db_path = str(db_paths["app"])
     owner_id = get_owner_id()
     
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"[DEBUG] list_inventory_items called with owner_id={owner_id}")
+    
     try:
         with sqlite3.connect(db_path) as conn:
             conn.row_factory = sqlite3.Row
@@ -43,6 +47,9 @@ def list_inventory_items(search: Optional[str] = None, limit: int = 50) -> Dict[
             if owner_id:
                 conditions.append("owner_id = ?")
                 params.append(owner_id)
+                logger.info(f"[DEBUG] Filtering by owner_id={owner_id}")
+            else:
+                logger.warning("[DEBUG] No owner_id set - returning all items!")
             
             if search:
                 conditions.append("(sku LIKE ? OR title LIKE ?)")
@@ -54,9 +61,12 @@ def list_inventory_items(search: Optional[str] = None, limit: int = 50) -> Dict[
             
             q += " ORDER BY updated_at DESC LIMIT ?"
             params.append(int(limit))
+            logger.info(f"[DEBUG] Executing query: {q} with params: {params}")
             rows = [dict(r) for r in conn.execute(q, params).fetchall()]
+            logger.info(f"[DEBUG] Found {len(rows)} items")
             return {"items": rows, "total": len(rows)}
     except Exception as e:
+        logger.error(f"[DEBUG] Error in list_inventory_items: {e}")
         return {"error": str(e)}
 
 
