@@ -47,6 +47,7 @@ data/events.jsonl
 .env
 .env.*
 *.log
+data/events.jsonl
 auth.db
 app/alert.db
 user_data.json
