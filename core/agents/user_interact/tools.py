@@ -42,33 +42,16 @@ def list_inventory_items(search: Optional[str] = None, limit: int = 50) -> Dict[
             
             q = "SELECT sku, title, currency, current_price, cost, stock, updated_at FROM product_catalog"
             params: List[Any] = []
-            
-            conditions = []
+            conditions: List[str] = []
             if owner_id:
                 conditions.append("owner_id = ?")
                 params.append(owner_id)
-                logger.info(f"[DEBUG] Filtering by owner_id={owner_id}")
-            else:
-                return {
-                    "items": [],
-                    "total": 0,
-                    "message": (
-                        "Your inventory is currently empty. To get started, please upload your product catalog.\n"
-                        "1. Click the **Catalog** icon in the sidebar menu.\n"
-                        "2. In the modal, click **Choose File** and select your CSV or JSON file.\n"
-                        "3. The file must contain `sku`, `title`, `currency`, `current_price`, `cost`, and `stock` columns.\n"
-                        "4. Click **Upload Catalog** to import your products."
-                    )
-                }
-            
             if search:
                 conditions.append("(sku LIKE ? OR title LIKE ?)")
                 like = f"%{search}%"
                 params.extend([like, like])
-            
             if conditions:
                 q += " WHERE " + " AND ".join(conditions)
-            
             q += " ORDER BY updated_at DESC LIMIT ?"
             params.append(int(limit))
             logger.info(f"[DEBUG] Executing query: {q} with params: {params}")
