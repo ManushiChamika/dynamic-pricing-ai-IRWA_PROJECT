@@ -4,11 +4,7 @@ import sqlite3
 from pathlib import Path
 from pydantic import BaseModel
 
-from core.config import get_settings
-
 router = APIRouter(prefix="/api/debug", tags=["debug"])
-
-settings = get_settings()
 
 
 class QueryRequest(BaseModel):
@@ -24,9 +20,9 @@ class QueryResult(BaseModel):
 
 def get_db_path(database: str) -> Path:
     if database == "chat":
-        return Path(settings.DATABASE_URL.replace("sqlite:///", ""))
+        return Path("app/chat_threads/chat.db")
     elif database == "market":
-        return Path(settings.MARKET_DATABASE_URL.replace("sqlite:///", ""))
+        return Path("data/market.db")
     else:
         raise HTTPException(status_code=400, detail=f"Unknown database: {database}")
 
