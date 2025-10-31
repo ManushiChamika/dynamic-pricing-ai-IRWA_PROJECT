@@ -42,8 +42,8 @@ Thumbs.db
 *.sqlite3
 *.db
 app/*.db
-# Allow market.db to be tracked temporarily for testing
-!data/market.db
+# market.db is ignored
+data/market.db
 .env
 .env.*
 *.log
