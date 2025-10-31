@@ -2,6 +2,12 @@ import sqlite3
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 
+try:
+    from .context import get_owner_id
+except Exception:
+    def get_owner_id():
+        return None
+
 
 def get_db_paths():
     root = Path(__file__).resolve().parents[3]
@@ -22,17 +28,30 @@ def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
 def list_inventory_items(search: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
     db_paths = get_db_paths()
     db_path = str(db_paths["app"])
+    owner_id = get_owner_id()
+    
     try:
         with sqlite3.connect(db_path) as conn:
             conn.row_factory = sqlite3.Row
             if not _table_exists(conn, "product_catalog"):
                 return {"items": [], "total": 0, "note": "product_catalog missing"}
+            
             q = "SELECT sku, title, currency, current_price, cost, stock, updated_at FROM product_catalog"
             params: List[Any] = []
+            
+            conditions = []
+            if owner_id:
+                conditions.append("owner_id = ?")
+                params.append(owner_id)
+            
             if search:
-                q += " WHERE sku LIKE ? OR title LIKE ?"
+                conditions.append("(sku LIKE ? OR title LIKE ?)")
                 like = f"%{search}%"
                 params.extend([like, like])
+            
+            if conditions:
+                q += " WHERE " + " AND ".join(conditions)
+            
             q += " ORDER BY updated_at DESC LIMIT ?"
             params.append(int(limit))
             rows = [dict(r) for r in conn.execute(q, params).fetchall()]
@@ -44,15 +63,23 @@ def list_inventory_items(search: Optional[str] = None, limit: int = 50) -> Dict[
 def get_inventory_item(sku: str) -> Dict[str, Any]:
     db_paths = get_db_paths()
     db_path = str(db_paths["app"])
+    owner_id = get_owner_id()
+    
     try:
         with sqlite3.connect(db_path) as conn:
             conn.row_factory = sqlite3.Row
             if not _table_exists(conn, "product_catalog"):
                 return {"item": None, "note": "product_catalog missing"}
-            row = conn.execute(
-                "SELECT sku, title, currency, current_price, cost, stock, updated_at FROM product_catalog WHERE sku=? LIMIT 1",
-                (sku,),
-            ).fetchone()
+            
+            q = "SELECT sku, title, currency, current_price, cost, stock, updated_at FROM product_catalog WHERE sku=?"
+            params = [sku]
+            
+            if owner_id:
+                q += " AND owner_id=?"
+                params.append(owner_id)
+            
+            q += " LIMIT 1"
+            row = conn.execute(q, params).fetchone()
             return {"item": dict(row) if row else None}
     except Exception as e:
         return {"error": str(e)}
@@ -82,19 +109,34 @@ def list_pricing_list(search: Optional[str] = None, limit: int = 50) -> Dict[str
 def list_price_proposals(sku: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
     db_paths = get_db_paths()
     db_path = str(db_paths["app"])
+    owner_id = get_owner_id()
+    
     try:
         with sqlite3.connect(db_path) as conn:
             conn.row_factory = sqlite3.Row
             if not _table_exists(conn, "price_proposals"):
                 return {"items": [], "total": 0, "note": "price_proposals missing"}
-            q = (
-                "SELECT id, sku, proposed_price, current_price, margin, algorithm, ts FROM price_proposals"
-            )
-            params: List[Any] = []
-            if sku:
-                q += " WHERE sku = ?"
-                params.append(sku)
-            q += " ORDER BY ts DESC LIMIT ?"
+            
+            if owner_id:
+                q = """
+                    SELECT pp.id, pp.sku, pp.proposed_price, pp.current_price, pp.margin, pp.algorithm, pp.ts 
+                    FROM price_proposals pp
+                    INNER JOIN product_catalog pc ON pp.sku = pc.sku
+                    WHERE pc.owner_id = ?
+                """
+                params: List[Any] = [owner_id]
+                
+                if sku:
+                    q += " AND pp.sku = ?"
+                    params.append(sku)
+            else:
+                q = "SELECT id, sku, proposed_price, current_price, margin, algorithm, ts FROM price_proposals"
+                params: List[Any] = []
+                if sku:
+                    q += " WHERE sku = ?"
+                    params.append(sku)
+            
+            q += " ORDER BY pp.ts DESC LIMIT ?" if owner_id else " ORDER BY ts DESC LIMIT ?"
             params.append(int(limit))
             rows = [dict(r) for r in conn.execute(q, params).fetchall()]
             return {"items": rows, "total": len(rows)}
