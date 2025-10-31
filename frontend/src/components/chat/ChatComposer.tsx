@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Send } from 'lucide-react'
 import { Button } from '../ui/button'
 import { useMessagesActions, useStreamingState, useMessages } from '../../stores/messageStore'
 import { usePrompt } from '../../stores/promptStore'
@@ -66,9 +67,9 @@ export function ChatComposer({ currentId, streaming }: ChatComposerProps) {
               disabled={!currentId || !input.trim()}
               aria-label="Send message"
               variant="gradient"
-              size="lg"
+              size="icon"
             >
-              Send
+              <Send className="h-5 w-5" />
             </Button>
           ) : (
             <Button variant="destructive" size="lg" onClick={stop} aria-label="Stop streaming">
