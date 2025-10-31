@@ -123,10 +123,14 @@ class ToolRegistry:
         return await optimizer.process_full_workflow(objective, sku)
 
     async def _upsert_product(self, product_data: Dict[str, Any]) -> Dict[str, Any]:
+        from core.agents.user_interact.context import get_owner_id
+        owner_id = get_owner_id()
+        if not owner_id:
+            return {"status": "ignored", "reason": "missing_owner_id"}
         repo = DataRepo()
         await repo.init()
-        await repo.upsert_products([product_data])
-        return {"status": "ok", "sku": product_data.get("sku")}
+        await repo.upsert_products([product_data], owner_id)
+        return {"status": "ok", "sku": product_data.get("sku"), "owner_id": owner_id}
 
 
 _global_registry: Optional[ToolRegistry] = None

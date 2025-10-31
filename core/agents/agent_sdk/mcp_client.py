@@ -25,8 +25,8 @@ class _LocalDataCollectorTools:
     async def fetch_market_features(self, sku: str, market: str = "DEFAULT", time_window: str = "P7D", freshness_sla_minutes: int = 60) -> Dict[str, Any]:
         return await self._dc.fetch_market_features(sku=sku, market=market, time_window=time_window, freshness_sla_minutes=freshness_sla_minutes)
 
-    async def import_product_catalog(self, rows: list) -> Dict[str, Any]:
-        return await self._dc.import_product_catalog(rows)
+    async def import_product_catalog(self, rows: list, owner_id: str) -> Dict[str, Any]:
+        return await self._dc.import_product_catalog(rows, owner_id)
 
 
 class _MCPConnectionPool:
@@ -264,8 +264,8 @@ class _MCPDataCollectorTools:
         })
         return res if ok else res
 
-    async def import_product_catalog(self, rows: list) -> Dict[str, Any]:
-        ok, res = await self._call_tool("import_product_catalog", {"rows": rows})
+    async def import_product_catalog(self, rows: list, owner_id: str) -> Dict[str, Any]:
+        ok, res = await self._call_tool("import_product_catalog", {"rows": rows, "owner_id": owner_id})
         return res if ok else res
 
 

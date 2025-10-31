@@ -42,6 +42,7 @@ class FetchMarketFeaturesRequest(BaseModel):
 
 class ImportProductCatalogRequest(BaseModel):
     rows: List[Dict[str, Any]] = Field(..., min_items=1)
+    owner_id: str = Field(..., min_length=1)
 
 class JobStatusRequest(BaseModel):
     job_id: str = Field(..., min_length=1)
@@ -117,14 +118,14 @@ async def ingest_tick(d: dict, capability_token: str = "") -> dict:
 
 
 @mcp.tool()
-async def import_product_catalog(rows: list, capability_token: str = "") -> dict:
+async def import_product_catalog(rows: list, owner_id: str, capability_token: str = "") -> dict:
     """Import or update product rows into the product catalog with validation."""
     try:
         # Validate auth
         verify_capability(capability_token, "import")
         
         # Validate input
-        request = ImportProductCatalogRequest(rows=rows)
+        request = ImportProductCatalogRequest(rows=rows, owner_id=owner_id)
         
         await _repo.init()
         
@@ -134,7 +135,7 @@ async def import_product_catalog(rows: list, capability_token: str = "") -> dict
         if not filtered:
             return {"ok": False, "error": "no_valid_products", "message": "No products with valid SKUs found"}
         
-        count = await _repo.upsert_products(filtered)
+        count = await _repo.upsert_products(filtered, request.owner_id)
         return {
             "ok": True, 
             "count": count,

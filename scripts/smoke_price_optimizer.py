@@ -35,7 +35,7 @@ async def seed_app_db() -> DataRepo:
             "cost": 80.0,
             "stock": 25,
         }
-    ])
+    ], owner_id="1")
 
     # Seed recent market ticks with competitor prices
     ticks = [
