@@ -24,9 +24,9 @@ export function ChatComposer({ currentId, streaming }: ChatComposerProps) {
   }
 
   return (
-    <div className="composer border-t bg-card/30 backdrop-blur-sm transition-[padding] duration-300 ease-in-out">
-      <div className="flex items-center justify-center px-6 py-4">
-        <div className="flex items-center gap-3 w-full max-w-4xl">
+      <div className="composer border-t bg-card/30 backdrop-blur-sm transition-[padding] duration-300 ease-in-out">
+        <div className="flex items-center justify-center px-3 md:px-6 py-4">
+          <div className="flex items-center gap-3 w-full max-w-3xl">
           <textarea
             className="flex-1 min-h-[80px] rounded-xl border-2 border-indigo-500/20 bg-background/50 backdrop-blur-sm px-4 py-3 text-[0.9375rem] placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:border-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 resize-none shadow-sm hover:border-indigo-500/30 transition-all duration-200"
             rows={2}
@@ -46,10 +46,13 @@ export function ChatComposer({ currentId, streaming }: ChatComposerProps) {
                     defaultValue: lastUser.content,
                     textarea: true,
                     confirmText: 'Save',
-                    onSubmit: async (content) => {
-                      await useMessages.getState().edit(lastUser.id, content)
-                      if (currentId) await refresh(currentId)
-                    },
+                      onSubmit: async (content) => {
+                        await useMessages.getState().edit(lastUser.id, content)
+                        if (currentId) {
+                          await useMessages.getState().branch(currentId as number, lastUser.id, content, 'user')
+                          await refresh(currentId)
+                        }
+                      },
                   })
                 }
               }

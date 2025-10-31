@@ -4,7 +4,7 @@ import { useProducts } from '../hooks/useProducts'
 import React from 'react'
 
 vi.mock('../stores/authStore', () => ({
-  useAuthToken: () => 'demo-token'
+  useAuthToken: () => 'demo-token',
 }))
 
 function TestComponent() {
@@ -12,7 +12,9 @@ function TestComponent() {
   return (
     <div>
       {products.map((p) => (
-        <div key={p} data-testid="sku">{p}</div>
+        <div key={p} data-testid="sku">
+          {p}
+        </div>
       ))}
     </div>
   )
@@ -20,9 +22,15 @@ function TestComponent() {
 
 describe('useProducts hook', () => {
   beforeAll(() => {
-    vi.stubGlobal('fetch', vi.fn(() =>
-      Promise.resolve({ ok: true, json: () => Promise.resolve({ products: [{ sku: 'SKU123' }] }) })
-    ))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ products: [{ sku: 'SKU123' }] }),
+        })
+      )
+    )
   })
 
   afterAll(() => {

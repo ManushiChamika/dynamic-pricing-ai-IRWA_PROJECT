@@ -23,8 +23,12 @@ const SettingsModal = lazy(() =>
 function MobileBackdrop() {
   const { collapsed, setCollapsed } = useSidebar()
   const { pricesCollapsed, setPricesCollapsed } = usePanels()
-  const anyOpen = (!collapsed || !pricesCollapsed)
-  if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(min-width: 768px)').matches) {
+  const anyOpen = !collapsed || !pricesCollapsed
+  if (
+    typeof window !== 'undefined' &&
+    window.matchMedia &&
+    window.matchMedia('(min-width: 768px)').matches
+  ) {
     return null
   }
   if (!anyOpen) return null
@@ -59,51 +63,61 @@ export default function App() {
     }
   }, [threadId, setCurrent, navigate, currentId])
 
-   useEffect(() => {
-     document.documentElement.classList.remove('light', 'dark', 'ocean', 'forest', 'sunset', 'midnight', 'rose')
-     document.documentElement.classList.add(theme)
-     localStorage.setItem('theme', theme)
-   }, [theme])
+  useEffect(() => {
+    document.documentElement.classList.remove(
+      'light',
+      'dark',
+      'ocean',
+      'forest',
+      'sunset',
+      'midnight',
+      'rose'
+    )
+    document.documentElement.classList.add(theme)
+    localStorage.setItem('theme', theme)
+  }, [theme])
 
-   useEffect(() => {
-     if (typeof window === 'undefined' || !window.matchMedia) return
-     const isMobile = window.matchMedia('(max-width: 767px)').matches
-     if (isMobile) {
-       if (localStorage.getItem('sidebarCollapsed') === null) useSidebar.getState().setCollapsed(true)
-       if (localStorage.getItem('pricesCollapsed') === null) usePanels.getState().setPricesCollapsed(true)
-     }
-     const onKey = (e: KeyboardEvent) => {
-       if (e.key === 'Escape') {
-         useSidebar.getState().setCollapsed(true)
-         usePanels.getState().setPricesCollapsed(true)
-       }
-     }
-     window.addEventListener('keydown', onKey)
-     return () => window.removeEventListener('keydown', onKey)
-   }, [])
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const isMobile = window.matchMedia('(max-width: 767px)').matches
+    if (isMobile) {
+      if (localStorage.getItem('sidebarCollapsed') === null)
+        useSidebar.getState().setCollapsed(true)
+      if (localStorage.getItem('pricesCollapsed') === null)
+        usePanels.getState().setPricesCollapsed(true)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        useSidebar.getState().setCollapsed(true)
+        usePanels.getState().setPricesCollapsed(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   return (
     <ErrorBoundary>
-       <LayoutProvider>
-         <div className="relative flex h-full overflow-hidden">
-        <Sidebar />
-        <ChatPane />
-        <PricesPanel />
-        <PromptModal />
-        <ConfirmModal />
-        <HelpModal />
-        <Suspense fallback={null}>
-          <SettingsModal
-            open={settingsOpen}
-            onOpenChange={setSettingsOpen}
-            settings={{ theme, ...settings }}
-            onSettingsChange={(newSettings) => useSettings.getState().set(newSettings)}
-          />
-        </Suspense>
-        <CatalogModal open={catalogOpen} onOpenChange={setCatalogOpen} />
-        <Toasts />
-        <MobileBackdrop />
+      <LayoutProvider>
+        <div className="relative flex h-screen overflow-hidden pl-[var(--left-w)] pr-[var(--right-w)]">
+          <Sidebar />
+          <ChatPane />
+          <PricesPanel />
+          <PromptModal />
+          <ConfirmModal />
+          <HelpModal />
+          <Suspense fallback={null}>
+            <SettingsModal
+              open={settingsOpen}
+              onOpenChange={setSettingsOpen}
+              settings={{ theme, ...settings }}
+              onSettingsChange={(newSettings) => useSettings.getState().set(newSettings)}
+            />
+          </Suspense>
+          <CatalogModal open={catalogOpen} onOpenChange={setCatalogOpen} />
+          <Toasts />
+          <MobileBackdrop />
         </div>
-       </LayoutProvider>
+      </LayoutProvider>
     </ErrorBoundary>
   )
 }

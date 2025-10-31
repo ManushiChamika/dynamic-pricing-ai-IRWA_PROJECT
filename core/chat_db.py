@@ -140,6 +140,19 @@ def delete_message(message_id: int) -> bool:
         return True
 
 
+def delete_message_cascade(message_id: int) -> bool:
+    with SessionLocal() as db:
+        m = db.get(Message, message_id)
+        if not m:
+            return False
+        children = db.query(Message).filter(Message.parent_id == message_id).all()
+        for child in children:
+            db.delete(child)
+        db.delete(m)
+        db.commit()
+        return True
+
+
 def get_thread_messages(thread_id: int) -> list[Message]:
     with SessionLocal() as db:
         rows = (

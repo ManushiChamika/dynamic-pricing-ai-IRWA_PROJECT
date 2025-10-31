@@ -36,10 +36,10 @@ export async function api<T = unknown>(
   url: string,
   init?: RequestInit & { json?: unknown }
 ): Promise<ApiResult<T>> {
-  const opts: RequestInit = { 
-    method: init?.method || 'GET', 
+  const opts: RequestInit = {
+    method: init?.method || 'GET',
     headers: init?.headers || {},
-    signal: init?.signal
+    signal: init?.signal,
   }
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') || '' : ''
   let full = url

@@ -27,6 +27,5 @@ export async function getServer() {
     server = setupWorker(...handlers)
   }
 
-
   return server
 }

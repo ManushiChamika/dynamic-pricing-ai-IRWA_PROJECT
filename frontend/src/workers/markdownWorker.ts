@@ -19,7 +19,9 @@ self.addEventListener('message', (ev: any) => {
           lines.push('```json')
           lines.push(JSON.stringify(m.metadata, null, 2))
           lines.push('```')
-        } catch (e) {}
+        } catch {
+          // Ignore JSON stringify errors
+        }
       }
       lines.push('')
       lines.push(m.content || '')

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { MessageSquare } from 'lucide-react'
 import { CollapsedNavItem } from './CollapsedNavItem'
 import { SummaryIndicator } from '../SummaryIndicator'
@@ -15,7 +15,15 @@ interface ThreadItemProps {
 }
 
 export const ThreadItem = React.memo(
-  ({ id, title, isActive, isDraft = false, updatedAt, onSelect, collapsed = false }: ThreadItemProps) => {
+  ({
+    id,
+    title,
+    isActive,
+    isDraft = false,
+    updatedAt,
+    onSelect,
+    collapsed = false,
+  }: ThreadItemProps) => {
     if (collapsed) {
       return (
         <CollapsedNavItem title={title} isActive={isActive} onClick={onSelect}>

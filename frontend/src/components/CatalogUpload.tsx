@@ -164,12 +164,12 @@ export function CatalogUpload() {
 
   return (
     <div className="space-y-6">
-        <div
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-          className={`
+      <div
+        onDragEnter={handleDrag}
+        onDragLeave={handleDrag}
+        onDragOver={handleDrag}
+        onDrop={handleDrop}
+        className={`
           relative overflow-hidden rounded-lg border-2 border-dashed transition-all
           ${
             dragActive
@@ -177,7 +177,7 @@ export function CatalogUpload() {
               : 'border-border hover:border-muted-foreground/50 bg-muted/20'
           }
         `}
-        >
+      >
         <input
           ref={fileInputRef}
           type="file"
@@ -191,14 +191,12 @@ export function CatalogUpload() {
           <div
             className={`
             mx-auto w-20 h-20 rounded-full flex items-center justify-center mb-6 transition-all
-            ${
-              dragActive
-                ? 'bg-primary/20'
-                : 'bg-muted'
-            }
+            ${dragActive ? 'bg-primary/20' : 'bg-muted'}
           `}
           >
-            <Upload className={`w-10 h-10 ${dragActive ? 'text-primary' : 'text-muted-foreground'}`} />
+            <Upload
+              className={`w-10 h-10 ${dragActive ? 'text-primary' : 'text-muted-foreground'}`}
+            />
           </div>
 
           <h3 className="text-lg font-semibold mb-2">
@@ -209,18 +207,12 @@ export function CatalogUpload() {
             {dragActive ? 'Release to upload' : 'Drag and drop your file, or click to browse'}
           </p>
 
-          <Button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={loading}
-          >
+          <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={loading}>
             <FileText className="w-4 h-4 mr-2" />
             Choose File
           </Button>
 
-          <p className="text-xs text-muted-foreground mt-4">
-            CSV or JSON • Max 50MB
-          </p>
+          <p className="text-xs text-muted-foreground mt-4">CSV or JSON • Max 50MB</p>
         </div>
       </div>
 
@@ -235,9 +227,7 @@ export function CatalogUpload() {
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{file.name}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {formatFileSize(file.size)}
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">{formatFileSize(file.size)}</p>
                 </div>
 
                 <button
@@ -274,9 +264,7 @@ export function CatalogUpload() {
         <div className="p-4 rounded-lg border border-destructive/50 bg-destructive/10 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="text-sm font-medium text-destructive">
-              Upload Failed
-            </p>
+            <p className="text-sm font-medium text-destructive">Upload Failed</p>
             <p className="text-sm text-destructive/90 mt-1">{error}</p>
           </div>
         </div>
@@ -289,9 +277,7 @@ export function CatalogUpload() {
             <p className="text-sm font-medium text-green-700 dark:text-green-400">
               Upload Successful!
             </p>
-            <p className="text-sm text-green-600 dark:text-green-500 mt-1">
-              {success.filename}
-            </p>
+            <p className="text-sm text-green-600 dark:text-green-500 mt-1">{success.filename}</p>
             <div className="flex items-center gap-4 mt-2 text-xs text-green-600 dark:text-green-500">
               <span>Processed: {success.rows_processed}</span>
               <span>•</span>
@@ -302,11 +288,7 @@ export function CatalogUpload() {
       )}
 
       <div className="flex gap-3">
-        <Button
-          onClick={handleUpload}
-          disabled={!file || loading || deleting}
-          className="flex-1"
-        >
+        <Button onClick={handleUpload} disabled={!file || loading || deleting} className="flex-1">
           {loading ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -319,11 +301,7 @@ export function CatalogUpload() {
             </>
           )}
         </Button>
-        <Button
-          onClick={handleDeleteAll}
-          disabled={loading || deleting}
-          variant="destructive"
-        >
+        <Button onClick={handleDeleteAll} disabled={loading || deleting} variant="destructive">
           {deleting ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />

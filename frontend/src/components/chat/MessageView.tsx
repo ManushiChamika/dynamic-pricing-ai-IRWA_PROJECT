@@ -1,11 +1,9 @@
 import React, { useEffect, useRef, useState, lazy, Suspense } from 'react'
 import { MarkdownRenderer } from './MarkdownRenderer'
-import { AgentBadgeGroup } from '../AgentBadge'
 import { BranchNavigator } from '../BranchNavigator'
 import { ThinkingTokens } from '../ThinkingTokens'
 import { MessageActions } from './MessageActions'
 import { MessageMetadata } from './MessageMetadata'
-import { LiveStatus } from '../LiveStatus'
 import {
   useMessages,
   useMessagesActions,
@@ -34,7 +32,7 @@ function MessageViewComponent({
   allMessages: Message[]
 }) {
   const { del, refresh } = useMessagesActions()
-  const { streamingActive, liveActiveAgent, liveTool } = useStreamingState()
+  const { streamingActive } = useStreamingState()
   const currentId = useCurrentThread()
   const showThinking = useSettings((state) => state.showThinking)
 
@@ -55,10 +53,13 @@ function MessageViewComponent({
         useMessages
           .getState()
           .edit(m.id, m.content)
-          .then(() => {
-            if (currentId) refresh(currentId)
+          .then(async () => {
+            if (currentId) {
+              await useMessages.getState().branch(currentId as number, m.id, m.content, 'user')
+              await refresh(currentId)
+            }
           })
-      } else if (e.key === 'Delete') {
+      } else if (e.key === 'Delete' && m.role === 'user') {
         useConfirm.getState().openConfirm({
           title: 'Delete message?',
           description: 'This message will be permanently removed.',
@@ -75,13 +76,11 @@ function MessageViewComponent({
     return () => window.removeEventListener('keydown', onKey)
   }, [m.id, m.content, m.role, streamingActive, currentId, refresh, del])
 
-  const agentNames = m.agents?.activated || []
-  const showAgentBadges = m.role === 'assistant' && agentNames.length > 0
 
   return (
     <div
       ref={rowRef}
-      className="group/message max-w-[900px] animate-slideIn origin-left transition-colors duration-200 rounded-lg"
+      className={`group/message w-full max-w-3xl mx-auto animate-slideIn origin-left transition-colors duration-200 rounded-lg mb-4 md:mb-6 py-2 md:py-3 ${m.role === 'user' ? 'pl-8 md:pl-16' : 'pr-8 md:pr-16'}`}
       role="article"
       aria-label={`${m.role} message`}
       style={{ backgroundColor: hovered ? 'hsl(var(--accent) / 0.05)' : 'transparent' }}
@@ -89,33 +88,26 @@ function MessageViewComponent({
       onMouseLeave={() => setHovered(false)}
       data-message-id={m.id}
     >
-      {showAgentBadges ? (
-        <div className="mb-2">
-          <AgentBadgeGroup
-            agents={agentNames}
-            activeAgent={streamingActive ? liveActiveAgent : null}
-            variant="pill"
-          />
-        </div>
-      ) : null}
-      {m.id === -1 ? <LiveStatus liveActiveAgent={liveActiveAgent} liveTool={liveTool} /> : null}
       <div className={`flex gap-3 items-start ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
-        <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${m.role === 'user' ? 'bg-muted border-2 border-foreground/40' : 'bg-gradient-to-br from-purple-500 via-violet-500 to-indigo-500 shadow-sm'}`}>
+        <div
+          className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ring-1 ring-white/10 ${m.role === 'user' ? 'bg-muted border-2 border-foreground/40' : 'bg-gradient-to-br from-purple-500 via-violet-500 to-indigo-500 shadow-sm'}`}
+        >
           {m.role === 'user' ? (
             <User className="w-5 h-5 text-foreground" strokeWidth={2} />
           ) : (
             <Sparkles className="w-5 h-5 text-white" strokeWidth={1.5} />
           )}
         </div>
-        <div className="flex-1">
+        <div className={`${m.role === 'user' ? 'flex-1 flex flex-col items-end' : 'flex-1'} space-y-2`}>
           <div
-            className={`${m.role === 'user' ? 'bg-primary/10 border border-primary/20' : 'border border-primary/20'} rounded-lg px-4 py-3 transition-colors leading-normal`}
-            style={m.role === 'assistant' ? { background: 'var(--message-assistant-bg)' } : undefined}
+            className={`${m.role === 'user' ? 'bg-primary/10 border border-primary/20 text-right inline-block max-w-[85%] md:max-w-[70%] shadow-sm rounded-2xl px-4 py-3' : 'w-full md:max-w-[85%] px-0 py-0'} transition-colors leading-relaxed`}
+            style={undefined}
           >
             {m.role === 'assistant' ? (
               <MarkdownRenderer content={m.content || ''} />
             ) : (
-              <pre className="whitespace-pre-wrap">{m.content}</pre>
+               <pre className="whitespace-pre-wrap text-right leading-relaxed">{m.content}</pre>
+
             )}
           </div>
           {showThinking && m.thinking && m.role === 'assistant' ? (
@@ -123,7 +115,13 @@ function MessageViewComponent({
           ) : null}
           {m.metadata?.priceData && m.role === 'assistant' ? (
             <div className="mt-3">
-              <Suspense fallback={<div className="text-center py-4 text-muted-foreground text-sm">Loading chart…</div>}>
+              <Suspense
+                fallback={
+                  <div className="text-center py-4 text-muted-foreground text-sm">
+                    Loading chart…
+                  </div>
+                }
+              >
                 <PriceChart
                   data={m.metadata.priceData}
                   sku={m.metadata.sku || 'Product'}
@@ -146,6 +144,7 @@ function MessageViewComponent({
               }}
             />
           ) : null}
+
 
           <MessageActions m={m} />
           <MessageMetadata

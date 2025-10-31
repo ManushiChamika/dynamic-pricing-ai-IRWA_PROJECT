@@ -71,7 +71,7 @@ export function ChatPane() {
     <main className="flex-1 min-w-0 flex flex-col bg-background transition-[padding] duration-300 ease-in-out motion-reduce:transition-none">
       <ChatHeader />
       <div
-        className="flex-1 overflow-auto px-6 py-4 flex flex-col items-center gap-4 scroll-smooth bg-gradient-to-b from-background to-muted/10"
+        className="flex-1 overflow-auto px-3 md:px-6 py-4 flex flex-col items-center gap-4 scroll-smooth bg-gradient-to-b from-background to-muted/10"
         ref={msgsRef}
         role="log"
         aria-live="polite"
