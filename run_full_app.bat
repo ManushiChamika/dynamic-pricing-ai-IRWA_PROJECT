@@ -186,8 +186,8 @@ goto :eof
 echo Validating startup environment...
 echo [%date% %time%] INFO: Running startup validation script >> "%LOG_FILE%"
 
-:: Run the Python validation script
-python scripts/validate_startup.py >> "%LOG_FILE%" 2>&1
+:: Run the Python validation script with self-healing
+python scripts/validate_startup.py 2>&1
 set "VALIDATION_EXIT=%errorlevel%"
 
 if %VALIDATION_EXIT% equ 0 (
@@ -209,15 +209,45 @@ if %VALIDATION_EXIT% equ 2 (
     exit /b 0
 )
 
-:: Critical errors found (exit code 1)
-echo [ERROR] Startup validation failed with critical errors
-echo [%date% %time%] ERROR: Critical validation errors >> "%LOG_FILE%"
+:: Critical errors found (exit code 1) - Try auto-healing
+echo [WARNING] Startup validation found issues - attempting auto-heal...
+echo [%date% %time%] INFO: Running auto-heal system >> "%LOG_FILE%"
+
+python scripts/auto_heal.py 2>&1
+set "HEAL_EXIT=%errorlevel%"
+
+if %HEAL_EXIT% equ 0 (
+    echo [OK] Auto-heal completed - retrying validation...
+    echo [%date% %time%] INFO: Auto-heal succeeded, retrying validation >> "%LOG_FILE%"
+    
+    :: Retry validation after healing
+    python scripts/validate_startup.py 2>&1
+    set "VALIDATION_EXIT=%errorlevel%"
+    
+    if %VALIDATION_EXIT% equ 0 (
+        echo [OK] Validation passed after auto-healing!
+        echo [%date% %time%] INFO: Validation passed after healing >> "%LOG_FILE%"
+        exit /b 0
+    )
+    
+    if %VALIDATION_EXIT% equ 2 (
+        echo [WARNING] Warnings remain but can proceed
+        echo [%date% %time%] WARN: Warnings after healing >> "%LOG_FILE%"
+        choice /C YN /M "Continue anyway"
+        if errorlevel 2 exit /b 1
+        exit /b 0
+    )
+)
+
+:: Auto-healing didn't resolve all issues
+echo [ERROR] Startup validation failed - auto-healing could not fix all issues
+echo [%date% %time%] ERROR: Critical validation errors remain >> "%LOG_FILE%"
 echo.
-echo Please fix the issues above before launching the application.
-echo Common fixes:
+echo Please manually fix the issues above before launching.
+echo Common manual fixes:
 echo   1. Configure API keys in .env file
-echo   2. Run: python scripts/fix_database_schema.py
-echo   3. Run: pip install -r requirements.txt
+echo   2. Run: pip install -r requirements.txt
+echo   3. Check database file permissions
 echo.
 echo Check %LOG_FILE% for detailed error information.
 exit /b 1
