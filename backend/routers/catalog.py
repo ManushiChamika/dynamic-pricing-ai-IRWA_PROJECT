@@ -1,11 +1,16 @@
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query
-from backend.deps import get_current_user, get_repo
+from backend.deps import get_current_user
 from core.agents.data_collector.repo import DataRepo
 import pandas as pd
 import io
 from typing import Optional
 
-router = APIRouter(prefix="/api", tags=["catalog"])
+router = APIRouter(prefix="/api", tags=["catalog"]) 
+
+async def get_repo() -> DataRepo:
+    repo = DataRepo()
+    await repo.init()
+    return repo
 
 
 @router.post("/catalog/upload")

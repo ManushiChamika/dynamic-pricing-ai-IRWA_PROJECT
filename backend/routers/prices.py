@@ -1,7 +1,7 @@
 from typing import Optional, Dict
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
-from backend.deps import get_current_user, get_repo
+from backend.deps import get_current_user_for_alerts, get_repo
 from core.agents.data_collector.repo import DataRepo
 import asyncio
 import json
@@ -13,9 +13,11 @@ router = APIRouter(prefix="/api/prices", tags=["prices"])
 logger = logging.getLogger(__name__)
 
 
-async def _fetch_products(repo: DataRepo, owner_id: str, sku_filter: Optional[str] = None) -> Dict[str, float]:
+async def _fetch_products(owner_id: str, repo: Optional[DataRepo] = None, sku_filter: Optional[str] = None) -> Dict[str, float]:
     try:
         products: Dict[str, float] = {}
+        if repo is None:
+            repo = await get_repo()
         if sku_filter:
             row = await repo.get_product_by_sku_and_owner(sku_filter, owner_id)
             rows = [row] if row else []
@@ -43,11 +45,11 @@ async def _fetch_products(repo: DataRepo, owner_id: str, sku_filter: Optional[st
 @router.get("/stream")
 async def api_prices_stream(
     sku: Optional[str] = None,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user_for_alerts),
     repo: DataRepo = Depends(get_repo),
 ):
     owner_id = str(current_user["user_id"]) 
-    bases = await _fetch_products(repo, owner_id, sku)
+    bases = await _fetch_products(owner_id, repo, sku)
     if not bases:
         logger.info(f"No catalog products found for owner_id={owner_id}")
         async def _empty_iter():
