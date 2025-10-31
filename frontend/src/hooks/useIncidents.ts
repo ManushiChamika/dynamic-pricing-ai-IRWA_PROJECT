@@ -19,7 +19,7 @@ export function useIncidents() {
   const fetchIncidents = useCallback(async () => {
     if (!token) return
     try {
-      const response = await fetch(`/api/alerts/incidents?token=${token}`)
+      const response = await fetch(`/api/alerts/incidents?token=${encodeURIComponent(token)}`)
       if (!response.ok) throw new Error('Failed to fetch incidents')
       const data = await response.json()
       setIncidents(data.filter((i: Incident) => i.status === 'OPEN' || i.status === 'ACKED'))
@@ -32,7 +32,7 @@ export function useIncidents() {
     async (incidentId: string) => {
       if (!token) return
       try {
-        const response = await fetch(`/api/alerts/incidents/${incidentId}/ack?token=${token}`, {
+        const response = await fetch(`/api/alerts/incidents/${incidentId}/ack?token=${encodeURIComponent(token)}`, {
           method: 'POST',
         })
         if (!response.ok) throw new Error('Failed to acknowledge incident')
@@ -48,7 +48,7 @@ export function useIncidents() {
     async (incidentId: string) => {
       if (!token) return
       try {
-        const response = await fetch(`/api/alerts/incidents/${incidentId}/resolve?token=${token}`, {
+        const response = await fetch(`/api/alerts/incidents/${incidentId}/resolve?token=${encodeURIComponent(token)}`, {
           method: 'POST',
         })
         if (!response.ok) throw new Error('Failed to resolve incident')
