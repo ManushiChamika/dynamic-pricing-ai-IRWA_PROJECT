@@ -129,6 +129,21 @@ def list_pricing_list(search: Optional[str] = None, limit: int = 50) -> Dict[str
 
 
 def list_price_proposals(sku: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
+    """
+    List recent price proposals from the database.
+
+    This function retrieves a list of the most recent price proposals, optionally
+    filtered by SKU. If no proposals are found for the given SKU, it returns a
+    user-friendly message indicating that the optimization may not have been run
+    or that no valid proposal could be generated.
+
+    Args:
+        sku: Optional SKU to filter proposals by.
+        limit: Maximum number of proposals to return.
+
+    Returns:
+        A dictionary containing the list of proposals or a message if none found.
+    """
     db_paths = get_db_paths()
     db_path = str(db_paths["app"])
     owner_id = get_owner_id()
@@ -139,28 +154,33 @@ def list_price_proposals(sku: Optional[str] = None, limit: int = 50) -> Dict[str
             if not _table_exists(conn, "price_proposals"):
                 return {"items": [], "total": 0, "note": "price_proposals missing"}
             
-            if owner_id:
-                q = """
-                    SELECT pp.id, pp.sku, pp.proposed_price, pp.current_price, pp.margin, pp.algorithm, pp.ts 
-                    FROM price_proposals pp
-                    INNER JOIN product_catalog pc ON pp.sku = pc.sku
-                    WHERE pc.owner_id = ?
-                """
-                params: List[Any] = [owner_id]
-                
-                if sku:
-                    q += " AND pp.sku = ?"
-                    params.append(sku)
-            else:
-                q = "SELECT id, sku, proposed_price, current_price, margin, algorithm, ts FROM price_proposals"
-                params: List[Any] = []
-                if sku:
-                    q += " WHERE sku = ?"
-                    params.append(sku)
+            base_query = """
+                SELECT pp.id, pp.sku, pp.proposed_price, pp.current_price, pp.margin, pp.algorithm, pp.ts 
+                FROM price_proposals pp
+            """
+            params: List[Any] = []
             
-            q += " ORDER BY pp.ts DESC LIMIT ?" if owner_id else " ORDER BY ts DESC LIMIT ?"
+            if owner_id:
+                base_query += " INNER JOIN product_catalog pc ON pp.sku = pc.sku WHERE pc.owner_id = ?"
+                params.append(owner_id)
+                if sku:
+                    base_query += " AND pp.sku = ?"
+                    params.append(sku)
+            elif sku:
+                base_query += " WHERE pp.sku = ?"
+                params.append(sku)
+            
+            q = f"{base_query} ORDER BY pp.ts DESC LIMIT ?"
             params.append(int(limit))
+            
             rows = [dict(r) for r in conn.execute(q, params).fetchall()]
+            
+            if not rows:
+                if sku:
+                    return {"message": f"No price proposals found for SKU '{sku}'. The optimizer may not have run or a valid proposal could not be generated."}
+                else:
+                    return {"message": "No price proposals found. Run the optimizer to generate new proposals."}
+            
             return {"items": rows, "total": len(rows)}
     except Exception as e:
         return {"error": str(e)}
