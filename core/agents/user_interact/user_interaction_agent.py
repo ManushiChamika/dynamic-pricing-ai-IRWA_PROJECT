@@ -53,7 +53,7 @@ class UserInteractionAgent:
         # Resolve DB paths
         root = Path(__file__).resolve().parents[3]
         self.app_db = root / "app" / "data.db"
-        self.market_db = root / "app" / "data.db"
+        self.market_db = root / "data" / "market.db"
         # Last-inference metadata (populated on LLM calls)
         self.last_model = None
         self.last_provider = None
