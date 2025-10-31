@@ -38,7 +38,7 @@ async def setup_test_data():
         "current_price": 100.0,
         "cost": 80.0,
         "stock": 50
-    }])
+    }], owner_id="1")
     
     return repo
 

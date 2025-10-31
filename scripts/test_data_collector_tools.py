@@ -20,7 +20,7 @@ async def main() -> None:
             "stock": 10,
         }
     ]
-    res = await srv.import_product_catalog(rows)
+    res = await srv.import_product_catalog(rows, owner_id="1")
     print("import_product_catalog:", res)
 
     # 2) Start collection job

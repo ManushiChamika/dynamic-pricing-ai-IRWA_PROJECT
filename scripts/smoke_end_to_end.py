@@ -30,7 +30,7 @@ async def smoke() -> int:
             "cost": 80.0,
             "stock": 10,
         }
-    ])
+    ], owner_id="1")
     print("import_product_catalog:", imp)
     if not imp.get("ok"):
         print("FAIL: import_product_catalog returned error")

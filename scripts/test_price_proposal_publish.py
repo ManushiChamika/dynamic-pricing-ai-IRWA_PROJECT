@@ -28,7 +28,7 @@ async def main() -> int:
             "cost": 90.0,
             "stock": 10,
         }
-    ])
+    ], owner_id="1")
     print("import_product_catalog:", imp)
 
     # Seed app/data.db with fresh competitor records for SKU-123 so optimizer can run
