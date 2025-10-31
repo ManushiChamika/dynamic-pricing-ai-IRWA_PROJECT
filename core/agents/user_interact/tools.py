@@ -49,7 +49,17 @@ def list_inventory_items(search: Optional[str] = None, limit: int = 50) -> Dict[
                 params.append(owner_id)
                 logger.info(f"[DEBUG] Filtering by owner_id={owner_id}")
             else:
-                logger.warning("[DEBUG] No owner_id set - returning all items!")
+                return {
+                    "items": [],
+                    "total": 0,
+                    "message": (
+                        "Your inventory is currently empty. To get started, please upload your product catalog.\n"
+                        "1. Click the **Catalog** icon in the sidebar menu.\n"
+                        "2. In the modal, click **Choose File** and select your CSV or JSON file.\n"
+                        "3. The file must contain `sku`, `title`, `currency`, `current_price`, `cost`, and `stock` columns.\n"
+                        "4. Click **Upload Catalog** to import your products."
+                    )
+                }
             
             if search:
                 conditions.append("(sku LIKE ? OR title LIKE ?)")
@@ -93,14 +103,10 @@ def get_inventory_item(sku: str) -> Dict[str, Any]:
             if not _table_exists(conn, "product_catalog"):
                 return {"item": None, "note": "product_catalog missing"}
             
-            q = "SELECT sku, title, currency, current_price, cost, stock, updated_at FROM product_catalog WHERE sku=?"
-            params = [sku]
-            
-            if owner_id:
-                q += " AND owner_id=?"
-                params.append(owner_id)
-            
-            q += " LIMIT 1"
+            if not owner_id:
+                return {"item": None}
+            q = "SELECT sku, title, currency, current_price, cost, stock, updated_at FROM product_catalog WHERE sku=? AND owner_id=? LIMIT 1"
+            params = [sku, owner_id]
             row = conn.execute(q, params).fetchone()
             return {"item": dict(row) if row else None}
     except Exception as e:
@@ -160,27 +166,21 @@ def list_price_proposals(sku: Optional[str] = None, limit: int = 50) -> Dict[str
             """
             params: List[Any] = []
             
-            if owner_id:
-                base_query += " INNER JOIN product_catalog pc ON pp.sku = pc.sku WHERE pc.owner_id = ?"
-                params.append(owner_id)
-                if sku:
-                    base_query += " AND pp.sku = ?"
-                    params.append(sku)
-            elif sku:
-                base_query += " WHERE pp.sku = ?"
+            if not owner_id:
+                return {"items": [], "total": 0}
+            base_query += " INNER JOIN product_catalog pc ON pp.sku = pc.sku WHERE pc.owner_id = ?"
+            params.append(owner_id)
+            if sku:
+                base_query += " AND pp.sku = ?"
                 params.append(sku)
-            
             q = f"{base_query} ORDER BY pp.ts DESC LIMIT ?"
             params.append(int(limit))
-            
             rows = [dict(r) for r in conn.execute(q, params).fetchall()]
-            
             if not rows:
                 if sku:
                     return {"message": f"No price proposals found for SKU '{sku}'. The optimizer may not have run or a valid proposal could not be generated."}
                 else:
                     return {"message": "No price proposals found. Run the optimizer to generate new proposals."}
-            
             return {"items": rows, "total": len(rows)}
     except Exception as e:
         return {"error": str(e)}
@@ -308,27 +308,19 @@ def scan_for_alerts() -> Dict[str, Any]:
             if not _table_exists(conn, "incidents"):
                 return {"alerts": [], "total": 0, "note": "incidents table missing"}
             
-            if owner_id:
-                rows = conn.execute(
-                    """SELECT i.id, i.sku, i.title, i.severity, i.status, i.created_at, i.details 
+            if not owner_id:
+                return {"ok": True, "alerts": [], "total": 0, "open_count": 0}
+            rows = conn.execute(
+                """SELECT i.id, i.sku, i.title, i.severity, i.status, i.created_at, i.details 
                        FROM incidents i
                        INNER JOIN product_catalog pc ON i.sku = pc.sku
                        WHERE pc.owner_id = ?
                        ORDER BY i.created_at DESC 
                        LIMIT 50""",
-                    (owner_id,)
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    """SELECT id, sku, title, severity, status, created_at, details 
-                       FROM incidents 
-                       ORDER BY created_at DESC 
-                       LIMIT 50"""
-                ).fetchall()
-            
+                (owner_id,)
+            ).fetchall()
             alerts = [dict(r) for r in rows]
             open_count = sum(1 for a in alerts if a.get("status") == "OPEN")
-            
             return {
                 "ok": True,
                 "alerts": alerts,
