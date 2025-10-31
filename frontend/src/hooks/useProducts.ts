@@ -8,7 +8,7 @@ export function useProducts() {
   const fetchProducts = useCallback(async () => {
     if (!token) return
     try {
-      const response = await fetch(`/api/catalog/products?token=${token}`)
+      const response = await fetch(`/api/catalog/products?token=${encodeURIComponent(token)}`)
       if (!response.ok) throw new Error('Failed to fetch products')
       const data = await response.json()
       const skus = data.products.map((p: any) => p.sku)
