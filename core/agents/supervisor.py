@@ -196,7 +196,17 @@ class Supervisor:
         conn = sqlite3.connect(adb, check_same_thread=False)
         cur = conn.cursor()
         cur.execute(
-            "CREATE TABLE IF NOT EXISTS product_catalog (sku TEXT PRIMARY KEY, title TEXT, currency TEXT, current_price REAL, cost REAL, stock INTEGER, updated_at TEXT)"
+            """CREATE TABLE IF NOT EXISTS product_catalog (
+                   sku TEXT, 
+                   owner_id TEXT, 
+                   title TEXT, 
+                   currency TEXT, 
+                   current_price REAL, 
+                   cost REAL, 
+                   stock INTEGER, 
+                   updated_at TEXT,
+                   PRIMARY KEY (sku, owner_id)
+               )"""
         )
         cur.execute(
             "SELECT current_price, cost FROM product_catalog WHERE sku=? LIMIT 1",
