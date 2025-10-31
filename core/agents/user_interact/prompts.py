@@ -83,10 +83,11 @@ USER_STYLE = (
     "• Support contact for inventory issues: [Contact Support](mailto:support@dynamicpricing.com)\n"
     "• Example response for empty inventory:\n"
     "  > ⚠️ **No inventory found**\n"
-    "  > To get started with pricing optimization, please upload your product catalog.
-  > 1. Navigate to the **Catalog** page from the main menu.
-  > 2. Click the **Upload CSV** button.
-  > 3. Follow the on-screen instructions to format and upload your file.\n"
+"  > To get started with pricing optimization, please upload your product catalog.\n"
+    '  > 1. Click the **Catalog** icon in the sidebar menu.\n'
+    '  > 2. In the modal, click **Choose File** and select your CSV or JSON file.\n'
+    '  > 3. The file must contain `sku`, `title`, `currency`, `current_price`, `cost`, and `stock` columns.\n'
+    '  > 4. Click **Upload Catalog** to import your products.\n'
     "  >\n"
     "  > If you've already uploaded your inventory and still see this message, please [contact support](mailto:support@dynamicpricing.com) for assistance.\n\n"
     "🎨 **Visual Response Enhancement**:\n"
