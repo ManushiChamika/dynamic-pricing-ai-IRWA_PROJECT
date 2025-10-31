@@ -68,6 +68,40 @@ def _update_thread_title(thread_id: int, new_title: str):
     return update_thread(thread_id, title=new_title)
 
 
+def _summarize_tool_events(events: List[Dict[str, Any]]) -> Dict[str, Any]:
+    counts: Dict[str, Dict[str, int]] = {}
+    for e in events:
+        n = e.get("name")
+        s = e.get("status")
+        if not n:
+            continue
+        if n not in counts:
+            counts[n] = {"start": 0, "end": 0}
+        if s == "start":
+            counts[n]["start"] += 1
+        if s == "end":
+            counts[n]["end"] += 1
+    completed = [k for k, v in counts.items() if v.get("end", 0) >= v.get("start", 0) and v.get("end", 0) > 0]
+    incomplete = [k for k, v in counts.items() if v.get("start", 0) > v.get("end", 0)]
+    return {"events": events, "completed": completed, "incomplete": incomplete}
+
+
+def _apply_output_gate(text: str, tools_used: Optional[List[str]]) -> (str, Optional[Dict[str, Any]]):
+    t = text or ""
+    lu = tools_used or []
+    lower = t.lower()
+    trigger = False
+    phrases = ["recommended price", "we recommend", "optimal price", "set price to", "suggested price"]
+    for p in phrases:
+        if p in lower:
+            trigger = True
+            break
+    if trigger and ("list_price_proposals" not in lu):
+        note = "\n\nNote: No price proposals verified yet; optimization may be running."
+        return t + note, {"recommendation_gated": True, "reason": "no_list_price_proposals_call"}
+    return t, None
+
+
 @router.post("/{thread_id}/messages", response_model=MessageOut)
 def api_post_message(thread_id: int, req: PostMessageRequest, token: Optional[str] = None):
     import json as _json
@@ -100,6 +134,7 @@ def api_post_message(thread_id: int, req: PostMessageRequest, token: Optional[st
     
     full_parts: List[str] = []
     activated_agents: set = set()
+    tool_events: List[Dict[str, Any]] = []
     try:
         for delta in uia.stream_response(req.content):
             if isinstance(delta, str) and delta:
@@ -110,6 +145,8 @@ def api_post_message(thread_id: int, req: PostMessageRequest, token: Optional[st
                     agent_name = delta.get("name")
                     if agent_name:
                         activated_agents.add(agent_name)
+                elif et == "tool_call":
+                    tool_events.append({"name": delta.get("name"), "status": delta.get("status")})
     except Exception:
         pass
     
@@ -121,9 +158,17 @@ def api_post_message(thread_id: int, req: PostMessageRequest, token: Optional[st
     token_out = usage.get("completion_tokens") if isinstance(usage, dict) else None
     tools_used = usage.get("tools_used") if isinstance(usage, dict) else None
     provider = getattr(uia, "last_provider", None)
+
+    gated_answer, gate_meta = _apply_output_gate(answer, tools_used if isinstance(tools_used, list) else [])
+
+    tool_status = _summarize_tool_events(tool_events) if tool_events else {"events": [], "completed": [], "incomplete": []}
+
     metadata: Dict[str, Any] | None = None
     try:
-        metadata = {"provider": provider, "tools_used": tools_used}
+        base_meta = {"provider": provider, "tools_used": tools_used, "tool_status": tool_status}
+        if gate_meta:
+            base_meta["output_gate"] = gate_meta
+        metadata = base_meta
     except Exception:
         metadata = None
 
@@ -146,7 +191,7 @@ def api_post_message(thread_id: int, req: PostMessageRequest, token: Optional[st
     am = add_message(
         thread_id=thread_id,
         role="assistant",
-        content=answer,
+        content=gated_answer,
         model=model,
         token_in=token_in,
         token_out=token_out,
@@ -244,16 +289,17 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
             
             for item in _assemble_memory(thread_id):
                 uia.add_to_memory(item["role"], item["content"])
-
+            
             am = add_message(
                 thread_id=thread_id,
                 role="assistant",
                 content="",
                 parent_id=um.id,
             )
-
+            
             full_parts: List[str] = []
             activated_agents: set = set()
+            tool_events: List[Dict[str, Any]] = []
             try:
                 for delta in uia.stream_response(req.content):
                     try:
@@ -277,13 +323,14 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
                                 yield "event: agent\n" + "data: " + _json.dumps(payload, ensure_ascii=False) + "\n\n"
                             elif et == "tool_call":
                                 payload = {"name": delta.get("name"), "status": delta.get("status")}
+                                tool_events.append(payload)
                                 yield "event: tool_call\n" + "data: " + _json.dumps(payload, ensure_ascii=False) + "\n\n"
                     except Exception as e:
                         logger.warning("Error processing stream delta: %s", e, exc_info=True)
                         continue
             except Exception as e:
                 logger.error("Error in stream_response loop: %s", e, exc_info=True)
-
+            
             full_text = ("".join(full_parts)).strip()
             model = getattr(uia, "last_model", None)
             usage = getattr(uia, "last_usage", {}) if hasattr(uia, "last_usage") else {}
@@ -291,18 +338,25 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
             token_out = usage.get("completion_tokens") if isinstance(usage, dict) else None
             tools_used = usage.get("tools_used") if isinstance(usage, dict) else None
             provider = getattr(uia, "last_provider", None)
+
+            gated_text, gate_meta = _apply_output_gate(full_text, tools_used if isinstance(tools_used, list) else [])
+            tool_status = _summarize_tool_events(tool_events) if tool_events else {"events": [], "completed": [], "incomplete": []}
+
             metadata: Dict[str, Any] | None = None
             try:
-                metadata = {"provider": provider, "tools_used": tools_used}
+                base_meta = {"provider": provider, "tools_used": tools_used, "tool_status": tool_status}
+                if gate_meta:
+                    base_meta["output_gate"] = gate_meta
+                metadata = base_meta
             except Exception:
                 metadata = None
-
+            
             agents_list = list(activated_agents) if activated_agents else []
             tools_obj = {"used": (tools_used or []), "count": len(tools_used or [])}
             agents_obj = {"activated": agents_list, "count": len(agents_list)}
             api_calls = (1 if model else 0) + len(tools_obj["used"])
             cost_usd = _compute_cost_usd(provider, model, token_in, token_out)
-
+            
             try:
                 update_message(
                     um.id,
@@ -312,10 +366,10 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
                 )
             except Exception:
                 pass
-
+            
             am = update_message(
                 am.id,
-                content=full_text,
+                content=gated_text,
                 model=model,
                 token_in=token_in,
                 token_out=token_out,
@@ -325,7 +379,7 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
                 api_calls=api_calls,
                 meta=(None if metadata is None else _json.dumps(metadata, ensure_ascii=False)),
             )
-
+            
             try:
                 if _should_summarize(thread_id, am.id, token_in, token_out):
                     summary = _generate_summary(thread_id, am.id)
@@ -364,3 +418,4 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
             yield "event: error\n" + "data: " + _json.dumps(err, ensure_ascii=False) + "\n\n"
 
     return StreamingResponse(_iter(), media_type="text/event-stream")
+
