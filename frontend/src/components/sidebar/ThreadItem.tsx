@@ -1,54 +1,69 @@
 import React from 'react'
+import { MessageSquare } from 'lucide-react'
+import { CollapsedNavItem } from './CollapsedNavItem'
 import { SummaryIndicator } from '../SummaryIndicator'
+import { formatRelativeTime } from '../../lib/timeUtils'
 
 interface ThreadItemProps {
   id: number | string
   title: string
   isActive: boolean
   isDraft?: boolean
+  updatedAt?: string
   onSelect: () => void
+  collapsed?: boolean
 }
 
 export const ThreadItem = React.memo(
-  ({ id, title, isActive, isDraft = false, onSelect }: ThreadItemProps) => {
-    const handleMouseEnter = (e: React.MouseEvent<HTMLLIElement>) => {
-      if (!isActive) {
-        const el = e.currentTarget as HTMLElement
-        el.style.background = 'var(--accent-light)'
-        el.style.borderColor = 'var(--border-color)'
-      }
-    }
-
-    const handleMouseLeave = (e: React.MouseEvent<HTMLLIElement>) => {
-      if (!isActive) {
-        const el = e.currentTarget as HTMLElement
-        el.style.background = 'transparent'
-        el.style.borderColor = 'transparent'
-      }
+  ({
+    id,
+    title,
+    isActive,
+    isDraft = false,
+    updatedAt,
+    onSelect,
+    collapsed = false,
+  }: ThreadItemProps) => {
+    if (collapsed) {
+      return (
+        <CollapsedNavItem title={title} isActive={isActive} onClick={onSelect}>
+          <MessageSquare className="h-4 w-4 shrink-0" />
+        </CollapsedNavItem>
+      )
     }
 
     return (
       <li
-        className="px-3 py-2.5 rounded-lg cursor-pointer mb-1.5 transition-all duration-200 border"
-        style={{
-          background: isActive ? 'var(--accent-color)' : 'transparent',
-          color: isActive ? 'white' : 'var(--fg)',
-          fontWeight: isActive ? 500 : 400,
-          borderColor: 'transparent',
-        }}
+        className={`group relative cursor-pointer mb-1 transition-colors list-none rounded-lg px-3 py-2.5 ${
+          isActive
+            ? 'bg-secondary text-secondary-foreground'
+            : 'hover:bg-accent hover:text-accent-foreground'
+        }`}
         onClick={onSelect}
         aria-current={isActive ? 'true' : undefined}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
       >
-        <div className="flex items-center justify-between gap-2">
-          <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--font-sm)]">
-            {title}
-          </span>
+        <div className="flex items-center gap-3 w-full">
+          <MessageSquare className="h-4 w-4 shrink-0" />
+
+          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+            <div className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium leading-none">
+              {title}
+            </div>
+
+            {updatedAt && !isDraft && (
+              <div className="text-xs text-muted-foreground leading-none">
+                {formatRelativeTime(updatedAt)}
+              </div>
+            )}
+          </div>
+
           {!isDraft && (
-            <span onClick={(e) => e.stopPropagation()}>
+            <div
+              className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => e.stopPropagation()}
+            >
               <SummaryIndicator threadId={id as number} />
-            </span>
+            </div>
           )}
         </div>
       </li>

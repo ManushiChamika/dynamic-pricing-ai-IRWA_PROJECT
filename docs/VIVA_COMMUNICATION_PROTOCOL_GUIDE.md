@@ -439,11 +439,11 @@ Run script: python scripts/smoke_price_optimizer.py
 Show: Console output showing each agent executing
 ```
 
-**5. Alert Service Fairness**
+**5. Alert Service**
 ```
-Pull up: core/agents/alert_notifier.py (lines 14-47)
-Show: Fairness thresholds
-Explain: "This prevents unethical pricing—architectural enforcement"
+Pull up: core/agents/alert_service/engine.py (lines 17-119)
+Show: Rule-based alerting with correlation and detectors
+Explain: "Dynamic rule engine monitors pricing violations and triggers multi-channel alerts"
 ```
 
 ---

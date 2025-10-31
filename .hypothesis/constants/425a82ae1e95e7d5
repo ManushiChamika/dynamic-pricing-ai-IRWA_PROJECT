@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\core\agents\data_collector\repo.py
+# hypothesis_version: 6.142.2
+
+['DATA_DB', 'DEFAULT', 'DONE', 'FAILED', 'QUEUED', 'RUNNING', 'algorithm', 'app/data.db', 'as_of', 'competitor_price', 'connector', 'cost', 'count', 'created_at', 'currency', 'current_price', 'demand_index', 'depth', 'error', 'features', 'finished_at', 'id', 'margin', 'market', 'market_ticks', 'our_price', 'price_gap_pct', 'proposed_price', 'provenance', 'sku', 'snapshot_id', 'source', 'started_at', 'status', 'stock', 'title', 'ts', 'unknown', 'updated_at']

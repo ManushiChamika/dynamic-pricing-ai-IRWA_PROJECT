@@ -7,7 +7,18 @@ from fastapi.testclient import TestClient
 from backend.main import app
 
 
-client = TestClient(app)
+def make_test_client():
+    import importlib
+    import sys
+    import os
+
+    os.environ["UI_REQUIRE_LOGIN"] = "0"
+    if "backend.main" in sys.modules:
+        del sys.modules["backend.main"]
+    mod = importlib.import_module("backend.main")
+    from fastapi.testclient import TestClient as _TestClient
+
+    return _TestClient(mod.app)
 
 
 def test_create_thread_and_post_message_non_streaming(monkeypatch):
@@ -15,6 +26,7 @@ def test_create_thread_and_post_message_non_streaming(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "")
     monkeypatch.setenv("OPENAI_API_KEY", "")
     monkeypatch.setenv("GEMINI_API_KEY", "")
+    client = make_test_client()
 
     # Create thread
     r = client.post("/api/threads", json={"title": "API Test"})
@@ -58,6 +70,7 @@ def test_post_message_streaming_sse(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "")
     monkeypatch.setenv("OPENAI_API_KEY", "")
     monkeypatch.setenv("GEMINI_API_KEY", "")
+    client = make_test_client()
 
     # Create thread
     r = client.post("/api/threads", json={"title": "Stream Test"})
@@ -123,6 +136,7 @@ def test_delete_thread_cascades_messages_and_summaries(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "")
     monkeypatch.setenv("OPENAI_API_KEY", "")
     monkeypatch.setenv("GEMINI_API_KEY", "")
+    client = make_test_client()
 
     # Create a thread and add a user+assistant exchange
     r = client.post("/api/threads", json={"title": "Delete Cascade Test"})
@@ -171,6 +185,11 @@ def test_delete_thread_cascades_messages_and_summaries(monkeypatch):
 
 
 def test_delete_thread_twice_returns_404(monkeypatch):
+    # Ensure deterministic fallback
+    monkeypatch.setenv("OPENROUTER_API_KEY", "")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+    client = make_test_client()
     # Create and delete once, second delete should 404
     r = client.post("/api/threads", json={"title": "Delete Twice Test"})
     assert r.status_code == 200
@@ -189,6 +208,7 @@ def test_edit_user_message_updates_content(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "")
     monkeypatch.setenv("OPENAI_API_KEY", "")
     monkeypatch.setenv("GEMINI_API_KEY", "")
+    client = make_test_client()
 
     # Create thread and send one message
     r = client.post("/api/threads", json={"title": "Edit Test"})
@@ -224,6 +244,7 @@ def test_branch_from_parent_appends_pair(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "")
     monkeypatch.setenv("OPENAI_API_KEY", "")
     monkeypatch.setenv("GEMINI_API_KEY", "")
+    client = make_test_client()
 
     # Create thread and first exchange
     r = client.post("/api/threads", json={"title": "Branch Test"})
@@ -260,6 +281,7 @@ def test_delete_single_message(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "")
     monkeypatch.setenv("OPENAI_API_KEY", "")
     monkeypatch.setenv("GEMINI_API_KEY", "")
+    client = make_test_client()
 
     # Create thread and one exchange
     r = client.post("/api/threads", json={"title": "Delete Msg Test"})
@@ -292,6 +314,7 @@ def test_export_import_roundtrip(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "")
     monkeypatch.setenv("OPENAI_API_KEY", "")
     monkeypatch.setenv("GEMINI_API_KEY", "")
+    client = make_test_client()
 
     # Create a thread with two exchanges
     r = client.post("/api/threads", json={"title": "Export Source"})
@@ -336,6 +359,7 @@ def test_user_message_metadata_non_streaming_propagated(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "")
     monkeypatch.setenv("OPENAI_API_KEY", "")
     monkeypatch.setenv("GEMINI_API_KEY", "")
+    client = make_test_client()
 
     # Create thread and send one message
     r = client.post("/api/threads", json={"title": "User Meta Non-Stream"})
@@ -368,6 +392,7 @@ def test_user_message_metadata_streaming_propagated(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "")
     monkeypatch.setenv("OPENAI_API_KEY", "")
     monkeypatch.setenv("GEMINI_API_KEY", "")
+    client = make_test_client()
 
     r = client.post("/api/threads", json={"title": "User Meta Stream"})
     assert r.status_code == 200

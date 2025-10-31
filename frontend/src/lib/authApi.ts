@@ -21,8 +21,7 @@ export async function login(email: string, password: string): Promise<LoginResul
   if (res.ok && res.data?.token) {
     return { ok: true, token: res.data.token, user: res.data.user || null }
   }
-  const error =
-    (res.data && (res.data.detail || res.data.error)) || `Login failed (${res.status})`
+  const error = (res.data && (res.data.detail || res.data.error)) || `Login failed (${res.status})`
   return { ok: false, error }
 }
 

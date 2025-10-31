@@ -294,6 +294,19 @@ class DataRepo:
             await db.commit()
         return cursor.rowcount
 
+    async def delete_all_products_by_owner(self, owner_id: str) -> int:
+        """Delete all products for a specific owner. Returns rows affected."""
+        async with aiosqlite.connect(self.path.as_posix()) as db:
+            cursor = await db.execute(
+                """
+                DELETE FROM product_catalog
+                WHERE owner_id=?
+                """,
+                (owner_id,),
+            )
+            await db.commit()
+        return cursor.rowcount
+
     async def create_job(
         self, sku: str, market: str, connector: str, depth: int
     ) -> str:

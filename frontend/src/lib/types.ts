@@ -24,7 +24,7 @@ export interface Thread {
 }
 
 export interface Settings {
-  theme: 'light' | 'dark'
+  theme: 'light' | 'dark' | 'ocean' | 'forest' | 'sunset' | 'midnight' | 'rose'
   showModel: boolean
   showTimestamps: boolean
   showMeta: boolean
@@ -40,4 +40,12 @@ export interface PriceData {
   recommendedPrice: number
   competitorPrices: { source: string; price: number }[]
   timestamp: Date
+}
+
+export type PricePoint = { ts: number; price: number }
+export type MessageMeta = {
+  provider?: string
+  priceData?: PricePoint[]
+  sku?: string
+  [key: string]: unknown
 }

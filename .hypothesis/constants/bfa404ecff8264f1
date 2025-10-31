@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\core\agents\data_collector\mcp_server.py
+# hypothesis_version: 6.142.2
+
+[0.15, 100, 1440, '7', 'D', 'DEFAULT', 'P', 'P7D', '^P\\d+D$', '__main__', 'active', 'admin', 'auth_error', 'collect', 'connector', 'count', 'data-collector', 'depth', 'description', 'details', 'error', 'features', 'import', 'inactive', 'internal_error', 'job', 'job_id', 'job_not_found', 'last_check', 'market', 'message', 'metrics', 'mock', 'name', 'no_valid_products', 'ok', 'processed', 'read', 'result', 'run', 'service', 'sku', 'sources', 'status', 'supported_connectors', 'time_window', 'timestamp', 'total_input', 'type', 'validation_error', 'web_scraper', 'write']

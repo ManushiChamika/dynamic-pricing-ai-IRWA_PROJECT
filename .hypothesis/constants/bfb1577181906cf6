@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\mcp\server\fastmcp\server.py
+# hypothesis_version: 6.142.2
+
+[8000, '.env', '/messages/', '/sse', '0.0.0.0', 'CRITICAL', 'DEBUG', 'ERROR', 'FASTMCP_', 'FastMCP', 'INFO', 'WARNING', 'client_id', 'debug', 'error', 'ignore', 'info', 'sse', 'stdio', 'text', 'text/plain', 'warning', '{', '{(\\w+)}', '}']

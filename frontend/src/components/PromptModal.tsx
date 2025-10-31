@@ -23,7 +23,9 @@ export function PromptModal() {
       await onSubmit(value)
       usePrompt.getState().close()
     } catch (e) {
-      useToasts.getState().push({ type: 'error', text: e instanceof Error ? e.message : 'Action failed' })
+      useToasts
+        .getState()
+        .push({ type: 'error', text: e instanceof Error ? e.message : 'Action failed' })
       setState({ submitting: false })
     }
   }

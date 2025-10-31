@@ -1,0 +1,32 @@
+{
+  "tools": [
+    {
+      "name": "start_data_collection",
+      "description": "Start collecting data for a specific SKU and market",
+      "schema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_job_status",
+      "description": "Get the status of a data collection job",
+      "schema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "optimize_price",
+      "description": "Run price optimization for a specific SKU",
+      "schema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "upsert_product",
+      "description": "Insert or update a product in the catalog",
+      "schema": {
+        "type": "object"
+      }
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\core\agents\base_chat_handler.py
+# hypothesis_version: 6.142.2
+
+['arguments', 'assistant', 'client', 'completion_tokens', 'content', 'finish_reason', 'function', 'id', 'model', 'name', 'prompt_tokens', 'provider', 'role', 'tool', 'tool_call', 'tool_call_id', 'tool_calls', 'tool_choice', 'total_tokens', 'type', 'usage', '{}']

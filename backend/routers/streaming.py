@@ -5,9 +5,13 @@ from core.chat_db import (
     add_message,
     update_message,
     get_thread_messages,
+    get_message,
 )
 from core.agents.user_interact.user_interaction_agent import UserInteractionAgent
 from core.payloads import PostMessageRequest, MessageOut
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/api/threads", tags=["streaming"])
@@ -44,9 +48,24 @@ def _generate_summary(thread_id: int, upto_message_id: int) -> Optional[str]:
     return generate_summary(thread_id, upto_message_id)
 
 
-def db_add_summary(thread_id: int, upto_message_id: int, content: str):
-    from core.chat_db import add_summary as _add_summary
-    return _add_summary(thread_id, upto_message_id, content)
+def _safe_add_summary(thread_id: int, upto_message_id: int, content: str) -> bool:
+    from backend.routers.utils import safe_add_summary
+    return safe_add_summary(thread_id, upto_message_id, content)
+
+
+def _should_auto_rename_thread(thread_id: int) -> bool:
+    from backend.routers.utils import should_auto_rename_thread
+    return should_auto_rename_thread(thread_id)
+
+
+def _generate_thread_title(thread_id: int) -> Optional[str]:
+    from backend.routers.utils import generate_thread_title
+    return generate_thread_title(thread_id)
+
+
+def _update_thread_title(thread_id: int, new_title: str):
+    from core.chat_db import update_thread
+    return update_thread(thread_id, title=new_title)
 
 
 @router.post("/{thread_id}/messages", response_model=MessageOut)
@@ -124,7 +143,15 @@ def api_post_message(thread_id: int, req: PostMessageRequest, token: Optional[st
         if _should_summarize(thread_id, am.id, token_in, token_out):
             summary = _generate_summary(thread_id, am.id)
             if summary:
-                db_add_summary(thread_id=thread_id, upto_message_id=am.id, content=summary)
+                _safe_add_summary(thread_id, am.id, summary)
+    except Exception as e:
+        logger.exception(f"Summarization failed for thread {thread_id}, message {am.id}: {e}")
+
+    try:
+        if _should_auto_rename_thread(thread_id):
+            new_title = _generate_thread_title(thread_id)
+            if new_title:
+                _update_thread_title(thread_id, new_title)
     except Exception:
         pass
 
@@ -213,10 +240,11 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
                             elif et == "tool_call":
                                 payload = {"name": delta.get("name"), "status": delta.get("status")}
                                 yield "event: tool_call\n" + "data: " + _json.dumps(payload, ensure_ascii=False) + "\n\n"
-                    except Exception:
+                    except Exception as e:
+                        logger.warning("Error processing stream delta: %s", e, exc_info=True)
                         continue
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error("Error in stream_response loop: %s", e, exc_info=True)
 
             full_text = ("".join(full_parts)).strip()
             model = getattr(uia, "last_model", None)
@@ -264,7 +292,16 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
                 if _should_summarize(thread_id, am.id, token_in, token_out):
                     summary = _generate_summary(thread_id, am.id)
                     if summary:
-                        db_add_summary(thread_id=thread_id, upto_message_id=am.id, content=summary)
+                        _safe_add_summary(thread_id, am.id, summary)
+            except Exception as e:
+                logger.exception(f"Summarization failed for thread {thread_id}, message {am.id}: {e}")
+
+            try:
+                if _should_auto_rename_thread(thread_id):
+                    new_title = _generate_thread_title(thread_id)
+                    if new_title:
+                        _update_thread_title(thread_id, new_title)
+                        yield "event: thread_renamed\n" + "data: " + _json.dumps({"id": thread_id, "title": new_title}, ensure_ascii=False) + "\n\n"
             except Exception:
                 pass
 

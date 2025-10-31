@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\mcp\client\stdio\__init__.py
+# hypothesis_version: 6.142.2
+
+['()', 'APPDATA', 'HOME', 'HOMEDRIVE', 'HOMEPATH', 'LOCALAPPDATA', 'LOGNAME', 'PATH', 'SHELL', 'SYSTEMDRIVE', 'SYSTEMROOT', 'TEMP', 'TERM', 'USER', 'USERNAME', 'USERPROFILE', 'ignore', 'replace', 'strict', 'utf-8', 'win32']

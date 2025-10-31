@@ -53,38 +53,40 @@ export function HeroSection({
             </span>
           </div>
 
-          <h1 className="mb-8 text-5xl font-extrabold leading-tight tracking-tight md:text-6xl lg:text-7xl">
+          <h1 className="mb-6 text-5xl font-extrabold leading-tight tracking-tight md:text-6xl lg:text-7xl text-center">
             Dynamic Pricing Made{' '}
             <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
               Simple
             </span>
           </h1>
 
-          <p className={`mb-12 text-xl md:text-2xl leading-relaxed max-w-3xl mx-auto text-center ${mutedText}`}>
+          <p
+            className={`mb-12 text-xl md:text-2xl leading-relaxed max-w-3xl mx-auto text-center ${mutedText}`}
+          >
             Let AI agents optimize your pricing in real-time. Control everything through natural
             language—no coding required.
           </p>
 
-          <div className="flex flex-col items-center justify-center gap-4 sm:flex-row mb-12">
+          <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center mb-10">
             {user ? (
               <Button
-                className="text-lg h-14 px-10 leading-none bg-gradient-to-r from-indigo-500 to-purple-600 text-white border border-transparent shadow-[0_18px_40px_rgba(79,70,229,0.25)]"
+                className="text-lg h-14 px-10 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0 shadow-[0_18px_40px_rgba(79,70,229,0.25)]"
                 onClick={() => navigate('/chat')}
               >
                 Go to Chat
-                <MessageSquare className="ml-2 h-5 w-5" />
+                <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             ) : (
               <>
                 <Button
-                  className="text-lg h-14 px-10 leading-none bg-gradient-to-r from-indigo-500 to-purple-600 text-white border border-transparent shadow-[0_18px_40px_rgba(79,70,229,0.25)]"
+                  className="text-lg h-14 px-10 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0 shadow-[0_18px_40px_rgba(79,70,229,0.25)]"
                   onClick={() => navigate('/auth?mode=signup')}
                 >
                   Start Free Trial
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
                 <Button
-                  className={`${secondaryCta} leading-none`}
+                  className={secondaryCta}
                   onClick={() =>
                     document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })
                   }
@@ -139,8 +141,8 @@ export function HeroSection({
                     <div className="flex items-start gap-3">
                       <span className="text-purple-500 font-semibold">AI:</span>
                       <span className={mutedText}>
-                        Analyzing 47 laptops... Found 3 competitors pricing below you. Recommend
-                        8% decrease on Dell models.
+                        Analyzing 47 laptops... Found 3 competitors pricing below you. Recommend 8%
+                        decrease on Dell models.
                       </span>
                     </div>
                   </div>

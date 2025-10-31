@@ -123,7 +123,7 @@ def list_market_data(search: Optional[str] = None, limit: int = 50) -> Dict[str,
         return {"error": str(e)}
 
 
-def list_inventory(search: str = "", limit: int = 10) -> Dict[str, Any]:
+def list_inventory(search: str = "", limit: int = 100) -> Dict[str, Any]:
     return list_inventory_items(search=search or None, limit=limit)
 
 
@@ -136,19 +136,102 @@ def list_proposals(sku: str = "", limit: int = 10) -> Dict[str, Any]:
 
 
 def optimize_price(sku: str) -> Dict[str, Any]:
-    return {"info": f"Price optimization for {sku} would use the pricing optimizer agent"}
+    try:
+        from core.agents.price_optimizer.agent import PricingOptimizerAgent
+        import asyncio
+        
+        agent = PricingOptimizerAgent()
+        
+        try:
+            loop = asyncio.get_running_loop()
+            task = loop.create_task(agent.process_full_workflow(f"Optimize price for {sku}", sku))
+            return {
+                "ok": True,
+                "message": f"Price optimization started for {sku}. Processing in background.",
+                "sku": sku
+            }
+        except RuntimeError:
+            result = asyncio.run(agent.process_full_workflow(f"Optimize price for {sku}", sku))
+            return {
+                "ok": result.get("status") == "ok",
+                "message": result.get("message") or result.get("reason") or f"Optimization completed for {sku}",
+                "sku": sku,
+                "result": result
+            }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 
 def run_pricing_workflow(sku: str) -> Dict[str, Any]:
-    return {"info": f"Running pricing workflow for {sku}"}
+    return optimize_price(sku)
 
 
 def collect_market_data() -> Dict[str, Any]:
     return {"info": "Market data collection would trigger the data collection agent"}
 
 
+def check_stale_market_data(threshold_minutes: int = 60) -> Dict[str, Any]:
+    db_paths = get_db_paths()
+    db_path = str(db_paths["market"])
+    try:
+        with sqlite3.connect(db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            if not _table_exists(conn, "market_data"):
+                return {"stale_items": [], "count": 0, "note": "market_data missing"}
+            
+            query = """
+                SELECT id, product_name, price, update_time,
+                       CAST((julianday('now') - julianday(update_time)) * 24 * 60 AS INTEGER) as age_minutes
+                FROM market_data
+                WHERE age_minutes > ?
+                ORDER BY age_minutes DESC
+            """
+            rows = conn.execute(query, (threshold_minutes,)).fetchall()
+            stale_items = [dict(r) for r in rows]
+            
+            total_query = "SELECT COUNT(*) as total FROM market_data"
+            total_count = conn.execute(total_query).fetchone()["total"]
+            
+            return {
+                "ok": True,
+                "stale_items": stale_items,
+                "stale_count": len(stale_items),
+                "total_count": total_count,
+                "threshold_minutes": threshold_minutes,
+                "message": f"Found {len(stale_items)} stale items out of {total_count} total (>{threshold_minutes} min old)"
+            }
+    except Exception as e:
+        return {"error": str(e)}
+
+
 def scan_for_alerts() -> Dict[str, Any]:
-    return {"info": "Scanning for alerts would trigger the alert notification agent"}
+    db_paths = get_db_paths()
+    db_path = str(db_paths["app"])
+    try:
+        with sqlite3.connect(db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            if not _table_exists(conn, "incidents"):
+                return {"alerts": [], "total": 0, "note": "incidents table missing"}
+            
+            rows = conn.execute(
+                """SELECT id, sku, title, severity, status, created_at, details 
+                   FROM incidents 
+                   ORDER BY created_at DESC 
+                   LIMIT 50"""
+            ).fetchall()
+            
+            alerts = [dict(r) for r in rows]
+            open_count = sum(1 for a in alerts if a.get("status") == "OPEN")
+            
+            return {
+                "ok": True,
+                "alerts": alerts,
+                "total": len(alerts),
+                "open_count": open_count,
+                "message": f"Found {len(alerts)} alerts ({open_count} open)"
+            }
+    except Exception as e:
+        return {"error": str(e)}
 
 
 def request_market_fetch() -> Dict[str, Any]:
@@ -187,6 +270,7 @@ TOOLS_MAP = {
     "list_pricing_list": list_pricing_list,
     "list_price_proposals": list_price_proposals,
     "list_market_data": list_market_data,
+    "check_stale_market_data": check_stale_market_data,
     "list_inventory": list_inventory,
     "list_market_prices": list_market_prices,
     "list_proposals": list_proposals,

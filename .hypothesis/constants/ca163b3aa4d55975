@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\openai\types\file_object.py
+# hypothesis_version: 6.142.2
+
+['FileObject', 'assistants', 'assistants_output', 'batch', 'batch_output', 'error', 'file', 'fine-tune', 'fine-tune-results', 'processed', 'uploaded', 'user_data', 'vision']

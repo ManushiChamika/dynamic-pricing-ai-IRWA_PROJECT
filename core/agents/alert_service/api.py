@@ -43,15 +43,15 @@ async def reload_rules() -> None:
         await _engine._load_rules()     # type: ignore[attr-defined]
 
 # ---------- Incidents ----------
-async def list_incidents(status: Optional[str] = None) -> List[Dict[str, Any]]:
-    return await _repo.list_incidents(status)
+async def list_incidents(status: Optional[str] = None, owner_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    return await _repo.list_incidents(status, owner_id)
 
-async def ack_incident(incident_id: str) -> Dict[str, Any]:
-    await _repo.set_status(incident_id, "ACKED")
+async def ack_incident(incident_id: str, owner_id: Optional[str] = None) -> Dict[str, Any]:
+    await _repo.set_status(incident_id, "ACKED", owner_id)
     return {"ok": True, "id": incident_id, "status": "ACKED"}
 
-async def resolve_incident(incident_id: str) -> Dict[str, Any]:
-    await _repo.set_status(incident_id, "RESOLVED")
+async def resolve_incident(incident_id: str, owner_id: Optional[str] = None) -> Dict[str, Any]:
+    await _repo.set_status(incident_id, "RESOLVED", owner_id)
     return {"ok": True, "id": incident_id, "status": "RESOLVED"}
 
 # ---------- Rules ----------

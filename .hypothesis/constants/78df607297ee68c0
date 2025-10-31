@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\backend\routers\utils.py
+# hypothesis_version: 6.142.2
+
+[0.0, 0.0005, 0.0015, 0.005, 0.01, 0.015, 0.03, 0.2, 0.25, 0.3, 0.75, 1000.0, 10000.0, 150, 200, 220, 400, 2000, 8000, 10000, '...', 'DataCollectorAgent', 'LLM_PRICE_MAP', 'SUMMARIZER_MODEL', 'UI_HISTORY_MAX_MSGS', 'UI_LONG_THREAD_MSGS', 'UI_SUMMARIZE_PROB', 'User queries:', 'UserInteractionAgent', 'assistant', 'collect_market_data', 'content', 'gemini:2.0-flash', 'get_inventory_item', 'in', 'list_inventory_items', 'list_market_data', 'list_price_proposals', 'list_pricing_list', 'openai:gpt-4o', 'openai:gpt-4o-mini', 'optimize_price', 'out', 'request_market_fetch', 'role', 'run_pricing_workflow', 'scan_for_alerts', 'system', 'user']

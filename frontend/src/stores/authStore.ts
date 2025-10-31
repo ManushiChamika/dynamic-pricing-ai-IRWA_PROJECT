@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 import * as authApi from '../lib/authApi'
+import { useThreads } from './threadStore'
+import { useMessages } from './messageStore'
 
 export interface User {
   email: string
@@ -53,6 +55,8 @@ export const useAuth = create<AuthState>((set, get) => ({
     if (t) await authApi.logout(t)
     get().setToken(null)
     set({ user: null })
+    useThreads.getState().clearStore()
+    useMessages.getState().clearStore()
   },
   fetchMe: async () => {
     const t = get().token || localStorage.getItem('token')

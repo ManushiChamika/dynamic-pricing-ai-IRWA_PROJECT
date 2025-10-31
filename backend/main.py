@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
@@ -10,7 +11,10 @@ from contextlib import asynccontextmanager
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
-from backend.routers import auth, settings, threads, messages, streaming, prices, catalog
+from backend.routers import auth, settings, threads, messages, streaming, prices, catalog, alerts
+
+from core.agents.alert_service import api as alert_api
+from core.agents.price_optimizer.agent import PricingOptimizerAgent
 
 
 @asynccontextmanager
@@ -18,6 +22,18 @@ async def lifespan(app: FastAPI):
     init_db()
     init_chat_db()
     cleanup_empty_threads()
+    
+    if os.environ.get("EXPORT_OPENAPI_ONLY", "0") in {"1", "true", "yes", "on"}:
+        yield
+        return
+    try:
+        pricing_optimizer = PricingOptimizerAgent()
+    except Exception:
+        pricing_optimizer = None
+    await alert_api.start()
+    if pricing_optimizer is not None:
+        await pricing_optimizer.start()
+    
     yield
 
 
@@ -53,12 +69,25 @@ except Exception:
     pass
 
 
+# Capture the original host environment value for UI_REQUIRE_LOGIN so pytest can override it
+_ORIG_UI_REQUIRE_LOGIN = os.environ.get("UI_REQUIRE_LOGIN")
+
+
 def _require_login_enabled() -> bool:
     try:
-        import os
-        return (os.getenv("UI_REQUIRE_LOGIN", "0").lower() in {"1","true","yes","on"})
+        if os.getenv("PYTEST_CURRENT_TEST") is not None:
+            return os.environ.get("UI_REQUIRE_LOGIN", "").lower() in {"1", "true", "yes", "on"}
+
+        if _ORIG_UI_REQUIRE_LOGIN is not None:
+            try:
+                return _ORIG_UI_REQUIRE_LOGIN.lower() in {"1", "true", "yes", "on"}
+            except Exception:
+                return False
+
+        return False
     except Exception:
         return False
+
 
 
 def _extract_token_from_request(request: Request) -> str | None:
@@ -86,7 +115,11 @@ class ChatAuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         if path.startswith("/api/threads") or path.startswith("/api/messages"):
             token = _extract_token_from_request(request)
-            sess = validate_session_token(token) if token else None
+            try:
+                sess = validate_session_token(token) if token else None
+            except Exception as e:
+                print(f"Token validation error: {e}")
+                sess = None
             if not sess:
                 return JSONResponse({"error": "Authentication required"}, status_code=401)
         return await call_next(request)
@@ -101,3 +134,4 @@ app.include_router(messages.router)
 app.include_router(streaming.router)
 app.include_router(prices.router)
 app.include_router(catalog.router)
+app.include_router(alerts.router)

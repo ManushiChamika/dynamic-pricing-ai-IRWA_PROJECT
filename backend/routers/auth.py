@@ -47,7 +47,7 @@ def api_login(req: LoginRequest):
         token, expires_at = create_persistent_session(user_id=user["user_id"])
         return {"ok": True, "token": token, "user": user, "expires_at": expires_at.isoformat()}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=401, detail=str(e))
 
 
 @router.get("/me")
