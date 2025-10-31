@@ -141,6 +141,10 @@ def generate_summary(thread_id: int, upto_message_id: int) -> Optional[str]:
     msgs = get_thread_messages(thread_id)
     latest = get_latest_summary(thread_id)
     start_id = int(latest.upto_message_id) if latest else 0
+
+    # Abstractive Summarization → short summary generation
+    # NLP pattern: Abstractive summarization with mild determinism,
+    #  preceded by extractive length control to fit context.
     segment = [m for m in msgs if m.id > start_id and m.id <= upto_message_id]
     if len(segment) < 4:
         return None

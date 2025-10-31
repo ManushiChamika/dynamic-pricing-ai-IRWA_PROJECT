@@ -1,3 +1,13 @@
+# A thin, async service layer that wires together the singletons (Repo, AlertEngine) and exposes simple functions to:
+
+# start the system,
+
+# manage incidents,
+
+# manage rules,
+
+# manage channel settings.
+
 from typing import Optional, Dict, Any, List
 
 from .repo import Repo

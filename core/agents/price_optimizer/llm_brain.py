@@ -60,6 +60,11 @@ class LLMBrain:
 			if latest_price: context_info += f"- Latest competitor price: ${latest_price}\n"
 			if avg_price: context_info += f"- Average competitor price: ${avg_price}\n"
 
+# Prompt-Based Classification → LLM-driven intent selection
+# KeywoHeuristic → simple text-matching fallback
+
+# NLP pattern: Instruction-following for structured JSON output (tool selection) with a keyword-based failsafe.
+
 		prompt = (
 			"You are an AI pricing agent brain. Analyze the user's request and market context to select the most appropriate pricing tool.\n\n"
 			f"User Request: \"{user_intent}\"\n"

@@ -194,6 +194,10 @@ class UserInteractionAgent:
                     max_tokens_cfg = ui_max_tokens if ui_max_tokens > 0 else 1024
                     temperature = 0.2 if self.mode == "user" else 0.3
 
+# Tool-Streaming Chat → real-time LLM dialogue with function calling
+# NLP pattern: Prompted, tool-augmented generation
+#  with streaming and bounded multi-turn tool orchestration.
+
                     # Tool schemas matching our implementations
                     tools = [
                         {

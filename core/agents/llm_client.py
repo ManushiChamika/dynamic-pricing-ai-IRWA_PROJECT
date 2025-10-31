@@ -497,6 +497,10 @@ class LLMClient:
                 continue
 
         raise RuntimeError(f"LLM tools error: {last_error or 'no provider succeeded'}")
+    
+# Function-Calling Orchestration → structured reasoning loop with tools
+# NLP pattern: Function-calling loop with streaming and programmatic tool 
+# execution, closing the perception–action cycle for the LLM.
 
     def chat_with_tools_stream(
         self,
