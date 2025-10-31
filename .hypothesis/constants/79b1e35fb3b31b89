@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\openai\types\beta\realtime\realtime_response_status.py
+# hypothesis_version: 6.142.2
+
+['Error', 'cancelled', 'client_cancelled', 'completed', 'content_filter', 'failed', 'incomplete', 'max_output_tokens', 'turn_detected']

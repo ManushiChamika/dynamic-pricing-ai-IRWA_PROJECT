@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\pandas\util\_print_versions.py
+# hypothesis_version: 6.142.2
+
+['\nINSTALLED VERSIONS', '------------------', 'Cython', 'IPython', 'LANG', 'LC_ALL', 'LOCALE', 'N/A', 'OS', 'OS-release', 'P', 'Version', 'byteorder', 'commit', 'dateutil', 'dependencies', 'encoding', 'full-revisionid', 'ignore', 'language-code', 'machine', 'numpy', 'pandas', 'pip', 'processor', 'python', 'python-bits', 'pytz', 'sphinx', 'system', 'utf-8', 'w']

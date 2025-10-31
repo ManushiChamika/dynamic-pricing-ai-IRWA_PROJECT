@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\mcp\types.py
+# hypothesis_version: 6.142.2
+
+[0.0, 1.0, -32700, -32603, -32602, -32601, -32600, '2.0', '2024-11-05', 'MethodT', 'NotificationParamsT', 'RequestParamsT', '_meta', 'alert', 'allServers', 'allow', 'assistant', 'completion/complete', 'critical', 'debug', 'emergency', 'endTurn', 'error', 'image', 'info', 'initialize', 'logging/setLevel', 'maxTokens', 'none', 'notice', 'ping', 'prompts/get', 'prompts/list', 'ref/prompt', 'ref/resource', 'resource', 'resources/list', 'resources/read', 'resources/subscribe', 'roots/list', 'stopSequence', 'text', 'thisServer', 'tools/call', 'tools/list', 'user', 'warning']

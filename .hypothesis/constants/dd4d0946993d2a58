@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\openai\types\beta\threads\run_status.py
+# hypothesis_version: 6.142.2
+
+['RunStatus', 'cancelled', 'cancelling', 'completed', 'expired', 'failed', 'in_progress', 'incomplete', 'queued', 'requires_action']

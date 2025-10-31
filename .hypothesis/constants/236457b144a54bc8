@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\backend\routers\streaming.py
+# hypothesis_version: 6.142.2
+
+['/api/threads', 'activated', 'agent', 'agents', 'api_calls', 'assistant', 'completion_tokens', 'content', 'cost_usd', 'count', 'created_at', 'data: ', 'data: {}\n\n', 'delta', 'error', 'event: agent\n', 'event: done\n', 'event: error\n', 'event: message\n', 'event: ping\n', 'event: thinking\n', 'event: tool_call\n', 'id', 'last_model', 'last_provider', 'last_usage', 'metadata', 'mode', 'model', 'name', 'prompt_tokens', 'provider', 'role', 'show_thinking', 'started', 'status', 'streaming', 'text', 'text/event-stream', 'title', 'token_in', 'token_out', 'tool_call', 'tools', 'tools_used', 'type', 'used', 'user']

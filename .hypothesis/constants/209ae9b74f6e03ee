@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\mcp\server\fastmcp\resources\types.py
+# hypothesis_version: 6.142.2
+
+['*', 'Path to the file', 'application/json', 'files', 'is_binary', 'mime_type', 'path', 'text/', 'text/plain']

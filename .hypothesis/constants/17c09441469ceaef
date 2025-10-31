@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\numpy\lib\_ufunclike_impl.py
+# hypothesis_version: 6.142.2
+
+['fix', 'isneginf', 'isposinf', 'numpy']

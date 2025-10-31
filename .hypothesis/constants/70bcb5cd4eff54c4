@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\core\agents\llm_client.py
+# hypothesis_version: 6.142.2
+
+[0.2, 256, '"', '#', "'", '.env', '=', 'DEBUG_LLM', 'GEMINI_API_KEY', 'GEMINI_BASE_URL', 'LLM unavailable: %s', 'OPENAI_API_KEY', 'OPENROUTER_API_KEY', 'OPENROUTER_BASE_URL', 'api_key', 'arguments', 'assistant', 'auto', 'chat completion', 'choices', 'client', 'content', 'core.agents.llm', 'delta', 'end', 'function', 'gemini', 'id', 'include_usage', 'index', 'model', 'name', 'none', 'openai', 'provider', 'r', 'role', 'start', 'status', 'text', 'tool', 'tool_call', 'tool_call_id', 'tool_calls', 'tool_choice', 'tools_used', 'type', 'usage', 'utf-8', '{}']

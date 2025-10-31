@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\backend\routers\threads.py
+# hypothesis_version: 6.142.2
+
+[400, 404, 500, '/api/threads', '/import', '/{thread_id}', '/{thread_id}/export', 'Thread not found', 'agents', 'api_calls', 'content', 'cost_usd', 'created_at', 'id', 'json', 'metadata', 'model', 'ok', 'parent_id', 'role', 'summaries', 'threads', 'title', 'token_in', 'token_out', 'tools', 'upto_message_id', 'user_id']

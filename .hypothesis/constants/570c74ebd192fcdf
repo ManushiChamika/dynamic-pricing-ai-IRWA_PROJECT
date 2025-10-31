@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\backend\routers\catalog.py
+# hypothesis_version: 6.142.2
+
+[400, 401, 404, 500, '.csv', '.json', '/api', '/catalog/products', '/catalog/upload', 'Product not found', 'catalog', 'cost', 'count', 'currency', 'current_price', 'filename', 'message', 'owner_id', 'product', 'products', 'records', 'rows_affected', 'rows_inserted', 'rows_processed', 'sku', 'stock', 'success', 'title', 'user_id']

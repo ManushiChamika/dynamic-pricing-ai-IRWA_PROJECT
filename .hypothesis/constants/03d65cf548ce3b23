@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\numpy\_core\memmap.py
+# hypothesis_version: 6.142.2
+
+[b'\x00', -100.0, 'C', '_mmap', 'b', 'c', 'copyonwrite', 'flush', 'memmap', 'name', 'numpy', 'r', 'r+', 'read', 'readonly', 'readwrite', 'w+', 'write']

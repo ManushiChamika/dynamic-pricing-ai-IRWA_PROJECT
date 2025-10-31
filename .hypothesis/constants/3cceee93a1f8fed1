@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\core\agents\user_interact\user_interaction_agent.py
+# hypothesis_version: 6.142.2
+
+[0.2, 0.3, 1024, '-c', '-f', '-l', '0', '1', '1200', '800', 'Darwin', 'Linux', 'OPENROUTER_API_KEY', 'OPENROUTER_BASE_URL', 'OPENROUTER_MODEL', 'SOUND_NOTIFICATIONS', 'True', 'UI_LLM_MAX_TOKENS', 'Windows', 'afplay', 'agent', 'app', 'assistant', 'auto', 'beep', 'content', 'cost', 'data.db', 'delta', 'demand', 'discount', 'dynamic pricing', 'enable_sound', 'last_usage', 'load_dotenv', 'margin', 'model', 'name', 'offer', 'on', 'powershell', 'price', 'price optimization', 'pricing', 'profit', 'provider', 'role', 'start', 'status', 'supply', 'system', 'text', 'tool_call', 'true', 'type', 'user', 'yes']
