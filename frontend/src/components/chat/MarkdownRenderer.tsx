@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { CodeBlock } from './CodeBlock'
 
 const cleanMarkdownTables = (content: string): string => {
   const lines = content.split('\n')
@@ -97,31 +98,27 @@ const MARKDOWN_COMPONENTS = {
       {children}
     </blockquote>
   ),
-  code: ({ children, inline, ...props }: any) => {
-    if (inline) {
-      return (
-        <code
-          className="px-1.5 py-0.5 bg-primary/10 text-primary rounded text-sm font-mono"
-          {...props}
-        >
-          {children}
-        </code>
-      )
-    }
-    return (
-      <code className="font-mono text-sm" {...props}>
-        {children}
-      </code>
-    )
-  },
-  pre: ({ children, ...props }: React.HTMLAttributes<HTMLPreElement>) => (
-    <pre
-      className="bg-muted/50 border border-border/50 rounded-lg p-4 my-3 overflow-x-auto"
-      {...props}
-    >
-      {children}
-    </pre>
-  ),
+   code: ({ children, inline, className, ...props }: any) => {
+     if (inline) {
+       return (
+         <code
+           className="px-1.5 py-0.5 bg-primary/10 text-primary rounded text-sm font-mono"
+           {...props}
+         >
+           {children}
+         </code>
+       )
+     }
+     const match = /language-(\w+)/.exec(className || '')
+     const language = match ? match[1] : 'plaintext'
+     const code = String(children).replace(/\n$/, '')
+     return <CodeBlock code={code} language={language} />
+   },
+   pre: ({ children, ...props }: React.HTMLAttributes<HTMLPreElement>) => (
+     <pre className="font-mono text-sm" {...props}>
+       {children}
+     </pre>
+   ),
   table: ({ children, ...props }: React.TableHTMLAttributes<HTMLTableElement>) => (
     <div className="my-3 border border-border/50 rounded-lg overflow-hidden">
       <table className="w-full text-sm" {...props}>
