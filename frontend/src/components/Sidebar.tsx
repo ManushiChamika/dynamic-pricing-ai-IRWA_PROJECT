@@ -99,7 +99,19 @@ export function Sidebar() {
           >
             {uiCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
-          {!uiCollapsed && (
+          {uiCollapsed ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Create new thread"
+              onClick={() => {
+                navigate('/chat')
+                createDraftThread()
+              }}
+            >
+              <Sparkles className="h-4 w-4" />
+            </Button>
+          ) : (
             <Button
               onClick={() => {
                 navigate('/chat')
