@@ -1,6 +1,6 @@
-import { motion } from 'framer-motion'
+import { Variants } from 'framer-motion'
 
-export const messageVariants = {
+export const messageVariants: Variants = {
   initial: {
     opacity: 0,
     y: 10,
@@ -12,7 +12,6 @@ export const messageVariants = {
     scale: 1,
     transition: {
       duration: 0.3,
-      ease: 'easeOut',
     },
   },
   exit: {
@@ -21,34 +20,31 @@ export const messageVariants = {
     scale: 0.95,
     transition: {
       duration: 0.2,
-      ease: 'easeIn',
     },
   },
 }
 
-export const bubbleVariants = {
+export const bubbleVariants: Variants = {
   initial: { width: 0 },
   animate: {
     width: '100%',
     transition: {
       duration: 0.4,
-      ease: 'easeOut',
     },
   },
 }
 
-export const typingIndicatorVariants = {
+export const typingIndicatorVariants: Variants = {
   animate: {
     opacity: [0.3, 1, 0.3],
     transition: {
       duration: 1.5,
       repeat: Infinity,
-      ease: 'easeInOut',
     },
   },
 }
 
-export const containerVariants = {
+export const containerVariants: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
