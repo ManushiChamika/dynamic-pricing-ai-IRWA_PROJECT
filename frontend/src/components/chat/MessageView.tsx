@@ -5,6 +5,7 @@ import { BranchNavigator } from '../BranchNavigator'
 import { ThinkingTokens } from '../ThinkingTokens'
 import { MessageActions } from './MessageActions'
 import { MessageMetadata } from './MessageMetadata'
+import { AgentActivity } from './AgentActivity'
 import { TypingIndicator } from './TypingIndicator'
 import { messageVariants } from './animations'
 import {
@@ -119,6 +120,9 @@ function MessageViewComponent({
           </div>
           {showThinking && m.thinking && m.role === 'assistant' ? (
             <ThinkingTokens thinking={m.thinking} />
+          ) : null}
+          {m.role === 'assistant' && (m.agents?.count || 0) > 0 ? (
+            <AgentActivity agents={m.agents} tools={m.tools} />
           ) : null}
           {m.metadata?.priceData && m.role === 'assistant' ? (
             <div className="mt-3">
