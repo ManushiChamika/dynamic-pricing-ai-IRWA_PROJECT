@@ -41,17 +41,17 @@ const cleanMarkdownTables = (content: string): string => {
 
 const MARKDOWN_COMPONENTS = {
   h1: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
-    <h1 className="text-3xl font-bold my-4 pb-2 border-b border-border/30" {...props}>
+    <h1 className="text-3xl font-bold my-5 pb-2 border-b border-border/30 tracking-tight" {...props}>
       {children}
     </h1>
   ),
   h2: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
-    <h2 className="text-2xl font-semibold my-3 pb-1.5 border-b border-border/20" {...props}>
+    <h2 className="text-2xl font-semibold my-4 pb-1.5 border-b border-border/20 tracking-tight" {...props}>
       {children}
     </h2>
   ),
   h3: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
-    <h3 className="text-xl font-semibold my-2.5" {...props}>
+    <h3 className="text-xl font-semibold my-3 tracking-tight" {...props}>
       {children}
     </h3>
   ),
@@ -71,22 +71,22 @@ const MARKDOWN_COMPONENTS = {
     </h6>
   ),
   p: ({ children, ...props }: React.HTMLAttributes<HTMLParagraphElement>) => (
-    <p className="my-2 leading-relaxed" {...props}>
+    <p className="my-3 leading-[1.7] text-[15px]" {...props}>
       {children}
     </p>
   ),
   li: ({ children, ...props }: React.LiHTMLAttributes<HTMLLIElement>) => (
-    <li className="my-1 leading-relaxed" {...props}>
+    <li className="my-1.5 leading-[1.7] text-[15px]" {...props}>
       {children}
     </li>
   ),
   ul: ({ children, ...props }: React.HTMLAttributes<HTMLUListElement>) => (
-    <ul className="list-disc list-inside my-3 space-y-1.5 pl-2" {...props}>
+    <ul className="list-disc list-inside my-4 space-y-2 pl-2" {...props}>
       {children}
     </ul>
   ),
   ol: ({ children, ...props }: React.OlHTMLAttributes<HTMLOListElement>) => (
-    <ol className="list-decimal list-inside my-3 space-y-1.5 pl-2" {...props}>
+    <ol className="list-decimal list-inside my-4 space-y-2 pl-2" {...props}>
       {children}
     </ol>
   ),
