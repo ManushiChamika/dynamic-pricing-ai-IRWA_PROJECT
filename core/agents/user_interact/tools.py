@@ -64,6 +64,17 @@ def list_inventory_items(search: Optional[str] = None, limit: int = 50) -> Dict[
             logger.info(f"[DEBUG] Executing query: {q} with params: {params}")
             rows = [dict(r) for r in conn.execute(q, params).fetchall()]
             logger.info(f"[DEBUG] Found {len(rows)} items")
+
+            if not rows and not search:
+                return {
+                    "message": (
+                        "Your inventory is currently empty. To get started, please upload your product catalog.\n"
+                        "1. Navigate to the **Catalog** page from the main menu.\n"
+                        "2. Click the **Upload CSV** button.\n"
+                        "3. Follow the on-screen instructions to format and upload your file."
+                    )
+                }
+            
             return {"items": rows, "total": len(rows)}
     except Exception as e:
         logger.error(f"[DEBUG] Error in list_inventory_items: {e}")
