@@ -124,6 +124,13 @@ class UserInteractionAgent:
         if not self.memory or self.memory[-1].get("role") != "user" or self.memory[-1].get("content") != message:
             self.add_to_memory("user", message)
 
+        try:
+            from .context import set_owner_id
+            if self.owner_id:
+                set_owner_id(str(self.owner_id))
+        except Exception:
+            pass
+
         if get_system_prompt is not None:
             system_prompt = get_system_prompt(self.mode)
         else:
