@@ -20,8 +20,12 @@ class DataRepo:
     """
 
     def __init__(self, path: Optional[str] = None) -> None:
-        db_env = os.getenv("DATA_DB", "app/data.db")
-        self.path = Path(path or db_env)
+        root = Path(__file__).resolve().parents[3]
+        env_path = os.getenv("DATA_DB")
+        candidate = Path(path or env_path) if (path or env_path) else (root / "app" / "data.db")
+        if not candidate.is_absolute():
+            candidate = root / candidate
+        self.path = candidate
 
     async def init(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
