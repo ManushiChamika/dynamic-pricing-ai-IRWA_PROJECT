@@ -71,11 +71,24 @@ def _update_thread_title(thread_id: int, new_title: str):
 @router.post("/{thread_id}/messages", response_model=MessageOut)
 def api_post_message(thread_id: int, req: PostMessageRequest, token: Optional[str] = None):
     import json as _json
+    from core.auth_service import validate_session_token
+    from core.agents.user_interact.context import set_owner_id
+    
     settings = _get_user_settings(token)
     mode = str(settings.get("mode", "user") or "user")
-
+    
+    owner_id = None
+    if token:
+        sess = validate_session_token(token)
+        if sess and "user_id" in sess:
+            owner_id = str(sess["user_id"])
+    
     um = add_message(thread_id=thread_id, role="user", content=req.content, parent_id=req.parent_id)
-    uia = UserInteractionAgent(user_name=req.user_name, mode=mode)
+    uia = UserInteractionAgent(user_name=req.user_name, mode=mode, owner_id=owner_id)
+    
+    if owner_id:
+        set_owner_id(owner_id)
+    
     for item in _assemble_memory(thread_id):
         uia.add_to_memory(item["role"], item["content"])
     
@@ -201,9 +214,22 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
             yield "event: ping\n" + "data: {}\n\n"
 
         try:
+            from core.auth_service import validate_session_token
+            from core.agents.user_interact.context import set_owner_id
+            
+            owner_id = None
+            if token:
+                sess = validate_session_token(token)
+                if sess and "user_id" in sess:
+                    owner_id = str(sess["user_id"])
+            
             um = add_message(thread_id=thread_id, role="user", content=req.content, parent_id=req.parent_id)
 
-            uia = UserInteractionAgent(user_name=req.user_name, mode=_get_mode())
+            uia = UserInteractionAgent(user_name=req.user_name, mode=_get_mode(), owner_id=owner_id)
+            
+            if owner_id:
+                set_owner_id(owner_id)
+            
             for item in _assemble_memory(thread_id):
                 uia.add_to_memory(item["role"], item["content"])
 
