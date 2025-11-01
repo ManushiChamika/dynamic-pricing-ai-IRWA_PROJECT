@@ -35,6 +35,15 @@ def list_inventory_items(search: Optional[str] = None, limit: int = 50) -> Dict[
     logger.info(f"[DEBUG] list_inventory_items called with owner_id={owner_id}")
     
     try:
+        if not owner_id:
+            return {
+                "message": (
+                    "No inventory found for your account. Please sign in and upload your product catalog.\n"
+                    "1. Click the **Catalog** icon in the sidebar menu.\n"
+                    "2. Choose your CSV or JSON file with `sku`, `title`, `currency`, `current_price`, `cost`, `stock`.\n"
+                    "3. Click **Upload Catalog** to import your products."
+                )
+            }
         with sqlite3.connect(db_path) as conn:
             conn.row_factory = sqlite3.Row
             if not _table_exists(conn, "product_catalog"):
@@ -42,10 +51,8 @@ def list_inventory_items(search: Optional[str] = None, limit: int = 50) -> Dict[
             
             q = "SELECT sku, title, currency, current_price, cost, stock, updated_at FROM product_catalog"
             params: List[Any] = []
-            conditions: List[str] = []
-            if owner_id:
-                conditions.append("owner_id = ?")
-                params.append(owner_id)
+            conditions: List[str] = ["owner_id = ?"]
+            params.append(owner_id)
             if search:
                 conditions.append("(sku LIKE ? OR title LIKE ?)")
                 like = f"%{search}%"
@@ -58,7 +65,7 @@ def list_inventory_items(search: Optional[str] = None, limit: int = 50) -> Dict[
             rows = [dict(r) for r in conn.execute(q, params).fetchall()]
             logger.info(f"[DEBUG] Found {len(rows)} items")
 
-            if not rows and not search:
+            if not rows:
                 return {
                     "message": (
                         "Your inventory is currently empty. To get started, please upload your product catalog.\n"

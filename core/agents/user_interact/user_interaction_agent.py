@@ -130,11 +130,18 @@ class UserInteractionAgent:
             self.add_to_memory("user", message)
 
         try:
-            from .context import set_owner_id
+            from .context import set_owner_id, get_owner_id
             if self.owner_id:
+                logger.debug(f"Attempting to set owner_id: {self.owner_id}")
                 set_owner_id(str(self.owner_id))
-        except Exception:
-            pass
+                retrieved_owner_id = get_owner_id()
+                logger.debug(f"Owner_id after setting: {retrieved_owner_id}")
+                if retrieved_owner_id != str(self.owner_id):
+                    logger.error(
+                        f"ContextVar mismatch! Expected {self.owner_id}, found {retrieved_owner_id}"
+                    )
+        except Exception as e:
+            logger.error(f"Failed to set owner_id in context: {e}", exc_info=True)
 
         if get_system_prompt is not None:
             system_prompt = get_system_prompt(self.mode)
