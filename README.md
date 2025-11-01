@@ -3,9 +3,9 @@
 A FastAPI backend with a lightweight static HTML/JS UI for chat-driven dynamic pricing workflows. The system supports authentication, per-user UI settings, threaded conversations with edit/branch/delete, streaming responses (SSE), rolling summarization, and cost/usage metadata capture from multiple LLM providers (OpenRouter, OpenAI, Gemini via OpenAI-compatible endpoint).
 
 <p align="center">
-  <img src="assets/0.jpg" width="700" alt=""/>
-
+  <img src="assets/0.jpg" width="300" alt=""/>
 </p>
+
 ## Screenshots
 The following screenshots highlight the main interface and key functionalities of the application.
 
