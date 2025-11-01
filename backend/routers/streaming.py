@@ -1,5 +1,5 @@
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 from core.chat_db import (
     add_message,
@@ -102,36 +102,56 @@ def _apply_output_gate(text: str, tools_used: Optional[List[str]]) -> (str, Opti
     return t, None
 
 
+def _extract_token_from_request(request: Optional[Request]) -> Optional[str]:
+    try:
+        if request is None:
+            return None
+        token = request.query_params.get("token")
+        if token:
+            return token
+        auth = request.headers.get("authorization") or request.headers.get("Authorization")
+        if auth and auth.lower().startswith("bearer "):
+            return auth.split(" ", 1)[1].strip()
+        cookie = request.cookies.get("fp_session")
+        if cookie:
+            return cookie
+    except Exception:
+        pass
+    return None
+
+
 @router.post("/{thread_id}/messages", response_model=MessageOut)
-def api_post_message(thread_id: int, req: PostMessageRequest, token: Optional[str] = None):
+def api_post_message(thread_id: int, req: PostMessageRequest, token: Optional[str] = None, request: Optional[Request] = None):
     import json as _json
     from core.auth_service import validate_session_token
     from core.agents.user_interact.context import set_owner_id
-    
-    settings = _get_user_settings(token)
+
+    tok = token or _extract_token_from_request(request)
+
+    settings = _get_user_settings(tok)
     mode = str(settings.get("mode", "user") or "user")
     owner_id = None
-    
-    if token:
-        sess = validate_session_token(token)
+
+    if tok:
+        sess = validate_session_token(tok)
         logger.info(f"[DEBUG POST] Session validation result: {sess}")
         if sess and "user_id" in sess:
             owner_id = str(sess["user_id"])
             logger.info(f"[DEBUG POST] Extracted owner_id: {owner_id}")
     else:
         logger.warning("[DEBUG POST] No token provided!")
-    
+
     um = add_message(thread_id=thread_id, role="user", content=req.content, parent_id=req.parent_id)
     uia = UserInteractionAgent(user_name=req.user_name, mode=mode, owner_id=owner_id)
     logger.info(f"[DEBUG POST] Created UserInteractionAgent with owner_id={owner_id}")
-    
+
     if owner_id:
         set_owner_id(owner_id)
         logger.info(f"[DEBUG POST] Called set_owner_id({owner_id})")
-    
+
     for item in _assemble_memory(thread_id):
         uia.add_to_memory(item["role"], item["content"])
-    
+
     full_parts: List[str] = []
     activated_agents: set = set()
     tool_events: List[Dict[str, Any]] = []
@@ -149,9 +169,9 @@ def api_post_message(thread_id: int, req: PostMessageRequest, token: Optional[st
                     tool_events.append({"name": delta.get("name"), "status": delta.get("status")})
     except Exception:
         pass
-    
+
     answer = "".join(full_parts).strip()
-    
+
     model = getattr(uia, "last_model", None)
     usage = getattr(uia, "last_usage", {}) if hasattr(uia, "last_usage") else {}
     token_in = usage.get("prompt_tokens") if isinstance(usage, dict) else None
@@ -238,19 +258,21 @@ def api_post_message(thread_id: int, req: PostMessageRequest, token: Optional[st
 
 
 @router.post("/{thread_id}/messages/stream")
-def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Optional[str] = None):
+def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Optional[str] = None, request: Optional[Request] = None):
     import json as _json
+
+    tok = token or _extract_token_from_request(request)
 
     def _get_show_thinking() -> bool:
         try:
-            settings = _get_user_settings(token)
+            settings = _get_user_settings(tok)
             return bool(settings.get("show_thinking", False))
         except Exception:
             return False
 
     def _get_mode() -> str:
         try:
-            settings = _get_user_settings(token)
+            settings = _get_user_settings(tok)
             return str(settings.get("mode", "user") or "user")
         except Exception:
             return "user"
@@ -267,36 +289,36 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
         try:
             from core.auth_service import validate_session_token
             from core.agents.user_interact.context import set_owner_id
-            
+
             owner_id = None
-            if token:
-                sess = validate_session_token(token)
+            if tok:
+                sess = validate_session_token(tok)
                 logger.info(f"[DEBUG STREAM] Session validation result: {sess}")
                 if sess and "user_id" in sess:
                     owner_id = str(sess["user_id"])
                     logger.info(f"[DEBUG STREAM] Extracted owner_id: {owner_id}")
             else:
                 logger.warning("[DEBUG STREAM] No token provided!")
-            
+
             um = add_message(thread_id=thread_id, role="user", content=req.content, parent_id=req.parent_id)
 
             uia = UserInteractionAgent(user_name=req.user_name, mode=_get_mode(), owner_id=owner_id)
             logger.info(f"[DEBUG STREAM] Created UserInteractionAgent with owner_id={owner_id}")
-            
+
             if owner_id:
                 set_owner_id(owner_id)
                 logger.info(f"[DEBUG STREAM] Called set_owner_id({owner_id})")
-            
+
             for item in _assemble_memory(thread_id):
                 uia.add_to_memory(item["role"], item["content"])
-            
+
             am = add_message(
                 thread_id=thread_id,
                 role="assistant",
                 content="",
                 parent_id=um.id,
             )
-            
+
             full_parts: List[str] = []
             activated_agents: set = set()
             tool_events: List[Dict[str, Any]] = []
@@ -330,7 +352,7 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
                         continue
             except Exception as e:
                 logger.error("Error in stream_response loop: %s", e, exc_info=True)
-            
+
             full_text = ("".join(full_parts)).strip()
             model = getattr(uia, "last_model", None)
             usage = getattr(uia, "last_usage", {}) if hasattr(uia, "last_usage") else {}
@@ -350,13 +372,13 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
                 metadata = base_meta
             except Exception:
                 metadata = None
-            
+
             agents_list = list(activated_agents) if activated_agents else []
             tools_obj = {"used": (tools_used or []), "count": len(tools_used or [])}
             agents_obj = {"activated": agents_list, "count": len(agents_list)}
             api_calls = (1 if model else 0) + len(tools_obj["used"])
             cost_usd = _compute_cost_usd(provider, model, token_in, token_out)
-            
+
             try:
                 update_message(
                     um.id,
@@ -366,7 +388,7 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
                 )
             except Exception:
                 pass
-            
+
             am = update_message(
                 am.id,
                 content=gated_text,
@@ -379,7 +401,7 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
                 api_calls=api_calls,
                 meta=(None if metadata is None else _json.dumps(metadata, ensure_ascii=False)),
             )
-            
+
             try:
                 if _should_summarize(thread_id, am.id, token_in, token_out):
                     summary = _generate_summary(thread_id, am.id)
@@ -418,4 +440,3 @@ def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Opti
             yield "event: error\n" + "data: " + _json.dumps(err, ensure_ascii=False) + "\n\n"
 
     return StreamingResponse(_iter(), media_type="text/event-stream")
-
