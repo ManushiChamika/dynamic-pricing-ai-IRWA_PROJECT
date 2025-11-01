@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\aiohttp\compression_utils.py
-# hypothesis_version: 6.142.2
-
-[1024, '__name__', 'decompress', 'flush', 'gzip', 'level', 'memoryview[bytes]', 'memoryview[int]', 'strategy', 'undefined', 'wbits']

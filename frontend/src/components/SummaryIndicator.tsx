@@ -12,24 +12,22 @@ export interface Summary {
 }
 
 interface SummaryIndicatorProps {
-  threadId?: number | null
+  threadId: number
 }
 
 export function SummaryIndicator({ threadId }: SummaryIndicatorProps) {
   const [open, setOpen] = useState(false)
-  const validId = typeof threadId === 'number' ? threadId : null
   const { data: summaries = [] } = useQuery({
-    queryKey: ['summaries', validId],
+    queryKey: ['summaries', threadId],
     queryFn: async () => {
-      const res = await api<{ summaries: Summary[] }>(`/api/threads/${validId}/summaries`)
+      const res = await api<{ summaries: Summary[] }>(`/api/threads/${threadId}/summaries`)
       if (!res.ok) throw new Error(`API Error: ${res.status}`)
       return (res.data?.summaries || []) as Summary[]
     },
-    enabled: typeof validId === 'number',
     staleTime: 30000,
   })
 
-  if (typeof validId !== 'number' || summaries.length === 0) return null
+  if (summaries.length === 0) return null
 
   return (
     <>

@@ -22,9 +22,7 @@ export function ConfirmModal() {
       await onConfirm()
       useConfirm.getState().close()
     } catch (e) {
-      useToasts
-        .getState()
-        .push({ type: 'error', text: e instanceof Error ? e.message : 'Action failed' })
+      useToasts.getState().push({ type: 'error', text: e instanceof Error ? e.message : 'Action failed' })
       setState({ busy: false })
     }
   }

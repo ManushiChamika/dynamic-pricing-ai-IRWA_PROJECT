@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\openai\resources\vector_stores\file_batches.py
-# hypothesis_version: 6.142.2
-
-[1000, 'AsyncFileBatches', 'FileBatches', 'OpenAI-Beta', 'after', 'asc', 'assistants', 'assistants=v2', 'asyncio', 'attributes', 'before', 'cancelled', 'chunking_strategy', 'completed', 'desc', 'failed', 'file_ids', 'filter', 'in_progress', 'limit', 'openai-poll-after-ms', 'order', 'trio', 'true']

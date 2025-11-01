@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\openai\types\responses\tool_choice_types.py
-# hypothesis_version: 6.142.2
-
-['ToolChoiceTypes', 'code_interpreter', 'computer_use_preview', 'file_search', 'image_generation', 'web_search_preview']

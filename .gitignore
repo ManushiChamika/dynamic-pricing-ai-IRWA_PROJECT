@@ -50,7 +50,6 @@ app/*.db
 auth.db
 app/alert.db
 user_data.json
-.llm_cache/
 
 # ---------- Patches / diffs ----------
 # Local patch/diff files created during development should not be tracked.
@@ -126,20 +125,3 @@ bundle_*/
 # Cleanup additions (auto)
 .bundle_env/
 *.pyc
-
-# Test/runtime caches
-.pytest_cache/
-.hypothesis/
-.mypy_cache/
-.coverage
-htmlcov/
-
-# SQLite journals
-*.db-shm
-*.db-wal
-*.db-journal
-
-# Frontend test outputs
-frontend/playwright-report/
-frontend/test-results/
-

@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\core\agents\alert_service\engine.py
-# hypothesis_version: 6.142.2
-
-[1000, 'MARKET_TICK', 'PRICE_PROPOSAL', 'SYS', 'UNKNOWN', '__dict__', 'alert_engine', 'app/data.db', 'channels', 'content', 'create_alert', 'description', 'details', 'dict', 'info', 'list_alerts', 'list_rules', 'model_dump', 'model_dump_json', 'name', 'pp', 'role', 'severity', 'sku', 'status', 'system', 'tick', 'user']

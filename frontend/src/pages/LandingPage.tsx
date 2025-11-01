@@ -5,7 +5,7 @@ import { FeaturesSection } from '../components/landing/FeaturesSection'
 import { HowItWorksSection } from '../components/landing/HowItWorksSection'
 import { CTASection } from '../components/landing/CTASection'
 import { getPageThemeClasses, getSecondaryCta, getFeatureCardBase } from '../lib/themeHelpers'
-import { useTheme } from '../hooks/useTheme'
+import { useTheme } from '../contexts/ThemeContext'
 
 export function LandingPage() {
   const { theme } = useTheme()

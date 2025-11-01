@@ -1,9 +1,7 @@
 import { create } from 'zustand'
 
-export type Theme = 'dark' | 'light' | 'ocean' | 'forest' | 'sunset' | 'midnight' | 'rose'
-
 export type Settings = {
-  theme: Theme
+  theme: 'dark' | 'light'
   showModel: boolean
   showTimestamps: boolean
   showMeta: boolean
@@ -19,7 +17,7 @@ export const useSettings = create<
     setSettingsOpen: (open: boolean) => void
   }
 >((set) => ({
-  theme: (localStorage.getItem('theme') as Theme) || 'dark',
+  theme: (localStorage.getItem('theme') as any) || 'dark',
   showModel: true,
   showTimestamps: false,
   showMeta: false,

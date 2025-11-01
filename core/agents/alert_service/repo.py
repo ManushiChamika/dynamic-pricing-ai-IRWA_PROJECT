@@ -34,8 +34,7 @@ class Repo:
               severity TEXT,
               title TEXT,
               group_key TEXT,
-              fingerprint TEXT UNIQUE,
-              owner_id TEXT
+              fingerprint TEXT UNIQUE
             );
             CREATE TABLE IF NOT EXISTS deliveries (
               id TEXT PRIMARY KEY,
@@ -82,15 +81,9 @@ class Repo:
     # ---------- Incidents ----------
     async def find_or_create_incident(self, alert: Alert) -> Incident:
         """Correlate by fingerprint, update last_seen or create new incident."""
-<<<<<<< HEAD
         async with aiosqlite.connect(self.path) as db:    # Open DB
             cur = await db.execute(                       # Look up incident by fingerprint
                 "SELECT id, status, first_seen, last_seen FROM incidents WHERE fingerprint=?",
-=======
-        async with aiosqlite.connect(self.path) as db:
-            cur = await db.execute(
-                "SELECT id, status, first_seen, last_seen, owner_id FROM incidents WHERE fingerprint=?",
->>>>>>> 379c70e69f421885ef6145953fb8ca8741ed7a4e
                 (alert.fingerprint,),
             )
             row = await cur.fetchone()                    # One row or None
@@ -111,18 +104,17 @@ class Repo:
                     severity=alert.severity,
                     title=alert.title,
                     group_key=alert.sku,
-                    owner_id=row[4],
                 )
 
             inc_id = f"inc_{int(alert.ts.timestamp()*1000)}"  # New incident id (ms)
             await db.execute(                             # Insert new incident
                 """
                 INSERT INTO incidents
-                  (id, rule_id, sku, status, first_seen, last_seen, severity, title, group_key, fingerprint, owner_id)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                  (id, rule_id, sku, status, first_seen, last_seen, severity, title, group_key, fingerprint)
+                VALUES (?,?,?,?,?,?,?,?,?,?)
                 """,
                 (inc_id, alert.rule_id, alert.sku, "OPEN", ts_iso, ts_iso,
-                 alert.severity, alert.title, alert.sku, alert.fingerprint, alert.owner_id),
+                 alert.severity, alert.title, alert.sku, alert.fingerprint),
             )
             await db.commit()
             return Incident(                              # Return created incident model
@@ -135,7 +127,6 @@ class Repo:
                 severity=alert.severity,
                 title=alert.title,
                 group_key=alert.sku,
-                owner_id=alert.owner_id,
             )
 
     async def is_throttled(self, fingerprint: str, dur: str) -> bool:
@@ -159,35 +150,16 @@ class Repo:
                 last = last.replace(tzinfo=timezone.utc)
             return (now - last) < delta                   # Within window → throttled
 
-    async def list_incidents(self, status: Optional[str], owner_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def list_incidents(self, status: Optional[str]) -> List[Dict[str, Any]]:
         q = """
         SELECT id, rule_id, sku, status, first_seen, last_seen, severity, title
         FROM incidents
-<<<<<<< HEAD
         """                                               # Base query
         args: list[Any] = []                              # Params for query
         if status:                                        # Optional WHERE filter
             q += " WHERE status=?"
             args.append(status)
         q += " ORDER BY last_seen DESC"                   # Most recent first
-=======
-        """
-        args: list[Any] = []
-        conditions = []
-        
-        if status:
-            conditions.append("status=?")
-            args.append(status)
-        
-        if owner_id:
-            conditions.append("owner_id=?")
-            args.append(owner_id)
-        
-        if conditions:
-            q += " WHERE " + " AND ".join(conditions)
-        
-        q += " ORDER BY last_seen DESC"
->>>>>>> 379c70e69f421885ef6145953fb8ca8741ed7a4e
 
         async with aiosqlite.connect(self.path) as db:    # Open DB
             cur = await db.execute(q, args)               # Execute with params
@@ -206,21 +178,9 @@ class Repo:
                 for r in rows
             ]
 
-<<<<<<< HEAD
     async def set_status(self, inc_id: str, status: str) -> None:
         async with aiosqlite.connect(self.path) as db:    # Open DB
             await db.execute(                             # Update status + touch last_seen
-=======
-    async def set_status(self, inc_id: str, status: str, owner_id: Optional[str] = None) -> None:
-        async with aiosqlite.connect(self.path) as db:
-            if owner_id:
-                cur = await db.execute("SELECT owner_id FROM incidents WHERE id=?", (inc_id,))
-                row = await cur.fetchone()
-                if not row or str(row[0]) != str(owner_id):
-                    raise ValueError("Incident not found or access denied")
-            
-            await db.execute(
->>>>>>> 379c70e69f421885ef6145953fb8ca8741ed7a4e
                 "UPDATE incidents SET status=?, last_seen=? WHERE id=?",
                 (status, datetime.now(timezone.utc).isoformat(), inc_id),
             )

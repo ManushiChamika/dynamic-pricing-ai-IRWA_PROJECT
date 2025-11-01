@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\core\agents\alert_service\sinks\__init__.py
-# hypothesis_version: 6.142.2
-
-['EmailSink', 'SlackSink', 'WebhookSink', 'email', 'slack', 'ui', 'webhook']

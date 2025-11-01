@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\core\agents\data_collector\agent.py
-# hypothesis_version: 6.142.2
-
-[180, 2000, 'DEFAULT', 'SYS', 'active_jobs', 'check_data_freshness', 'connector', 'content', 'data_collector_agent', 'depth', 'get_active_jobs', 'get_all_products', 'get_recent_jobs', 'get_stale_products', 'info', 'limit', 'market', 'mock', 'ok', 'role', 'severity', 'sku', 'source_url', 'stale_products', 'start_collection_job', 'system', 'threshold_minutes', 'title', 'ts', 'user', 'web_scraper']

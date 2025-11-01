@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\openai\_response.py
-# hypothesis_version: 6.142.2
-
-['*', ';', 'APIResponse[Any]', 'P', 'R', '_APIResponseT', '_AsyncAPIResponseT', '_T', 'content-type', 'extra_headers', 'json', 'raw', 'stream', 'true', 'tuple[type, ...]', 'wb', 'x-request-id']

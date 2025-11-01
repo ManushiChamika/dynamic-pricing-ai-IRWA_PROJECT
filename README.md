@@ -45,12 +45,32 @@ A FastAPI backend with a lightweight static HTML/JS UI for chat-driven dynamic p
   - State management via Zustand (8 stores)
   - Real-time chat with SSE streaming
 - Core agents
-  - `core/agents/llm_client.py`: multi-provider LLM wrapper with fallbacks and streaming
-  - `core/agents/user_interact/user_interaction_agent.py`: orchestrates tool-calling or streaming responses and captures usage metadata
-  - Additional pricing/alerts/data collection agents and event bus under `core/agents/*`
+- `core/agents/llm_client.py`: multi-provider LLM wrapper with fallbacks and streaming
+- `core/agents/user_interact/user_interaction_agent.py`: orchestrates tool-calling or streaming responses and captures usage metadata
+- Additional pricing/alerts/data collection agents and event bus under `core/agents/*`
 - Data
   - `data/market.db`: sample market data used by tools/agents
   - `data/chat.db`: created on first run for chat persistence
+
+### Agent System & Workflow
+
+The chat experience is powered by five specialised agents that cooperate through an internal supervisor hub:
+
+| Agent | Responsibilities |
+| --- | --- |
+| **Interaction Agent** | Parses natural language chat turns, gathers missing details (SKU, cost, competitor URLs), and calls downstream tools while streaming results back to the user. |
+| **Supervisor Agent** | Normalises catalog updates, records competitor sources, coordinates the remaining agents, and returns a step-by-step activity log for transparency. |
+| **Data Collection Agent** | Scrapes or simulates competitor price quotes for the registered product and stores them as market ticks/market\_data rows. |
+| **Pricing Optimizer Agent** | Loads the latest catalog and market context, runs the LLM-assisted optimisation workflow, and writes the resulting price proposal with confidence and rationale. |
+| **Alert Agent** | Evaluates margin gaps and market undercuts, emitting high-priority alerts that the Interaction Agent surfaces in the chat UI. |
+
+From the chat UI (or directly via `UserInteractionAgent` tools), you can now:
+
+1. **Add or update a product entirely through conversation** (`register_product`).
+2. **Run the full end-to-end workflow in one shot** (`run_agent_workflow`) – registers the product, gathers market data, optimises pricing, and checks alerts.
+3. **Trigger individual capabilities** such as collecting fresh competitor data or forcing a price optimisation with a custom goal.
+
+The orchestration layer lives in `core/agents/user_interact/agent_hub.py`, which provides synchronous helpers so chat tool calls update SQLite state (`app/data.db`) without additional setup scripts.
 
 
 ## LLM Configuration
@@ -251,29 +271,37 @@ For development & testing:
 
 ## Key Features
 
-### Backend
-- Multi-provider LLM support with automatic fallback (OpenRouter → OpenAI → Gemini)
-- SSE streaming for real-time token output
-- Thread-based conversation persistence
-- User authentication with 7-day session tokens
-- Cost tracking and usage analytics
-- Modular agent architecture for pricing, alerts, and data collection
+### Core Engine
+-   **Conversational AI Workflow:** Go beyond simple chat. Use natural language to manage your product catalog, trigger market data analysis, and receive AI-driven pricing recommendations.
+-   **Multi-Provider LLM Support:** Connect to leading AI providers like Gemini, OpenAI, and OpenRouter. The system automatically falls back to a secondary provider if the primary one fails, ensuring high availability.
+-   **Modular Agent System:** A team of specialized AI agents works in concert to handle complex tasks:
+    -   **Interaction Agent:** Your conversational partner for managing products and workflows.
+    -   **Data Collector:** Gathers real-time market and competitor pricing data.
+    -   **Pricing Optimizer:** Uses LLM-powered analysis to generate optimal pricing strategies.
+    -   **Alert Agent:** Proactively notifies you of market opportunities or risks.
+    -   **Supervisor Agent:** Orchestrates the entire workflow for seamless execution.
+-   **Usage & Cost Analytics:** Keep track of your LLM usage and costs with detailed metadata attached to each AI-generated response.
 
-### Frontend
-- Real-time streaming chat with visual feedback
-- Thread management (create, rename, delete, export/import)
-- Message branching and editing
-- Theme support (light/dark)
-- Settings persistence per user
-- Responsive design with Tailwind CSS
+### Backend (FastAPI)
+-   **High-Performance API:** Built on FastAPI for a fast and efficient backend.
+-   **Real-Time Streaming:** Server-Sent Events (SSE) deliver token-by-token responses for a smooth, real-time chat experience.
+-   **Robust Authentication:** Secure user authentication with 7-day session tokens.
+-   **Persistent Conversations:** Chat threads, messages, and summaries are stored in a local SQLite database (`chat.db`).
+-   **Comprehensive API:** A full suite of REST endpoints for managing threads, messages, user settings, and authentication.
 
-## Contributors
-
-- **Sasindu** - Project Lead, Backend Architecture & Agent Development
-- **Team Members** - Frontend Development, Testing, Documentation
-
-(Verify with team for accurate contributor list)
+### Frontend (React)
+-   **Modern UI:** A clean and responsive user interface built with React, TypeScript, and Vite.
+-   **Rich Chat Interface:**
+    -   Full conversation management: create, rename, and delete threads.
+    -   Message-level controls: edit, copy, delete, and branch conversations to explore different scenarios.
+    -   Import and export threads to share or backup your work.
+-   **Personalized Experience:**
+    -   Per-user settings that persist across sessions.
+    -   Switch between light and dark themes.
+    -   Toggle UI elements like timestamps and metadata panels to customize your view.
+-   **Advanced State Management:** Zustand is used for efficient and predictable state management.
+-   **Sleek Design:** Styled with Tailwind CSS and shadcn/ui for a modern and polished look.
 
 ## License
 
-This repository does not include an explicit license file. Treat as proprietary unless a license is added.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

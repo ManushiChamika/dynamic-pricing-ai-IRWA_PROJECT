@@ -49,7 +49,10 @@ export function HowItWorksSection({ isDark, mutedText }: HowItWorksSectionProps)
         </div>
 
         <div className="relative">
-          <div className="hidden md:block absolute z-0" style={{ top: '-20rem', right: '-8rem' }}>
+          <div
+            className="hidden md:block absolute z-0"
+            style={{ top: '-20rem', right: '-8rem' }}
+          >
             <img
               src="/robot-mascot1.png"
               alt="AI Robot"

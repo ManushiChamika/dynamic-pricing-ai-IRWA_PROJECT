@@ -8,7 +8,7 @@ export type Message = {
   content: string
   created_at?: string
   parent_id?: number | null
-  [key: string]: unknown
+  [key: string]: any
 }
 
 interface BranchNavigatorProps {

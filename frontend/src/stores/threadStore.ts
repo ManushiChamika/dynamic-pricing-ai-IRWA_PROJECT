@@ -1,21 +1,18 @@
 import { create } from 'zustand'
-import * as threadApi from '../lib/api/threadApi'
+import * as threadApi from '../lib/threadApi'
 
-export type Thread = { id: number; title: string; updated_at: string }
+export type Thread = { id: number; title: string }
 
 export type ThreadsState = {
   threads: Thread[]
   currentId: number | string | null
   draftId: string | null
-  skipNextRefresh: boolean
-  setCurrent: (id: number | string | null, skipRefresh?: boolean) => void
+  setCurrent: (id: number | string | null) => void
   createDraftThread: () => void
   refresh: () => Promise<void>
   createThread: (title?: string) => Promise<number | null>
   deleteThread: (id: number) => Promise<void>
   renameThread: (id: number, title: string) => Promise<void>
-  updateThreadTitleLocal: (id: number, title: string) => void
-  clearStore: () => void
 }
 
 const DRAFT_ID_PREFIX = 'draft_'
@@ -29,9 +26,8 @@ export const useThreads = create<ThreadsState>((set, get) => ({
   threads: [],
   currentId: null,
   draftId: null,
-  skipNextRefresh: false,
-  setCurrent: (id, skipRefresh = false) => {
-    set({ currentId: id, skipNextRefresh: skipRefresh })
+  setCurrent: (id) => {
+    set({ currentId: id })
     if (id && !String(id).startsWith(DRAFT_ID_PREFIX)) {
       localStorage.setItem('lastThreadId', String(id))
     }
@@ -63,15 +59,6 @@ export const useThreads = create<ThreadsState>((set, get) => ({
     await threadApi.renameThread(id, title)
     await get().refresh()
   },
-  updateThreadTitleLocal: (id: number, title: string) => {
-    set((state) => ({
-      threads: state.threads.map((t) => (t.id === id ? { ...t, title } : t)),
-    }))
-  },
-  clearStore: () => {
-    localStorage.removeItem('lastThreadId')
-    set({ threads: [], currentId: null, draftId: null, skipNextRefresh: false })
-  },
 }))
 
 export const useCurrentThread = () => useThreads((state) => state.currentId)
@@ -88,8 +75,6 @@ export const useThreadActions = () =>
     createDraftThread: state.createDraftThread,
     deleteThread: state.deleteThread,
     renameThread: state.renameThread,
-    updateThreadTitleLocal: state.updateThreadTitleLocal,
-    clearStore: state.clearStore,
   }))
 
 export { isDraftThread }

@@ -3,6 +3,8 @@ import sqlite3
 from pathlib import Path
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+import subprocess
+import platform
 
 # Load .env variables if available
 try:
@@ -25,19 +27,6 @@ try:
 except Exception:
     TOOLS_MAP = {}
 
-<<<<<<< HEAD
-=======
-try:
-    from .prompts import get_system_prompt
-except Exception:
-    get_system_prompt = None
-
-try:
-    from .tool_schemas import TOOL_SCHEMAS, get_agent_for_tool
-except Exception:
-    TOOL_SCHEMAS = []
-    get_agent_for_tool = lambda name: ""
->>>>>>> 379c70e69f421885ef6145953fb8ca8741ed7a4e
 
 class UserInteractionAgent:
     def __init__(self, user_name: str, mode: str = "user"):
@@ -50,11 +39,8 @@ class UserInteractionAgent:
             "price", "pricing", "discount", "offer", "demand", "supply",
             "cost", "profit", "margin", "dynamic pricing", "price optimization"
         ]
-<<<<<<< HEAD
         # Feature flags
         self.enable_sound = str(os.getenv("SOUND_NOTIFICATIONS", "0")).strip().lower() in {"1", "true", "yes", "on"}
-=======
->>>>>>> 379c70e69f421885ef6145953fb8ca8741ed7a4e
         # Memory to store conversation history
         self.memory: List[Dict[str, str]] = []
 
@@ -70,7 +56,6 @@ class UserInteractionAgent:
         self.last_provider: Optional[str] = None
         self.last_usage: Dict[str, Any] = {}
 
-<<<<<<< HEAD
     def _play_completion_sound(self):
         """Play a sound to indicate task completion (guarded by feature flag)."""
         if not getattr(self, "enable_sound", False):
@@ -89,10 +74,6 @@ class UserInteractionAgent:
 
     def is_dynamic_pricing_related(self, message: str) -> bool:
         message_lower = (message or "").lower()
-=======
-    def is_dynamic_pricing_related(self, message):
-        message_lower = message.lower()
->>>>>>> 379c70e69f421885ef6145953fb8ca8741ed7a4e
         return any(keyword in message_lower for keyword in self.keywords)
 
     def add_to_memory(self, role: str, content: str):
@@ -150,59 +131,26 @@ class UserInteractionAgent:
         if not self.memory or self.memory[-1].get("role") != "user" or self.memory[-1].get("content") != message:
             self.add_to_memory("user", message)
 
-<<<<<<< HEAD
         base_guidance = (
-            "📊 You are a specialized assistant for the dynamic pricing system.\n"
-            "🔧 You can call tools to retrieve data and recommend prices.\n"
-            "⚡ When answering in streaming mode, keep responses concise and actionable.\n\n"
-            "📝 *Markdown Formatting Guide* (We use react-markdown v10.1.0):\n"
-            "Use proper markdown formatting to enhance clarity and engagement:\n"
-            "✓ *Bold* for emphasis: **important concepts**\n"
-            "✓ Italic for definitions: *key term*\n"
-            "✓ Code for SKUs/variables: `` SKU-123 ``\n"
-            "✓ Unordered lists: - item\n"
-            "✓ Ordered lists: 1. step\n"
-            "✓ Blockquotes: > callout or warning\n"
-            "✓ Headers: ## Section Title\n"
-            "✓ Fenced code blocks: ` sql ` (enables syntax highlighting)\n"
-            "✓ Strikethrough: `~~deprecated~~ new way`\n"
-            "✓ Links: `[text](url)` for references\n"
-            "✓ Tables (simple): `| col | col |` for structured data\n"
-            "✓ Task lists: `- [x] done` or `- [ ] pending`\n\n"
-            "💡 **Markdown Renderer Strengths** (react-markdown + remark):\n"
-            "✓ **100% CommonMark compliant**\n"
-            "✓ **Secure by default**\n"
-            "✓ **Syntax highlighting**\n"
-            "✓ **GitHub Flavored Markdown** via plugins\n"
-            "✓ **Safe HTML handling** (escaped)\n\n"
-            "⚠ **Markdown Renderer Limitations**:\n"
-            "✗ No LaTeX/mermaid/raw HTML\n"
-            "✗ Keep tables simple\n\n"
-            "🎯 **Best Practices**:\n"
-            "• Use markdown liberally for readability\n"
-            "• Prefer simple, flat tables\n"
-            "• Use code blocks for SQL/JSON/Python\n"
-            "• Use blockquotes for warnings/callouts\n"
+            "You are the Interaction Agent for the Dynamic Pricing AI platform.\n"
+            "Coordinate specialised agents via tool calls, then narrate the results clearly for the user.\n"
+            "Ask for any missing product details before triggering workflows.\n"
+            "Always highlight which agents contributed, key price recommendations, market shifts, and suggested next actions.\n"
+            "Use markdown with short sections such as Summary, Recommendation, Market Snapshot, Alerts, Next Steps.\n"
         )
         user_style = (
-            "👤 **User Mode Active**\n"
-            "💬 Reply in a concise, user-friendly way with clear next actions.\n"
-            "📚 Prefer plain language over technical details.\n"
-            "🎨 Use markdown to make responses scannable.\n"
+            "User mode:\n"
+            "- Keep answers concise and approachable.\n"
+            "- Emphasise the numbers that matter (price, confidence, gaps).\n"
+            "- Offer at most two actionable next steps.\n"
         )
         dev_style = (
-            "👨‍💻 **Developer Mode Active**\n"
-            "🔍 Provide structured sections (Answer, Rationale, Next Steps).\n"
-            "⚙ Include technical details and context.\n"
-            "📊 Use simple tables for comparisons.\n"
+            "Developer mode:\n"
+            "- Present sections: Summary, Details, Evidence, Next Steps.\n"
+            "- Reference tool outputs explicitly for traceability.\n"
+            "- Include tables or bullet lists for multi-item data.\n"
         )
         system_prompt = base_guidance + (dev_style if self.mode == "developer" else user_style)
-=======
-        if get_system_prompt is not None:
-            system_prompt = get_system_prompt(self.mode)
-        else:
-            system_prompt = "You are a helpful assistant."
->>>>>>> 379c70e69f421885ef6145953fb8ca8741ed7a4e
 
         # Stream via LLM client
         try:
@@ -220,7 +168,6 @@ class UserInteractionAgent:
                     max_tokens_cfg = ui_max_tokens if ui_max_tokens > 0 else 1024
                     temperature = 0.2 if self.mode == "user" else 0.3
 
-<<<<<<< HEAD
 # Tool-Streaming Chat → real-time LLM dialogue with function calling
 # NLP pattern: Prompted, tool-augmented generation
 #  with streaming and bounded multi-turn tool orchestration.
@@ -230,105 +177,254 @@ class UserInteractionAgent:
                         {
                             "type": "function",
                             "function": {
+                                "name": "register_product",
+                                "description": "Create or update a product in the catalog and capture competitor sources.",
+                                "parameters": {
+                                    "type": "object",
+                                    "properties": {
+                                        "title": {"type": "string", "description": "Product name provided by the user."},
+                                        "cost": {"type": "number", "minimum": 0, "description": "Unit cost in user currency."},
+                                        "sku": {"type": "string", "description": "Preferred SKU; auto-generated if missing."},
+                                        "currency": {"type": "string", "description": "Currency code such as USD or EUR."},
+                                        "list_price": {"type": "number", "minimum": 0, "description": "Optional starting list price."},
+                                        "stock": {"type": "integer", "description": "Available inventory units."},
+                                        "competitor_urls": {"type": "array", "items": {"type": "string"}, "description": "Competitor URLs or identifiers to monitor."},
+                                        "market": {"type": "string", "description": "Market/region label (defaults to DEFAULT)."},
+                                        "notes": {"type": "string", "description": "Additional context to store with the product."}
+                                    },
+                                    "required": ["title"],
+                                    "additionalProperties": False
+                                }
+                            }
+                        },
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "run_agent_workflow",
+                                "description": "Supervisor workflow that registers the product, gathers market data, optimises pricing, and compiles alerts.",
+                                "parameters": {
+                                    "type": "object",
+                                    "properties": {
+                                        "title": {"type": "string"},
+                                        "cost": {"type": "number", "minimum": 0},
+                                        "sku": {"type": "string"},
+                                        "currency": {"type": "string"},
+                                        "list_price": {"type": "number", "minimum": 0},
+                                        "stock": {"type": "integer"},
+                                        "competitor_urls": {"type": "array", "items": {"type": "string"}},
+                                        "market": {"type": "string"},
+                                        "notes": {"type": "string"},
+                                        "user_intent": {"type": "string", "description": "Summary of the user's pricing goal."}
+                                    },
+                                    "required": ["title"],
+                                    "additionalProperties": False
+                                }
+                            }
+                        },
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "collect_market_data",
+                                "description": "Invoke the Data Collection Agent to gather competitor quotes for a SKU.",
+                                "parameters": {
+                                    "type": "object",
+                                    "properties": {
+                                        "sku": {"type": "string"},
+                                        "competitor_urls": {"type": "array", "items": {"type": "string"}},
+                                        "market": {"type": "string"},
+                                        "depth": {"type": "integer", "minimum": 1, "maximum": 10, "default": 3}
+                                    },
+                                    "required": ["sku"],
+                                    "additionalProperties": False
+                                }
+                            }
+                        },
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "request_market_fetch",
+                                "description": "Alias for collect_market_data when the user explicitly requests a fetch.",
+                                "parameters": {
+                                    "type": "object",
+                                    "properties": {
+                                        "sku": {"type": "string"},
+                                        "competitor_urls": {"type": "array", "items": {"type": "string"}},
+                                        "market": {"type": "string"},
+                                        "depth": {"type": "integer", "minimum": 1, "maximum": 10, "default": 3}
+                                    },
+                                    "required": ["sku"],
+                                    "additionalProperties": False
+                                }
+                            }
+                        },
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "optimize_price",
+                                "description": "Run the Pricing Optimizer Agent for an existing SKU.",
+                                "parameters": {
+                                    "type": "object",
+                                    "properties": {
+                                        "sku": {"type": "string"},
+                                        "user_goal": {"type": "string", "description": "Goal e.g. maximise profit or defend share."},
+                                        "refresh_market": {"type": "boolean", "description": "Collect fresh market data before optimising."}
+                                    },
+                                    "required": ["sku"],
+                                    "additionalProperties": False
+                                }
+                            }
+                        },
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "run_pricing_workflow",
+                                "description": "Compatibility wrapper around optimize_price.",
+                                "parameters": {
+                                    "type": "object",
+                                    "properties": {
+                                        "sku": {"type": "string"},
+                                        "user_goal": {"type": "string"},
+                                        "refresh_market": {"type": "boolean"}
+                                    },
+                                    "required": ["sku"],
+                                    "additionalProperties": False
+                                }
+                            }
+                        },
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "scan_for_alerts",
+                                "description": "Query the Alert Agent for outstanding warnings.",
+                                "parameters": {
+                                    "type": "object",
+                                    "properties": {
+                                        "sku": {"type": "string", "description": "Optional SKU to scope the check."},
+                                        "limit": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}
+                                    },
+                                    "additionalProperties": False
+                                }
+                            }
+                        },
+                        {
+                            "type": "function",
+                            "function": {
                                 "name": "list_inventory_items",
-                                "description": "List items from the local product catalog (app/data.db). Use for inventory overviews.",
+                                "description": "List items from the local product catalog.",
                                 "parameters": {
                                     "type": "object",
                                     "properties": {
                                         "search": {"type": "string", "description": "Filter by substring in SKU or title."},
-                                        "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
+                                        "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}
                                     },
-                                    "additionalProperties": False,
-                                },
-                            },
+                                    "additionalProperties": False
+                                }
+                            }
                         },
                         {
                             "type": "function",
                             "function": {
                                 "name": "get_inventory_item",
-                                "description": "Get a single inventory item by SKU from app/data.db/product_catalog.",
+                                "description": "Fetch a single inventory record by SKU.",
                                 "parameters": {
                                     "type": "object",
                                     "properties": {
-                                        "sku": {"type": "string", "description": "Item SKU (exact match)"},
+                                        "sku": {"type": "string"}
                                     },
                                     "required": ["sku"],
-                                    "additionalProperties": False,
-                                },
-                            },
+                                    "additionalProperties": False
+                                }
+                            }
                         },
                         {
                             "type": "function",
                             "function": {
                                 "name": "list_pricing_list",
-                                "description": "List current market pricing entries from market.db/pricing_list.",
+                                "description": "List stored optimisation results.",
                                 "parameters": {
                                     "type": "object",
                                     "properties": {
-                                        "search": {"type": "string", "description": "Filter by substring in product_name."},
-                                        "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
+                                        "search": {"type": "string"},
+                                        "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}
                                     },
-                                    "additionalProperties": False,
-                                },
-                            },
+                                    "additionalProperties": False
+                                }
+                            }
                         },
                         {
                             "type": "function",
                             "function": {
                                 "name": "list_price_proposals",
-                                "description": "List recent price proposals from app/data.db/price_proposals.",
+                                "description": "List historical price proposals.",
                                 "parameters": {
                                     "type": "object",
                                     "properties": {
-                                        "sku": {"type": "string", "description": "Optional filter by SKU"},
-                                        "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
+                                        "sku": {"type": "string", "description": "Optional SKU filter."},
+                                        "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}
                                     },
-                                    "additionalProperties": False,
-                                },
-                            },
+                                    "additionalProperties": False
+                                }
+                            }
                         },
                         {
                             "type": "function",
                             "function": {
                                 "name": "list_market_data",
-                                "description": "List products from market.db (market research data). Find products by brand or name.",
+                                "description": "List captured competitor quotes.",
                                 "parameters": {
                                     "type": "object",
                                     "properties": {
-                                        "search": {"type": "string", "description": "Filter by substring in product_name or brand."},
-                                        "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
+                                        "search": {"type": "string"},
+                                        "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}
                                     },
-                                    "additionalProperties": False,
-                                },
-                            },
+                                    "additionalProperties": False
+                                }
+                            }
                         },
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "execute_sql",
+                                "description": "Developer-only helper for explicit SQL queries.",
+                                "parameters": {
+                                    "type": "object",
+                                    "properties": {
+                                        "database": {"type": "string", "enum": ["app", "market", "data"], "description": "Database alias (defaults to app)."},
+                                        "query": {"type": "string", "description": "SQL query to execute."}
+                                    },
+                                    "required": ["query"],
+                                    "additionalProperties": False
+                                }
+                            }
+                        }
                     ]
 
                     # Map tool name to agent label for UI badges
                     def _agent_for_tool(name: Optional[str]):
                         mapping = {
-                            "list_inventory_items": "UserInteractionAgent",
-                            "get_inventory_item": "UserInteractionAgent",
-                            "list_pricing_list": "PriceOptimizationAgent",
-                            "list_price_proposals": "PriceOptimizationAgent",
-                            "list_market_data": "DataCollectorAgent",
-                            "run_pricing_workflow": "PriceOptimizationAgent",
-                            "optimize_price": "PriceOptimizationAgent",
-                            "scan_for_alerts": "AlertNotificationAgent",
-                            "collect_market_data": "DataCollectorAgent",
-                            "request_market_fetch": "DataCollectorAgent",
+                            "register_product": "Supervisor Agent",
+                            "run_agent_workflow": "Supervisor Agent",
+                            "collect_market_data": "Data Collection Agent",
+                            "request_market_fetch": "Data Collection Agent",
+                            "optimize_price": "Pricing Optimizer Agent",
+                            "run_pricing_workflow": "Pricing Optimizer Agent",
+                            "scan_for_alerts": "Alert Agent",
+                            "list_inventory_items": "Interaction Agent",
+                            "get_inventory_item": "Interaction Agent",
+                            "list_pricing_list": "Pricing Optimizer Agent",
+                            "list_price_proposals": "Pricing Optimizer Agent",
+                            "list_market_data": "Data Collection Agent",
+                            "execute_sql": "Supervisor Agent"
                         }
                         return mapping.get(name or "")
 
-=======
->>>>>>> 379c70e69f421885ef6145953fb8ca8741ed7a4e
                     # Accumulate full content for memory on completion
                     full_parts: List[str] = []
 
                     try:
                         for event in llm.chat_with_tools_stream(
                             messages=msgs,
-                            tools=TOOL_SCHEMAS,
+                            tools=tools,
                             functions_map=TOOLS_MAP,
                             tool_choice="auto",
                             max_rounds=(4 if self.mode == "user" else 5),
@@ -341,12 +437,13 @@ class UserInteractionAgent:
                                     text = event.get("text")
                                     if text:
                                         full_parts.append(text)
+                                        # Back-compat: yield as raw string
                                         yield text
                                 elif et == "tool_call":
                                     name = event.get("name")
                                     status = event.get("status")
                                     if status == "start":
-                                        agent = get_agent_for_tool(name)
+                                        agent = _agent_for_tool(name)
                                         if agent:
                                             yield {"type": "agent", "name": agent}
                                     yield {"type": "tool_call", "name": name, "status": status}
@@ -374,6 +471,7 @@ class UserInteractionAgent:
                     answer = ("".join(full_parts)).strip()
                     if answer:
                         self.add_to_memory("assistant", answer)
+                    self._play_completion_sound()
                     return
         except Exception:
             pass
@@ -384,4 +482,5 @@ class UserInteractionAgent:
             self.add_to_memory("assistant", fallback)
         except Exception:
             pass
+        self._play_completion_sound()
         yield fallback

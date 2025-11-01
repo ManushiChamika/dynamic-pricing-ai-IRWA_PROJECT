@@ -6,7 +6,6 @@ export type HeaderMenuAction = {
   onClick: () => void
   disabled?: boolean
   divider?: boolean
-  ariaLabel?: string
 }
 
 interface HeaderOverflowMenuProps {
@@ -59,7 +58,6 @@ export function HeaderOverflowMenu({ actions }: HeaderOverflowMenuProps) {
                 }}
                 disabled={action.disabled}
                 role="menuitem"
-                aria-label={action.ariaLabel}
                 className="w-full text-left px-4 py-2 text-sm hover:bg-accent/10 dark:hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {action.label}

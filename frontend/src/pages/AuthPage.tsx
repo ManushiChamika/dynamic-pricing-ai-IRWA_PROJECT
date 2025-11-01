@@ -4,7 +4,7 @@ import { Button } from '../components/ui/button'
 import { Navigation } from '../components/Navigation'
 import { useAuth } from '../stores/authStore'
 import { getAuthThemeClasses } from '../lib/themeHelpers'
-import { useTheme } from '../hooks/useTheme'
+import { useTheme } from '../contexts/ThemeContext'
 
 export function AuthPage() {
   const [searchParams] = useSearchParams()

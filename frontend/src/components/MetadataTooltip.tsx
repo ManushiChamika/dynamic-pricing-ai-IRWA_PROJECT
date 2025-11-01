@@ -1,7 +1,5 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip'
 
-import type { MessageMeta } from '../lib/types'
-
 interface Message {
   created_at?: string
   model?: string | null
@@ -11,7 +9,7 @@ interface Message {
   api_calls?: number | null
   agents?: { activated?: string[]; count?: number } | null
   tools?: { used?: string[]; count?: number } | null
-  metadata?: MessageMeta | null
+  metadata?: Record<string, any> | null
 }
 
 interface MetadataTooltipProps {
@@ -29,9 +27,9 @@ export function MetadataTooltip({ message }: MetadataTooltipProps) {
     message.model && message.model.length > 0
       ? message.model
       : message.metadata &&
-          message.metadata?.provider &&
+          (message as any).metadata?.provider &&
           (message.token_in != null || message.token_out != null || message.cost_usd != null)
-        ? `${message.metadata.provider}${message.model ? `:${message.model}` : ''}`
+        ? `${(message as any).metadata.provider}${message.model ? `:${message.model}` : ''}`
         : ''
   if (modelComputed) {
     info.push(`Model: ${modelComputed}`)

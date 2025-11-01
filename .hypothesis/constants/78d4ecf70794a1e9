@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\openai\resources\beta\threads\runs\steps.py
-# hypothesis_version: 6.142.2
-
-['AsyncSteps', 'OpenAI-Beta', 'Steps', 'after', 'asc', 'assistants=v2', 'before', 'desc', 'include', 'limit', 'order']

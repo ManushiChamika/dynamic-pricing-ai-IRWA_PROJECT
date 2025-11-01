@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\openai\types\beta\realtime\conversation_item_content_param.py
-# hypothesis_version: 6.142.2
-
-['audio', 'input_audio', 'input_text', 'item_reference', 'text']

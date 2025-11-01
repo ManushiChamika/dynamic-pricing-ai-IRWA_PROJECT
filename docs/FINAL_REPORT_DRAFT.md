@@ -414,7 +414,7 @@ def check_undercut_pattern(proposed_price, product_id, history, window_hours=24)
 |-----------|----------|-----------------|
 | Data Collector Agent | `core/agents/data_collection_agent.py` | Fetch market data from APIs/web |
 | Price Optimizer Agent | `core/agents/pricing_optimizer_bus/price_optimizer.py` | Run ML algorithms, generate recommendations |
-| Alert Service | `core/agents/alert_service/engine.py` | Rule-based alerting with correlation and multi-channel delivery |
+| Alert Service | `core/agents/alert_notifier.py` | Validate fairness, approve/reject prices |
 | User Interaction Agent | `core/agents/user_interact/user_interaction_agent.py` | Parse NLP, orchestrate workflow |
 | MCP Protocol | `core/agents/agent_sdk/protocol.py` | Define tool schemas and request/response types |
 | Event Bus | `core/agents/agent_sdk/bus_factory.py` | Create Pub-Sub event bus |

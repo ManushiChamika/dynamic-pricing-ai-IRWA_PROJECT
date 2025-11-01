@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\mcp\server\sse.py
-# hypothesis_version: 6.142.2
-
-[202, 400, 404, 'Accepted', 'Invalid session ID', 'Starting SSE writer', 'data', 'endpoint', 'event', 'http', 'message', 'session_id', 'type']

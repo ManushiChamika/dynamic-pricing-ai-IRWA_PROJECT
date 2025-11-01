@@ -35,7 +35,6 @@ class ThreadOut(BaseModel):
     id: int
     title: str
     created_at: str
-    updated_at: Optional[str] = None
 
 
 class MessageOut(BaseModel):

@@ -603,7 +603,7 @@ Practical guidance:
 
 ## Contradictions and Fix List (Pass 5)
 
-- Dataclass on bus: supervisor publishes dataclass instances; bus expects dicts. Action: publish dicts (asdict) matching schemas.
+- Dataclass on bus: alert_notifier and supervisor publish dataclass instances; bus expects dicts. Action: publish dicts (asdict) matching schemas.
 - price.update mismatch (AutoApplier): publishes sku/new_price/actor/proposal_id/action. REQUIRED_KEYS are proposal_id/product_id/final_price. Action: align to schema or write to journal-only topic (price.update.journal) and let GovernanceExecutionAgent own bus-compliant updates.
 - GovernanceExecutionAgent import: imports core.payloads, which exists at repo root, not core/. Verify import path is resolvable in runtime. Action: keep as-is or move file under core/ for clarity.
 - Supervisor bus var: uses await bus.publish(...) but no bus is defined. Action: import get_bus() and call get_bus().publish(...), and publish dict payloads.

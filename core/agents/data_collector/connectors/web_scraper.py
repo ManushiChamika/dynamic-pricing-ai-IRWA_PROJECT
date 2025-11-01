@@ -38,42 +38,26 @@ def fetch_competitor_price(url: str) -> Dict[str, object]:
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                 "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            ),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1"
+            )
         }
         resp = requests.get(url, headers=headers, timeout=15)
         resp.raise_for_status()
 
         soup = BeautifulSoup(resp.text, "html.parser")
-        
-        price_selectors = [
-            ".a-price .a-offscreen",
-            ".a-price-whole",
-            "span.a-price",
-            "#priceblock_ourprice",
-            "#priceblock_dealprice",
-            "#price_inside_buybox",
-            ".a-section.a-spacing-none.aok-align-center .a-price .a-offscreen",
-            "[data-a-color='price'] .a-offscreen",
-            "[itemprop='price']",
-            "meta[itemprop='price']",
-            ".price",
-            ".product-price"
-        ]
-        
-        price_element = None
-        for selector in price_selectors:
-            price_element = soup.select_one(selector)
-            if price_element:
-                break
+        # NOTE: This selector is an EXAMPLE. You must find the real one for your target site.
+        price_element = soup.select_one(".product-price-class")
+        if not price_element:
+            # Try a couple of common alternatives before giving up
+            price_element = (
+                soup.select_one("[itemprop=price]")
+                or soup.select_one("meta[itemprop=price][content]")
+                or soup.select_one(".price, .product-price, .a-price-whole")
+            )
 
         if not price_element:
-            return {"status": "error", "message": "price element not found - site may be blocking scraper"}
+            return {"status": "error", "message": "price element not found"}
 
+        # support meta content attribute
         price_text = price_element.get("content") if price_element.has_attr("content") else price_element.get_text(strip=True)
         price = _extract_price(price_text)
 

@@ -1,0 +1,193 @@
+{
+  "main": {
+    "id": "a84574b3a5e58e83",
+    "type": "split",
+    "children": [
+      {
+        "id": "3a9666b65f12fd5b",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "a6db50ab45cab173",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "AGENTS.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "AGENTS"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "9636986eab328a5a",
+    "type": "split",
+    "children": [
+      {
+        "id": "749cba14b0d19c97",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "b861baa649319ab3",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "64df1fa64eb1bd16",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "2b100a01efd5f1ad",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "72965a607b963e6d",
+    "type": "split",
+    "children": [
+      {
+        "id": "b3b5103a32d8dea7",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "3b3976517dbfc2cf",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "chat_interface_analysis.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for chat_interface_analysis"
+            }
+          },
+          {
+            "id": "b2fbc746e33abe5c",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "chat_interface_analysis.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from chat_interface_analysis"
+            }
+          },
+          {
+            "id": "76223ec314c6525d",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "582e159a507acdad",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "chat_interface_analysis.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of chat_interface_analysis"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "a6db50ab45cab173",
+  "lastOpenFiles": [
+    "data/auth.db-journal",
+    "frontend/vite.config.ts.timestamp-1760799693950-6e16431802a73.mjs",
+    "frontend/vite.config.ts.timestamp-1760796702011-666e337298dfb.mjs",
+    "frontend/vite.config.ts.timestamp-1760796632241-7ee69e21e1c28.mjs",
+    "frontend/vite.config.ts.timestamp-1760796519239-e635593eb3cbf.mjs",
+    "frontend/src/stores/catalogStore.ts",
+    "frontend/src/components/CatalogModal.tsx",
+    "app/data.db",
+    "frontend/src/components/CatalogUpload.tsx",
+    "backend/routers/__pycache__/catalog.cpython-313.pyc",
+    "backend/routers/catalog.py",
+    "WORKFLOW_ANALYSIS.md",
+    "PRICING_OPTIMIZER_LLM_UPDATE.md",
+    "LLM_CONNECTION_ANALYSIS_CORRECTED.md",
+    "AGENTS.md",
+    "chat_interface_analysis.md",
+    "docs/store-hooks-reference.md",
+    "docs/state-management-optimization.md"
+  ]
+}

@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\core\agents\user_interact\tool_schemas.py
-# hypothesis_version: 6.142.2
-
-[200, 'DataCollectorAgent', 'UserInteractionAgent', 'additionalProperties', 'collect_market_data', 'default', 'description', 'function', 'get_inventory_item', 'integer', 'limit', 'list_inventory_items', 'list_market_data', 'list_price_proposals', 'list_pricing_list', 'maximum', 'minimum', 'name', 'object', 'optimize_price', 'parameters', 'properties', 'request_market_fetch', 'required', 'run_pricing_workflow', 'scan_for_alerts', 'search', 'sku', 'string', 'threshold_minutes', 'type']

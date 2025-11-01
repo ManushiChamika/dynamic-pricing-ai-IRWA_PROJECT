@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\backend\routers\settings.py
-# hypothesis_version: 6.142.2
-
-[401, '/api', '/settings', '0', '1', 'DEV_MODE', 'dark', 'mode', 'ok', 'on', 'settings', 'show_metadata_panel', 'show_model_tag', 'show_thinking', 'show_timestamps', 'sse', 'streaming', 'theme', 'true', 'user', 'user_id', 'yes']

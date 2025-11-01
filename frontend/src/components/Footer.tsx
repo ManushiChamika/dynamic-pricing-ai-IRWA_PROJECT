@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { Zap, Github, Linkedin, Twitter, Mail, MapPin, Phone } from 'lucide-react'
-import { useTheme } from '../hooks/useTheme'
+import { useTheme } from '../contexts/ThemeContext'
 import { getFooterThemeClasses } from '../lib/themeHelpers'
 
 export function Footer() {

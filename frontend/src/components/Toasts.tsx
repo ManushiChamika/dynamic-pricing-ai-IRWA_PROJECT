@@ -19,7 +19,7 @@ export function Toasts() {
       {toasts.map((t) => (
         <div
           key={t.id}
-          className={`border rounded-lg px-4 py-3 max-w-[380px] animate-slideInRight text-sm font-medium cursor-pointer ${t.type === 'info' ? 'border-blue-500/50 bg-blue-500/10' : t.type === 'success' ? 'border-green-500/50 bg-green-500/10' : 'border-destructive/50 bg-destructive/10'}`}
+          className={`backdrop-blur-2xl bg-panel-solid border rounded-xl px-4 py-3 shadow-lg max-w-[380px] animate-slideInRight text-sm font-medium ${t.type === 'info' ? 'border-blue-500 bg-gradient-to-br from-blue-500/15 to-panel-solid' : t.type === 'success' ? 'border-green-500 bg-gradient-to-br from-green-500/15 to-panel-solid' : 'border-red-500 bg-gradient-to-br from-red-500/15 to-panel-solid'}`}
           onClick={() => remove(t.id)}
           title="Click to dismiss"
         >

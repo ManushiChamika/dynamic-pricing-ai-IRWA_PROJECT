@@ -1,5 +1,5 @@
 import React from 'react'
-import { MessageView } from './MessageView'
+import { MessageView } from '../MessageView'
 import { type Message } from '../../stores/messageStore'
 
 interface MessageListProps {
@@ -14,7 +14,7 @@ function MessageListComponent({ messages, showModel, showTimestamps, showMeta }:
     <>
       {messages.map((m) => (
         <MessageView
-          key={m.id}
+          key={m.id + ':' + m.created_at}
           m={m}
           showModel={showModel}
           showTimestamps={showTimestamps}

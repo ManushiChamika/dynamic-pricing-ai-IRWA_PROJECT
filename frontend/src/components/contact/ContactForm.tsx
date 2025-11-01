@@ -11,7 +11,13 @@ interface FormData {
   message: string
 }
 
-function ContactFormComponent({ inputSurface, isDark }: { inputSurface: string; isDark: boolean }) {
+function ContactFormComponent({
+  inputSurface,
+  isDark,
+}: {
+  inputSurface: string
+  isDark: boolean
+}) {
   const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',

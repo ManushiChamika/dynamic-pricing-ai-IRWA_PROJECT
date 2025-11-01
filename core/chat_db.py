@@ -12,8 +12,6 @@ from sqlalchemy import (
     Text,
     ForeignKey,
     func,
-    Index,
-    UniqueConstraint,
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 import json
@@ -35,7 +33,6 @@ class Thread(Base):
     title = Column(String(255), nullable=False, default="New Thread")
     owner_id = Column(Integer, nullable=True, index=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     messages = relationship("Message", back_populates="thread", cascade="all, delete-orphan")
 
@@ -66,15 +63,10 @@ class Summary(Base):
     __tablename__ = "summaries"
 
     id = Column(Integer, primary_key=True)
-    thread_id = Column(Integer, ForeignKey("threads.id"), nullable=False)
-    upto_message_id = Column(Integer, nullable=False)
+    thread_id = Column(Integer, ForeignKey("threads.id"), index=True, nullable=False)
+    upto_message_id = Column(Integer, nullable=False)  # covers messages <= this id
     content = Column(Text, nullable=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
-
-    __table_args__ = (
-        UniqueConstraint("thread_id", "upto_message_id", name="uq_thread_upto_message"),
-        Index("ix_thread_upto_desc", "thread_id", "upto_message_id"),
-    )
 
 
 def _json_or_none(value: Any) -> Optional[str]:
@@ -99,7 +91,6 @@ def create_thread(title: Optional[str] = None, owner_id: Optional[int] = None) -
         db.add(t)
         db.commit()
         db.refresh(t)
-        db.expunge(t)
         return t
 
 
@@ -140,19 +131,6 @@ def delete_message(message_id: int) -> bool:
         return True
 
 
-def delete_message_cascade(message_id: int) -> bool:
-    with SessionLocal() as db:
-        m = db.get(Message, message_id)
-        if not m:
-            return False
-        children = db.query(Message).filter(Message.parent_id == message_id).all()
-        for child in children:
-            db.delete(child)
-        db.delete(m)
-        db.commit()
-        return True
-
-
 def get_thread_messages(thread_id: int) -> list[Message]:
     with SessionLocal() as db:
         rows = (
@@ -169,7 +147,7 @@ def list_threads(owner_id: Optional[int] = None) -> list[Thread]:
         q = db.query(Thread)
         if owner_id is not None:
             q = q.filter(Thread.owner_id == owner_id)
-        threads = q.order_by(Thread.updated_at.desc()).all()
+        threads = q.order_by(Thread.created_at.desc()).all()
         filtered = []
         for t in threads:
             msg_count = db.query(func.count(Message.id)).filter(Message.thread_id == t.id).scalar() or 0

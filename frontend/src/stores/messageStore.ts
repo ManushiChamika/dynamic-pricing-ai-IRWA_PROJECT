@@ -1,15 +1,14 @@
 import { create } from 'zustand'
 import { useThreads } from './threadStore'
 import { useToasts } from './toastStore'
-import { streamMessage } from '../lib/api/sseClient'
-import type { MessageMeta } from '../lib/types'
+import { streamMessage } from '../lib/sseClient'
 import {
   fetchMessages,
   sendMessage,
   editMessage,
   deleteMessage,
   branchMessage,
-} from '../lib/api/messageApi'
+} from '../lib/messageApi'
 
 export type Message = {
   id: number
@@ -23,7 +22,7 @@ export type Message = {
   api_calls?: number | null
   agents?: { activated?: string[]; count?: number } | null
   tools?: { used?: string[]; count?: number } | null
-  metadata?: MessageMeta | null
+  metadata?: Record<string, any> | null
   parent_id?: number | null
   thinking?: string | null
 }
@@ -61,7 +60,6 @@ type MessagesState = {
     agents?: string[]
     tools?: string[]
   } | null
-  clearStore: () => void
 }
 
 export const useMessages = create<MessagesState>((set, get) => ({
@@ -83,171 +81,133 @@ export const useMessages = create<MessagesState>((set, get) => ({
       set({ controller: null, streamingActive: false, liveActiveAgent: null, liveTool: null })
     }
   },
-  refresh: async (threadId) => {
-    const data = await fetchMessages(threadId)
-    set({ messages: data })
-  },
-  send: async (threadId, content, user_name, stream) => {
-    const threadsState = useThreads.getState()
-    const isDraft = String(threadId).startsWith('draft_')
+   refresh: async (threadId) => {
+     const data = await fetchMessages(threadId)
+     set({ messages: data })
+   },
+   send: async (threadId, content, user_name, stream) => {
+     const threadsState = useThreads.getState()
+     const isDraft = String(threadId).startsWith('draft_')
 
-    const userMsg: Message = { id: -1, role: 'user', content }
-    const live: Message = { id: -2, role: 'assistant', content: '' }
-    let thinkingShown = false
+     const userMsg: Message = { id: -1, role: 'user', content }
+     const live: Message = { id: -2, role: 'assistant', content: '' }
+     let thinkingShown = false
 
-    set((s) => ({
-      messages: [...s.messages, userMsg, live],
-      streamingActive: true,
-      liveActiveAgent: null,
-      liveAgents: [],
-      liveTool: null,
-      turnStats: null,
-    }))
+     set((s) => ({
+       messages: [...s.messages, userMsg, live],
+       streamingActive: true,
+       liveActiveAgent: null,
+       liveAgents: [],
+       liveTool: null,
+       turnStats: null,
+     }))
 
-    let actualThreadId: number = threadId as number
+     let actualThreadId: number = threadId as number
 
-    if (isDraft) {
-      const newThreadId = await threadsState.createThread('New Thread')
-      if (!newThreadId) {
-        useToasts.getState().push({
-          type: 'error',
-          text: 'Failed to create thread. Check console and ensure backend is running.',
-        })
-        set((s) => ({
-          messages: s.messages.filter((m) => m.id !== -1 && m.id !== -2),
-          streamingActive: false,
-        }))
-        return
-      }
-      actualThreadId = newThreadId
-      threadsState.setCurrent(newThreadId, true)
-      window.history.pushState({}, '', `/chat/${newThreadId}`)
-    } else {
-      actualThreadId = threadId as number
-    }
+     if (isDraft) {
+       const newThreadId = await threadsState.createThread('New Thread')
+       if (!newThreadId) {
+         useToasts.getState().push({ 
+           type: 'error', 
+           text: 'Failed to create thread. Check console and ensure backend is running.' 
+         })
+         set((s) => ({
+           messages: s.messages.filter((m) => m.id !== -1 && m.id !== -2),
+           streamingActive: false,
+         }))
+         return
+       }
+       actualThreadId = newThreadId
+       threadsState.setCurrent(newThreadId)
+     } else {
+       actualThreadId = threadId as number
+     }
 
-    if (!stream) {
-      await sendMessage(actualThreadId, content, user_name)
-      await get().refresh(actualThreadId)
-      return
-    }
+     if (!stream) {
+       await sendMessage(actualThreadId, content, user_name)
+       await get().refresh(actualThreadId)
+       return
+     }
 
-    const ctrl = new AbortController()
-    set({ controller: ctrl })
+     const ctrl = new AbortController()
+     set({ controller: ctrl })
 
-    try {
-      await streamMessage(
-        actualThreadId,
-        content,
-        user_name,
-        (update) => {
-          set((s) => {
-            if (update.thinking) {
-              if (!thinkingShown) {
-                thinkingShown = true
-                return {
-                  messages: [...s.messages, { id: -3, role: 'assistant', content: 'Thinking…' }],
-                }
-              }
-            }
+     try {
+       await streamMessage(actualThreadId, content, user_name, (update) => {
+         set((s) => {
+           if (update.thinking) {
+             if (!thinkingShown) {
+               thinkingShown = true
+               return { messages: [...s.messages, { id: -3, role: 'assistant', content: 'Thinking…' }] }
+             }
+           }
 
-            if (update.delta) {
-              const arr = s.messages.slice()
-              if (thinkingShown) {
-                const lastThinking = arr[arr.length - 1]
-                if (lastThinking && lastThinking.id === -3) {
-                  arr.pop()
-                  thinkingShown = false
-                }
-              }
-              const last = arr[arr.length - 1]
-              if (last && last.id === -2) last.content += update.delta
-              return { messages: arr }
-            }
+           if (update.delta) {
+             const arr = s.messages.slice()
+             if (thinkingShown) {
+               const lastThinking = arr[arr.length - 1]
+               if (lastThinking && lastThinking.id === -3) {
+                 arr.pop()
+                 thinkingShown = false
+               }
+             }
+             const last = arr[arr.length - 1]
+             if (last && last.id === -2) last.content += update.delta
+             return { messages: arr }
+           }
 
-            if (update.agent) {
-              return {
-                liveActiveAgent: update.agent,
-                liveAgents: Array.from(new Set([...s.liveAgents, update.agent])),
-              }
-            }
+           if (update.agent) {
+             return {
+               liveActiveAgent: update.agent,
+               liveAgents: Array.from(new Set([...s.liveAgents, update.agent])),
+             }
+           }
 
-            if (update.tool) {
-              return { liveTool: update.tool }
-            }
+           if (update.tool) {
+             return { liveTool: update.tool }
+           }
 
-            if (update.turnStats) {
-              console.log('[MessageStore] Setting turnStats:', update.turnStats)
-              return { turnStats: update.turnStats }
-            }
+           if (update.turnStats) {
+             return { turnStats: update.turnStats }
+           }
 
-            if (update.threadRenamed) {
-              useThreads
-                .getState()
-                .updateThreadTitleLocal(update.threadRenamed.thread_id, update.threadRenamed.title)
-              useToasts.getState().push({
-                type: 'success',
-                text: `✨ Thread titled: "${update.threadRenamed.title}"`,
-              })
-              return s
-            }
+           if (update.done) {
+             return { controller: null, streamingActive: false, liveActiveAgent: null, liveTool: null }
+           }
 
-            if (update.done) {
-              return {
-                controller: null,
-                streamingActive: false,
-                liveActiveAgent: null,
-                liveTool: null,
-              }
-            }
-
-            return s
-          })
-        },
-        ctrl
-      )
-    } catch {
-      // AbortError or network error - ignore
-    } finally {
-      set({ controller: null, streamingActive: false, liveActiveAgent: null, liveTool: null })
-      await get().refresh(actualThreadId)
-    }
-  },
-  edit: async (id, content) => {
-    set((s) => ({ messages: s.messages.map((x) => (x.id === id ? { ...x, content } : x)) }))
-    const ok = await editMessage(id, content)
-    if (!ok) {
-      try {
-        useToasts.getState().push({ type: 'error', text: 'Edit failed' })
-      } catch {
-        /* ignore */
-      }
-    }
-    const tid = useThreads.getState().currentId
-    if (tid && typeof tid === 'number') await get().refresh(tid)
-  },
-  del: async (id) => {
-    set((s) => ({ messages: s.messages.filter((x) => x.id !== id) }))
-    await deleteMessage(id)
-    const tid = useThreads.getState().currentId
-    if (tid && typeof tid === 'number') await get().refresh(tid)
-  },
-  branch: async (threadId, parentId, content, user_name) => {
-    if (typeof threadId !== 'number') return
-    await branchMessage(threadId, parentId, content, user_name)
-  },
-  clearStore: () => {
-    get().stop()
-    set({
-      messages: [],
-      streamingActive: false,
-      controller: null,
-      liveActiveAgent: null,
-      liveAgents: [],
-      liveTool: null,
-      turnStats: null,
-    })
-  },
+           return s
+         })
+       }, ctrl)
+     } catch {
+       // AbortError or network error - ignore
+     } finally {
+       set({ controller: null, streamingActive: false, liveActiveAgent: null, liveTool: null })
+       await get().refresh(actualThreadId)
+     }
+   },
+   edit: async (id, content) => {
+     set((s) => ({ messages: s.messages.map((x) => (x.id === id ? { ...x, content } : x)) }))
+     const ok = await editMessage(id, content)
+     if (!ok) {
+       try {
+         useToasts.getState().push({ type: 'error', text: 'Edit failed' })
+       } catch {
+         /* ignore */
+       }
+     }
+     const tid = useThreads.getState().currentId
+     if (tid && typeof tid === 'number') await get().refresh(tid)
+   },
+   del: async (id) => {
+     set((s) => ({ messages: s.messages.filter((x) => x.id !== id) }))
+     await deleteMessage(id)
+     const tid = useThreads.getState().currentId
+     if (tid && typeof tid === 'number') await get().refresh(tid)
+   },
+   branch: async (threadId, parentId, content, user_name) => {
+     if (typeof threadId !== 'number') return
+     await branchMessage(threadId, parentId, content, user_name)
+   },
 }))
 
 export const useMessagesSelector = <T>(selector: (state: MessagesState) => T): T =>
@@ -261,7 +221,6 @@ export const useMessagesActions = () =>
     del: state.del,
     branch: state.branch,
     stop: state.stop,
-    clearStore: state.clearStore,
   }))
 
 export const useStreamingState = () =>

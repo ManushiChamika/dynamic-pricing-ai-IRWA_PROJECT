@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, AwareDatetime, field_validator
+from pydantic import BaseModel, Field, AwareDatetime, validator
 from typing import Literal, List, Optional, Dict, Any
 
 # -----------------------------
@@ -55,48 +55,3 @@ class RuleSpec(BaseModel):
     detector: Optional[str] = None                        # Optional statistical detector name
     field: Optional[str] = None                           # Data field the detector observes
     params: Dict[str, Any] = {}
-<<<<<<< HEAD
-=======
-    hold_for: Optional[str] = None  # "5m"
-    severity: Severity = "warn"
-    dedupe: str = "sku"
-    group_by: List[str] = []
-    notify: NotifySpec = NotifySpec()
-    enabled: bool = True
-
-    @field_validator("where")
-    @classmethod
-    def where_or_detector(cls, v, info):
-        values = info.data if hasattr(info, 'data') else {}
-        if not v and not values.get("detector"):
-            raise ValueError("Provide either 'where' or 'detector'.")
-        return v
-
-class RuleRecord(BaseModel):
-    id: str
-    spec: RuleSpec
-    version: int
-
-class Alert(BaseModel):
-    id: str
-    rule_id: str
-    sku: str
-    title: str
-    payload: Dict[str, Any]
-    severity: Severity
-    ts: AwareDatetime
-    fingerprint: str
-    owner_id: Optional[str] = None
-
-class Incident(BaseModel):
-    id: str
-    rule_id: str
-    sku: str
-    status: IncidentStatus
-    first_seen: AwareDatetime
-    last_seen: AwareDatetime
-    severity: Severity
-    title: str
-    group_key: str
-    owner_id: Optional[str] = None
->>>>>>> 379c70e69f421885ef6145953fb8ca8741ed7a4e

@@ -3,7 +3,7 @@ import { Button } from '../components/ui/button'
 import { Navigation } from '../components/Navigation'
 import { Footer } from '../components/Footer'
 import { ArrowRight, Check } from 'lucide-react'
-import { useTheme } from '../hooks/useTheme'
+import { useTheme } from '../contexts/ThemeContext'
 import { getPageThemeClasses, getPlanCardBase } from '../lib/themeHelpers'
 
 export function PricingPage() {

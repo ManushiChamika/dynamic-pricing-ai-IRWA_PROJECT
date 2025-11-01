@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\core\agents\data_collector\connectors\web_scraper.py
-# hypothesis_version: 6.142.2
-
-['#price_inside_buybox', '#priceblock_ourprice', ',', '.', '.a-price-whole', '.price', '.product-price', '1', 'Accept', 'Accept-Encoding', 'Accept-Language', 'Connection', 'User-Agent', '[^0-9.,]', "[itemprop='price']", 'content', 'empty price text', 'en-US,en;q=0.9', 'error', 'gzip, deflate, br', 'html.parser', 'invalid url', 'keep-alive', 'message', 'price', 'source', 'span.a-price', 'status', 'success']

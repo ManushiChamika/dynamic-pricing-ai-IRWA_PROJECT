@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\core\agents\price_optimizer\optimizer.py
-# hypothesis_version: 6.142.2
-
-[0.12, 0.6, 0.8, 0.99, 1.0, 1.02, '; ', 'No change', 'PriceOptimizer', 'algorithm', 'competitor_price', 'completed', 'confidence', 'constraints', 'cost', 'heuristic', 'max_price', 'min_margin', 'min_price', 'new_price', 'old_price', 'price.proposal', 'proposal.generated', 'rationale', 'recommended_price', 'sku', 'timestamp', 'trace_id']

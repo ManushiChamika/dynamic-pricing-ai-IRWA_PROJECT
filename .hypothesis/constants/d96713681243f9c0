@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\core\agents\alert_service\config.py
-# hypothesis_version: 6.142.2
-
-[587, 65535, ',', 'ALERTS_EMAIL_FROM', 'ALERTS_EMAIL_TO', 'ALERTS_SLACK_WEBHOOK', 'ALERTS_SMTP_HOST', 'ALERTS_SMTP_PASSWORD', 'ALERTS_SMTP_PORT', 'ALERTS_SMTP_USER', 'Invalid SMTP port', 'http', 'https', 'smtp_password']
