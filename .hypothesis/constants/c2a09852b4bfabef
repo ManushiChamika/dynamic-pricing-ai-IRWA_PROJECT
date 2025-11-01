@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\core\agents\agent_sdk\auth.py
-# hypothesis_version: 6.142.2
-
-[' | ', ',', '.', ':', 'No token provided', 'Token created', 'Token has expired', 'admin', 'alert_service', 'apply', 'auth_error', 'auth_failures', 'capability_token', 'collect', 'correlation_id', 'create_rule', 'data_collector', 'error', 'expired', 'expired_tokens', 'expiry', 'explain', 'format', 'import', 'info', 'insufficient_scope', 'internal_error', 'invalid', 'invalid_tokens', 'legacy', 'mcp.auth', 'message', 'ok', 'price_optimizer', 'propose', 'read', 'required_scope', 'scope_denials', 'scope_requests', 'scopes', 'service_tokens', 'subscribe', 'timestamp', 'tokens_created', 'tokens_verified', 'v2', 'valid', 'warning', 'write']

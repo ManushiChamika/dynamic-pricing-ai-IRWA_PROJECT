@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\openai\types\beta\realtime\realtime_response.py
-# hypothesis_version: 6.142.2
-
-['RealtimeResponse', 'alloy', 'ash', 'audio', 'ballad', 'cancelled', 'completed', 'coral', 'echo', 'failed', 'g711_alaw', 'g711_ulaw', 'in_progress', 'incomplete', 'inf', 'pcm16', 'realtime.response', 'sage', 'shimmer', 'text', 'verse']

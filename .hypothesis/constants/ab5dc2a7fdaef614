@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\pandas\io\parsers\c_parser_wrapper.py
-# hypothesis_version: 6.142.2
-
-[',', 'allow_leading_cols', 'compression', 'dtype', 'dtype_backend', 'encoding', 'low_memory', 'memory_map', 'numpy', 'on_bad_lines', 'pyarrow', 'storage_options', 'string', 'usecols']

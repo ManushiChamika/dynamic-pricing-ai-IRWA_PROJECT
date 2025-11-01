@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\pandas\core\arrays\boolean.py
-# hypothesis_version: 6.142.2
-
-['0', '0.0', '1', '1.0', 'BooleanDtype', 'FALSE', 'False', 'Lengths must match', 'TRUE', 'True', 'and_', 'b', 'bool', 'boolean', 'cummax', 'cummin', 'empty', 'false', 'floating', 'integer', 'iufcb', 'mixed-integer-float', 'or_', 'rand_', 'ror_', 'rxor', 'true', 'xor']

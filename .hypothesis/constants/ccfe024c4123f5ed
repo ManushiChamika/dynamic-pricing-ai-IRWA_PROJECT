@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\core\agents\price_optimizer\tools.py
-# hypothesis_version: 6.142.2
-
-[0.0, 0.12, 0.5, 0.6, 1000000000000.0, 'Current/old price', 'Product SKU', 'Proposed/new price', 'algorithm', 'array', 'change_pct', 'competitor_price', 'confidence', 'cost', 'current_price', 'description', 'enum', 'error', 'function', 'get_product_info', 'margin', 'market_data_count', 'market_records', 'message', 'min_margin', 'ml_model', 'name', 'new_price', 'number', 'object', 'ok', 'old_price', 'our_price', 'parameters', 'previous_price', 'price', 'pricing_list_count', 'product_id', 'product_title', 'profit_maximization', 'properties', 'proposal_id', 'proposed_price', 'rationale', 'recommended_price', 'record_count', 'required', 'rule_based', 'scraped_at', 'sku', 'string', 'title', 'type', 'unknown', 'valid', 'validate_price']

@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\openai\lib\streaming\chat\_events.py
-# hypothesis_version: 6.142.2
-
-['chunk', 'content.delta', 'content.done', 'refusal.delta', 'refusal.done']

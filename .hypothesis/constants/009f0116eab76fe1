@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\pandas\core\dtypes\missing.py
-# hypothesis_version: 6.142.2
-
-[1000, 'INF_AS_NA', 'M', 'NaT', 'OSU', 'S', 'U', '__array__', '_isna', 'b', 'datetime', 'datetime64', 'f', 'fc', 'i8', 'ignore', 'iu', 'iub', 'iufc', 'm', 'mM', 'nan_checker', 'object', 'timedelta', 'timedelta64']

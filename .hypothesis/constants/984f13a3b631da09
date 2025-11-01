@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\aiohttp\abc.py
-# hypothesis_version: 6.142.2
-
-['AbstractMatchInfo', 'BaseCookie[str]', 'CIMultiDict[str]', 'Morsel[str]', 'deflate', 'log_format', 'logger']

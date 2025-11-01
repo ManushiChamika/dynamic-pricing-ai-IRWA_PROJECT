@@ -1,4 +1,0 @@
-# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\pandas\plotting\__init__.py
-# hypothesis_version: 6.142.2
-
-['PlotAccessor', 'andrews_curves', 'autocorrelation_plot', 'bootstrap_plot', 'boxplot', 'boxplot_frame', 'hist_frame', 'hist_series', 'lag_plot', 'parallel_coordinates', 'plot_params', 'radviz', 'scatter_matrix', 'table']
