@@ -10,9 +10,14 @@ except Exception:
 
 
 def get_db_paths():
+    import os
     root = Path(__file__).resolve().parents[3]
+    env_path = os.getenv("DATA_DB")
+    candidate = Path(env_path) if env_path else (root / "app" / "data.db")
+    if not candidate.is_absolute():
+        candidate = root / candidate
     return {
-        "app": root / "app" / "data.db",
+        "app": candidate,
         "market": root / "data" / "market.db"
     }
 
@@ -32,7 +37,7 @@ def list_inventory_items(search: Optional[str] = None, limit: int = 50) -> Dict[
     
     import logging
     logger = logging.getLogger(__name__)
-    logger.info(f"[DEBUG] list_inventory_items called with owner_id={owner_id}")
+    logger.info(f"[DEBUG] list_inventory_items called with owner_id={owner_id}, db_path={db_path}")
     
     try:
         if not owner_id:
