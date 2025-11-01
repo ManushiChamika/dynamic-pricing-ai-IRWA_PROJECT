@@ -100,29 +100,28 @@ class PricingOptimizerAgent:
 
         # Configure local DB paths and tools facade (MCP-enabled if env toggled)
         try:
-            from pathlib import Path
+            from core.config import resolve_app_db, resolve_market_db
             from core.agents.agent_sdk.mcp_client import get_price_optimizer_client
 
-            root = Path(__file__).resolve().parents[3]
-            app_db_path = root / "app" / "data.db"
-            market_db_path = root / "data" / "market.db"
+            app_db_path = resolve_app_db()
+            market_db_path = resolve_market_db()
 
             self.db = _DBPaths(app_db=app_db_path, market_db=market_db_path)
 
             try:
                 self.tools = get_price_optimizer_client(use_mcp=None, app_db=str(self.db.app_db), market_db=str(self.db.market_db))
-                # Ensure tools is never None: fall back to local client if MCP init failed
                 if self.tools is None:
                     self.tools = get_price_optimizer_client(use_mcp=False, app_db=str(self.db.app_db), market_db=str(self.db.market_db))
             except Exception:
-                # On any error, fall back to a local non-MCP client
                 try:
                     self.tools = get_price_optimizer_client(use_mcp=False, app_db=str(self.db.app_db), market_db=str(self.db.market_db))
                 except Exception:
                     self.tools = None
         except Exception:
+            from pathlib import Path
             self.db = _DBPaths(app_db=Path("app/data.db"), market_db=Path("data/market.db"))
             try:
+                from core.agents.agent_sdk.mcp_client import get_price_optimizer_client
                 self.tools = get_price_optimizer_client(use_mcp=False, app_db=str(self.db.app_db), market_db=str(self.db.market_db))
             except Exception:
                 self.tools = None

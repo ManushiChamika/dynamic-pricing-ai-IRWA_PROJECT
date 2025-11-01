@@ -22,7 +22,11 @@ def get_db_path(database: str) -> Path:
     if database == "chat":
         return Path("app/chat_threads/chat.db")
     elif database == "market":
-        return Path("data/market.db")
+        try:
+            from core.config import resolve_market_db
+            return resolve_market_db()
+        except Exception:
+            return Path("data/market.db")
     else:
         raise HTTPException(status_code=400, detail=f"Unknown database: {database}")
 

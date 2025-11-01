@@ -163,12 +163,9 @@ class Supervisor:
 
     # ----------------- helpers -----------------
     def _seed_market_if_needed(self, sku: str, owner_id: int = 1) -> None:
-        """Ensure app/data.db has some competitor rows for the optimizer.
-
-        This POC method seeds minimal rows if none exist.
-        """
-        root = Path(__file__).resolve().parents[2]
-        mdb = (root / "app" / "data.db").as_posix()
+        """Ensure market tables exist and seed minimal competitor rows if missing."""
+        from core.config import resolve_market_db
+        mdb = resolve_market_db().as_posix()
         conn = sqlite3.connect(mdb, check_same_thread=False)
         cur = conn.cursor()
         cur.execute(
@@ -188,36 +185,36 @@ class Supervisor:
                 )
             conn.commit()
         conn.close()
+ 
+     def _read_product_prices(self, sku: str) -> tuple[Optional[float], Optional[float]]:
+         from core.config import resolve_app_db
+         adb = resolve_app_db().as_posix()
+         conn = sqlite3.connect(adb, check_same_thread=False)
+         cur = conn.cursor()
+         cur.execute(
+             """CREATE TABLE IF NOT EXISTS product_catalog (
+                    sku TEXT, 
+                    owner_id TEXT, 
+                    title TEXT, 
+                    currency TEXT, 
+                    current_price REAL, 
+                    cost REAL, 
+                    stock INTEGER, 
+                    updated_at TEXT,
+                    PRIMARY KEY (sku, owner_id)
+                )"""
+         )
+         cur.execute(
+             "SELECT current_price, cost FROM product_catalog WHERE sku=? LIMIT 1",
+             (sku,),
+         )
+         r = cur.fetchone()
+         conn.close()
+         if r:
+             cp = float(r[0]) if r[0] is not None else None
+             cost = float(r[1]) if r[1] is not None else None
+             return cp, cost
 
-    def _read_product_prices(self, sku: str) -> tuple[Optional[float], Optional[float]]:
-        """Read current_price and cost from product_catalog in app/data.db."""
-        root = Path(__file__).resolve().parents[2]
-        adb = (root / "app" / "data.db").as_posix()
-        conn = sqlite3.connect(adb, check_same_thread=False)
-        cur = conn.cursor()
-        cur.execute(
-            """CREATE TABLE IF NOT EXISTS product_catalog (
-                   sku TEXT, 
-                   owner_id TEXT, 
-                   title TEXT, 
-                   currency TEXT, 
-                   current_price REAL, 
-                   cost REAL, 
-                   stock INTEGER, 
-                   updated_at TEXT,
-                   PRIMARY KEY (sku, owner_id)
-               )"""
-        )
-        cur.execute(
-            "SELECT current_price, cost FROM product_catalog WHERE sku=? LIMIT 1",
-            (sku,),
-        )
-        r = cur.fetchone()
-        conn.close()
-        if r:
-            cp = float(r[0]) if r[0] is not None else None
-            cost = float(r[1]) if r[1] is not None else None
-            return cp, cost
         return None, None
 
 
