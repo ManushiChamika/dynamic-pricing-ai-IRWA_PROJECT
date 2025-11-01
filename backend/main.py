@@ -15,6 +15,8 @@ from backend.routers import auth, settings, threads, messages, streaming, prices
 
 from core.agents.alert_service import api as alert_api
 from core.agents.price_optimizer.agent import PricingOptimizerAgent
+from core.agents.data_collector.agent import DataCollectorAgent
+from core.agents.data_collector.repo import DataRepo
 
 
 @asynccontextmanager
@@ -30,9 +32,23 @@ async def lifespan(app: FastAPI):
         pricing_optimizer = PricingOptimizerAgent()
     except Exception:
         pricing_optimizer = None
+    
+    try:
+        from core.config import resolve_app_db
+        db_path = resolve_app_db()
+        data_collector_repo = DataRepo(db_path)
+        data_collector = DataCollectorAgent(
+            repo=data_collector_repo,
+            check_interval_seconds=180
+        )
+    except Exception:
+        data_collector = None
+    
     await alert_api.start()
     if pricing_optimizer is not None:
         await pricing_optimizer.start()
+    if data_collector is not None:
+        await data_collector.start()
     
     yield
 
