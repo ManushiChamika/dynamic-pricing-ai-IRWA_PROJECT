@@ -59,6 +59,7 @@ class DataRepo:
                    cost REAL,
                    stock INTEGER,
                    updated_at TEXT,
+                   source_url TEXT,
                    PRIMARY KEY (sku, owner_id)
                 );
                 

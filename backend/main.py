@@ -17,6 +17,7 @@ from core.agents.alert_service import api as alert_api
 from core.agents.price_optimizer.agent import PricingOptimizerAgent
 from core.agents.data_collector.agent import DataCollectorAgent
 from core.agents.data_collector.repo import DataRepo
+from core.agents.data_collector.collector import DataCollector
 
 
 @asynccontextmanager
@@ -37,6 +38,7 @@ async def lifespan(app: FastAPI):
         from core.config import resolve_app_db
         db_path = resolve_app_db()
         data_collector_repo = DataRepo(db_path)
+        reactive_collector = DataCollector(data_collector_repo)
         data_collector = DataCollectorAgent(
             repo=data_collector_repo,
             check_interval_seconds=180
