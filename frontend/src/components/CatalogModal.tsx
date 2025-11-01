@@ -11,7 +11,7 @@ interface CatalogModalProps {
 export function CatalogModal({ open, onOpenChange }: CatalogModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto" aria-label="Product catalog modal" data-testid="catalog-modal">
         <DialogHeader>
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600">

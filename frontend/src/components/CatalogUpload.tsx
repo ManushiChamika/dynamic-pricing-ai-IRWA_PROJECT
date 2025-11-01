@@ -185,6 +185,8 @@ export function CatalogUpload() {
           onChange={handleFileChange}
           className="hidden"
           disabled={loading}
+          aria-label="Catalog file input"
+          data-testid="catalog-file-input"
         />
 
         <div className="p-12 text-center">
@@ -207,7 +209,7 @@ export function CatalogUpload() {
             {dragActive ? 'Release to upload' : 'Drag and drop your file, or click to browse'}
           </p>
 
-          <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={loading}>
+          <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={loading} aria-label="Choose catalog file" data-testid="choose-catalog-file">
             <FileText className="w-4 h-4 mr-2" />
             Choose File
           </Button>
@@ -237,7 +239,9 @@ export function CatalogUpload() {
                   }}
                   disabled={loading}
                   className="p-1 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
+      aria-label="Catalog dropzone"
+      data-testid="catalog-dropzone"
+      >
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -288,7 +292,7 @@ export function CatalogUpload() {
       )}
 
       <div className="flex gap-3">
-        <Button onClick={handleUpload} disabled={!file || loading || deleting} className="flex-1">
+        <Button onClick={handleUpload} disabled={!file || loading || deleting} className="flex-1" aria-label="Upload catalog" data-testid="upload-catalog">
           {loading ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -301,7 +305,7 @@ export function CatalogUpload() {
             </>
           )}
         </Button>
-        <Button onClick={handleDeleteAll} disabled={loading || deleting} variant="destructive">
+        <Button onClick={handleDeleteAll} disabled={loading || deleting} variant="destructive" aria-label="Clear all products" data-testid="clear-all-products">
           {deleting ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
