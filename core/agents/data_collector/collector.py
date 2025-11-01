@@ -135,39 +135,45 @@ class DataCollector:
             # Process each source
             for source in sources:
                 if source == "web_scraper" and urls:
-                    # Use web scraper connector
                     try:
                         from .connectors.web_scraper import fetch_competitor_price
-                        
                         for url in urls:
                             try:
                                 result = fetch_competitor_price(url)
                                 if result.get("status") == "success" and "price" in result:
-                                    # Create tick data
                                     tick_data = {
                                         "sku": sku,
                                         "market": market,
-                                        "our_price": 0.0,  # Will be updated from product catalog
+                                        "our_price": 0.0,
                                         "competitor_price": float(result["price"]),
-                                        "demand_index": 1.0,  # Default
+                                        "demand_index": 1.0,
                                         "ts": datetime.now(timezone.utc).isoformat(),
                                         "source": f"web_scraper:{url}"
                                     }
-                                    
-                                    # Insert tick
                                     await self.ingest_tick(tick_data)
                                     tick_count += 1
-                                    
                             except Exception as e:
-                                print(f"[DataCollector] Failed to scrape {url}: {e}")
-                                
+                                try:
+                                    print(f"[DataCollector] Failed to scrape {url}: {e}")
+                                except Exception:
+                                    pass
                     except ImportError:
-                        print("[DataCollector] web_scraper connector not available")
-            
-            # Mark job as done
+                        try:
+                            print("[DataCollector] web_scraper connector not available")
+                        except Exception:
+                            pass
+                elif source == "mock":
+                    try:
+                        from .connectors.mock import mock_ticks
+                        for t in mock_ticks(sku=sku, market=market, n=depth):
+                            await self.ingest_tick(t)
+                            tick_count += 1
+                    except Exception as e:
+                        try:
+                            print(f"[DataCollector] mock connector failed: {e}")
+                        except Exception:
+                            pass
             await self.repo.mark_job_done(job_id)
-            
-            # Send completion notification
             done_payload: MarketFetchDonePayload = {
                 "request_id": request_id,
                 "job_id": job_id,

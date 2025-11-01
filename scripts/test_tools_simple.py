@@ -46,7 +46,7 @@ async def test_stale_products():
         print(f"   [OK] Found {result['count']} active jobs")
     else:
         print(f"   [ERROR] {result['error']}")
-    
+
     print("\n4. Testing MacBook Air M3 data freshness...")
     result = await tools.check_data_freshness("LAPTOP-APPLE-MACBOOK-AIR-M3", "DEFAULT")
     if result["ok"]:
@@ -59,5 +59,36 @@ async def test_stale_products():
     else:
         print(f"   [ERROR] {result['error']}")
 
+    print("\n5. Starting a mock collection job for MacBook Air M3...")
+    start = await tools.start_collection_job(
+        sku="LAPTOP-APPLE-MACBOOK-AIR-M3",
+        market="DEFAULT",
+        connector="mock",
+        depth=3,
+    )
+    if start.get("ok"):
+        print(f"   [OK] Published MARKET_FETCH_REQUEST request_id={start['request_id']}")
+    else:
+        print(f"   [ERROR] Failed to publish request: {start.get('error')}")
+
+    await asyncio.sleep(0.5)
+
+    print("\n6. Checking recent jobs...")
+    recent = await tools.get_recent_jobs(limit=5)
+    if recent.get("ok"):
+        print(f"   Recent jobs count: {recent['count']}")
+        for j in recent["recent_jobs"]:
+            print(f"   - {j['id'][:8]} {j['sku']} {j['status']} created={j['created_at']} finished={j['finished_at']}")
+    else:
+        print(f"   [ERROR] {recent.get('error')}")
+
+    print("\n7. Re-checking data freshness for MacBook Air M3...")
+    result2 = await tools.check_data_freshness("LAPTOP-APPLE-MACBOOK-AIR-M3", "DEFAULT")
+    if result2.get("ok") and result2.get("has_data"):
+        print(f"   [OK] Now has data - last updated: {result2['last_update']}")
+    else:
+        print("   Still no data; ensure backend is running so collector subscriptions are active.")
+
 if __name__ == "__main__":
     asyncio.run(test_stale_products())
+
