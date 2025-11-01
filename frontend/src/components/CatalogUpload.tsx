@@ -177,6 +177,8 @@ export function CatalogUpload() {
               : 'border-border hover:border-muted-foreground/50 bg-muted/20'
           }
         `}
+        aria-label="Catalog dropzone"
+        data-testid="catalog-dropzone"
       >
         <input
           ref={fileInputRef}
