@@ -121,7 +121,7 @@ def _extract_token_from_request(request: Optional[Request]) -> Optional[str]:
 
 
 @router.post("/{thread_id}/messages", response_model=MessageOut)
-def api_post_message(thread_id: int, req: PostMessageRequest, token: Optional[str] = None, request: Optional[Request] = None):
+def api_post_message(thread_id: int, req: PostMessageRequest, request: Request, token: Optional[str] = None):
     import json as _json
     from core.auth_service import validate_session_token
     from core.agents.user_interact.context import set_owner_id
@@ -258,7 +258,7 @@ def api_post_message(thread_id: int, req: PostMessageRequest, token: Optional[st
 
 
 @router.post("/{thread_id}/messages/stream")
-def api_post_message_stream(thread_id: int, req: PostMessageRequest, token: Optional[str] = None, request: Optional[Request] = None):
+def api_post_message_stream(thread_id: int, req: PostMessageRequest, request: Request, token: Optional[str] = None):
     import json as _json
 
     tok = token or _extract_token_from_request(request)
