@@ -1,104 +1,63 @@
-# Dynamic Pricing AI (IRWA Project)
+# Dynamic Pricing AI
 
 A FastAPI backend with a lightweight static HTML/JS UI for chat-driven dynamic pricing workflows. The system supports authentication, per-user UI settings, threaded conversations with edit/branch/delete, streaming responses (SSE), rolling summarization, and cost/usage metadata capture from multiple LLM providers (OpenRouter, OpenAI, Gemini via OpenAI-compatible endpoint).
+
+<p align="center">
+  <img src="assets/0.png" width="500" alt=""/>
+</p>
+
+## Screenshots
+The following screenshots highlight the main interface and key functionalities of the application.
+
+<p align="center">
+  <img src="assets/1.jpg" width="300" alt=""/>
+  <img src="assets/2.jpg" width="300" alt=""/>
+  <img src="assets/3.jpg" width="300" alt=""/>
+  <img src="assets/4.jpg" width="300" alt=""/>
+  <img src="assets/5.jpg" width="300" alt=""/>
+  <img src="assets/6.jpg" width="300" alt=""/>
+  <img src="assets/7.jpg" width="300" alt=""/>
+  <img src="assets/8.jpg" width="300" alt=""/>
+  <img src="assets/9.jpg" width="300" alt=""/>
+  <img src="assets/10.jpg" width="300" alt=""/>
+  <img src="assets/11.jpg" width="300" alt=""/>
+  <img src="assets/12.jpg" width="300" alt=""/>
+  <img src="assets/13.jpg" width="300" alt=""/>
+  <img src="assets/14.jpg" width="300" alt=""/>
+  <img src="assets/15.jpg" width="300" alt=""/>
+  <img src="assets/16.jpg" width="300" alt=""/>
+  <img src="assets/17.jpg" width="300" alt=""/>
+  <img src="assets/18.jpg" width="300" alt=""/>
+</p>
 
 
 ## Quickstart
 
-### Option 1: Easy Start with Full Stack (Windows)
-**Double-click `run_full_app.bat`** in the project root folder. This will:
-- Validate your environment (Python, Node.js, databases, API keys)
-- Check and install dependencies if needed
-- Clean up any stale processes on ports 8000 and 5173
-- Start both backend (port 8000) and frontend dev server (port 5173) with hot-reload
-- Show you the URLs to access the application
-
-**Recommended for development:** This gives you hot-reload on both frontend and backend.
-
-### Option 2: Production Start (Windows)
-**Double-click `run_app.bat`** for a production-like build:
+### Option 1: Easy Start (Windows)
+**Double-click `run_app.bat`** in the project root folder. This will:
 - Check Python installation
 - Install dependencies if needed  
 - Find an available port (8000, 8001, or 8002)
-- Build the frontend and serve it from the backend
 - Start the server and show you the URL to open
 
-### Option 3: Manual Setup
-1) **Validate your environment first**
-```bash
-python scripts/validate_startup.py
-```
-This checks:
-- Python version (3.8+)
-- Database files and schemas
-- API key configuration
-- Critical dependencies
+### Option 2: Manual Setup
+1) Create and fill in your `.env` based on `.env.example`
+- Copy `.env.example` to `.env` and add any provider keys you have.
+- If you have no keys, the UI still works with a non‑LLM fallback response.
 
-2) **Create and fill in your `.env`** based on `.env.example`
-```bash
-copy .env.example .env
-```
-Add at least one API key:
-- `GEMINI_API_KEY` (recommended - free tier available at https://ai.google.dev)
-- `OPENROUTER_API_KEY` (alternative - has free models)
-- `OPENAI_API_KEY` (alternative - paid)
+2) Install dependencies
+- Python 3.10+
+- pip install -r requirements.txt
 
-3) **Install dependencies**
-- Python 3.10+ required
-```bash
-pip install -r requirements.txt
-cd frontend && npm install && cd ..
-```
+3) Build and run the application
+- cd frontend && npm install && npm run build && cd ..
+- uvicorn backend.main:app --reload --port 8000
+- Open http://localhost:8000 for the application
+- Or use run_full_app.bat for hot-reload development (backend + frontend dev server)
 
-4) **Build and run the application**
-
-For production build:
-```bash
-cd frontend && npm run build && cd ..
-uvicorn backend.main:app --reload --port 8000
-```
-
-For development with hot-reload:
-```bash
-# Terminal 1: Backend
-uvicorn backend.main:app --reload --port 8000
-
-# Terminal 2: Frontend
-cd frontend && npm run dev
-```
-
-5) **Access the application**
-- Production: http://localhost:8000
-- Development: http://localhost:5173 (frontend) + http://localhost:8000 (backend API)
-
-6) **Optional: run tests**
-- Backend: `pytest -q`
-- Frontend: `cd frontend && npm test`
-
-### Troubleshooting Startup Issues
-
-If you encounter errors during startup:
-
-1. **Run validation to diagnose issues:**
-```bash
-python scripts/validate_startup.py
-```
-
-2. **Fix database schema issues:**
-```bash
-python scripts/fix_database_schema.py
-```
-
-3. **Check the detailed logs:**
-```
-app_launcher.log
-```
-
-4. **Common fixes:**
-- Missing API keys: Add them to `.env` file
-- Database errors: Run `python scripts/fix_database_schema.py`
-- Port conflicts: Close applications using ports 8000 or 5173
-- Dependency issues: Run `pip install -r requirements.txt`
+4) Optional: run tests
+- Backend: pytest -q
+- Frontend: cd frontend && npm test
 
 
 ## Architecture Overview
@@ -114,12 +73,32 @@ app_launcher.log
   - State management via Zustand (8 stores)
   - Real-time chat with SSE streaming
 - Core agents
-  - `core/agents/llm_client.py`: multi-provider LLM wrapper with fallbacks and streaming
-  - `core/agents/user_interact/user_interaction_agent.py`: orchestrates tool-calling or streaming responses and captures usage metadata
-  - Additional pricing/alerts/data collection agents and event bus under `core/agents/*`
+- `core/agents/llm_client.py`: multi-provider LLM wrapper with fallbacks and streaming
+- `core/agents/user_interact/user_interaction_agent.py`: orchestrates tool-calling or streaming responses and captures usage metadata
+- Additional pricing/alerts/data collection agents and event bus under `core/agents/*`
 - Data
   - `data/market.db`: sample market data used by tools/agents
   - `data/chat.db`: created on first run for chat persistence
+
+### Agent System & Workflow
+
+The chat experience is powered by five specialised agents that cooperate through an internal supervisor hub:
+
+| Agent | Responsibilities |
+| --- | --- |
+| **Interaction Agent** | Parses natural language chat turns, gathers missing details (SKU, cost, competitor URLs), and calls downstream tools while streaming results back to the user. |
+| **Supervisor Agent** | Normalises catalog updates, records competitor sources, coordinates the remaining agents, and returns a step-by-step activity log for transparency. |
+| **Data Collection Agent** | Scrapes or simulates competitor price quotes for the registered product and stores them as market ticks/market\_data rows. |
+| **Pricing Optimizer Agent** | Loads the latest catalog and market context, runs the LLM-assisted optimisation workflow, and writes the resulting price proposal with confidence and rationale. |
+| **Alert Agent** | Evaluates margin gaps and market undercuts, emitting high-priority alerts that the Interaction Agent surfaces in the chat UI. |
+
+From the chat UI (or directly via `UserInteractionAgent` tools), you can now:
+
+1. **Add or update a product entirely through conversation** (`register_product`).
+2. **Run the full end-to-end workflow in one shot** (`run_agent_workflow`) – registers the product, gathers market data, optimises pricing, and checks alerts.
+3. **Trigger individual capabilities** such as collecting fresh competitor data or forcing a price optimisation with a custom goal.
+
+The orchestration layer lives in `core/agents/user_interact/agent_hub.py`, which provides synchronous helpers so chat tool calls update SQLite state (`app/data.db`) without additional setup scripts.
 
 
 ## LLM Configuration
@@ -326,7 +305,8 @@ For development & testing:
 - Thread-based conversation persistence
 - User authentication with 7-day session tokens
 - Cost tracking and usage analytics
-- Modular agent architecture for pricing, alerts, and data collection
+- Modular agent architecture for catalog registration, data collection, pricing optimisation, alerts, and supervisory orchestration
+- Chat-triggered product onboarding and price recommendation workflows via the Interaction Agent
 
 ### Frontend
 - Real-time streaming chat with visual feedback
@@ -336,13 +316,6 @@ For development & testing:
 - Settings persistence per user
 - Responsive design with Tailwind CSS
 
-## Contributors
-
-- **Sasindu** - Project Lead, Backend Architecture & Agent Development
-- **Team Members** - Frontend Development, Testing, Documentation
-
-(Verify with team for accurate contributor list)
 
 ## License
-
-This repository does not include an explicit license file. Treat as proprietary unless a license is added.
+This project is licensed under the MIT License
