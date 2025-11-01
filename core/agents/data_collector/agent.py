@@ -26,7 +26,7 @@ IMPORTANT: You must work autonomously and proactively. Your goal is to maintain 
 
 
 class DataCollectorAgent:
-def __init__(
+    def __init__(
         self,
         repo: DataRepo,
         check_interval_seconds: int = 180,
