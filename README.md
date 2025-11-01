@@ -1,6 +1,30 @@
 # Dynamic Pricing AI (IRWA Project)
 
 A FastAPI backend with a lightweight static HTML/JS UI for chat-driven dynamic pricing workflows. The system supports authentication, per-user UI settings, threaded conversations with edit/branch/delete, streaming responses (SSE), rolling summarization, and cost/usage metadata capture from multiple LLM providers (OpenRouter, OpenAI, Gemini via OpenAI-compatible endpoint).
+## Screenshots
+Here are a few screenshots from the app to illustrate the UI and features:
+
+<p align="center">
+  <img src="assets/1.jpg" width="300" alt=""/>
+  <img src="assets/2.jpg" width="300" alt=""/>
+  <img src="assets/3.jpg" width="300" alt=""/>
+  <img src="assets/4.jpg" width="300" alt=""/>
+  <img src="assets/5.jpg" width="300" alt=""/>
+  <img src="assets/6.jpg" width="300" alt=""/>
+  <img src="assets/7.jpg" width="300" alt=""/>
+  <img src="assets/8.jpg" width="300" alt=""/>
+  <img src="assets/9.jpg" width="300" alt=""/>
+  <img src="assets/10.jpg" width="300" alt=""/>
+  <img src="assets/11.jpg" width="300" alt=""/>
+  <img src="assets/12.jpg" width="300" alt=""/>
+  <img src="assets/13.jpg" width="300" alt=""/>
+  <img src="assets/14.jpg" width="300" alt=""/>
+  <img src="assets/15.jpg" width="300" alt=""/>
+  <img src="assets/16.jpg" width="300" alt=""/>
+  <img src="assets/17.jpg" width="300" alt=""/>
+  <img src="assets/18.jpg" width="300" alt=""/>
+</p>
+
 
 ## Quickstart
 
@@ -289,4 +313,4 @@ For development & testing:
 
 
 ## License
-MIT license 
+This project is licensed under the MIT License
