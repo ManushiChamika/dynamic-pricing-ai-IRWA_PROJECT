@@ -1,4 +1,4 @@
-# Dynamic Pricing AI (IRWA Project)
+# Dynamic Pricing AI
 
 A FastAPI backend with a lightweight static HTML/JS UI for chat-driven dynamic pricing workflows. The system supports authentication, per-user UI settings, threaded conversations with edit/branch/delete, streaming responses (SSE), rolling summarization, and cost/usage metadata capture from multiple LLM providers (OpenRouter, OpenAI, Gemini via OpenAI-compatible endpoint).
 ## Screenshots
