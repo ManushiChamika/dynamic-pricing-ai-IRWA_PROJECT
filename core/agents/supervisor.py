@@ -15,7 +15,7 @@ from core.agents.price_optimizer.agent import PricingOptimizerAgent
 from core.agents.agent_sdk.bus_factory import get_bus
 from core.agents.agent_sdk.protocol import Topic
 from core.workflow_templates import collect_and_optimize_prelude
-
+from core.agents.agent_sdk.events_models import PriceProposal
 
 
 class Supervisor:
@@ -105,14 +105,12 @@ class Supervisor:
                         results[sku] = summary
                         return
 
-
                     price = opt_res.get("recommended_price") or opt_res.get("price")
                     algorithm = opt_res.get("algorithm")
                     if price is None:
                         results[sku] = summary
                         return
 
-                    # 5) Persist and publish a PriceProposal
                     current_price, cost = self._read_product_prices(sku)
                     margin = (
                         (float(price) - float(cost)) / float(price)
@@ -127,7 +125,6 @@ class Supervisor:
                         algorithm=str(algorithm or "supervisor"),
                     )
 
-                    # Persist row with generated proposal_id reused for event
                     proposal_id = str(uuid.uuid4())
                     await self.repo.insert_price_proposal(
                         {
@@ -141,7 +138,6 @@ class Supervisor:
                         }
                     )
 
-                    # Publish event (let governance/auto-applier decide on apply)
                     payload = {
                         "proposal_id": proposal_id,
                         "product_id": sku,
@@ -150,9 +146,6 @@ class Supervisor:
                     }
                     await get_bus().publish(Topic.PRICE_PROPOSAL.value, payload)
                     summary["proposal_published"] = True
-
-
-
                 except Exception as e:
                     summary["error"] = str(e)
                 finally:
@@ -161,10 +154,9 @@ class Supervisor:
         await asyncio.gather(*(worker(r) for r in rows))
         return {"items": results, "count": len(results)}
 
-    # ----------------- helpers -----------------
     def _seed_market_if_needed(self, sku: str, owner_id: int = 1) -> None:
-        """Ensure market tables exist and seed minimal competitor rows if missing."""
         from core.config import resolve_market_db
+
         mdb = resolve_market_db().as_posix()
         conn = sqlite3.connect(mdb, check_same_thread=False)
         cur = conn.cursor()
@@ -185,39 +177,34 @@ class Supervisor:
                 )
             conn.commit()
         conn.close()
- 
-     def _read_product_prices(self, sku: str) -> tuple[Optional[float], Optional[float]]:
-         from core.config import resolve_app_db
-         adb = resolve_app_db().as_posix()
-         conn = sqlite3.connect(adb, check_same_thread=False)
-         cur = conn.cursor()
-         cur.execute(
-             """CREATE TABLE IF NOT EXISTS product_catalog (
-                    sku TEXT, 
-                    owner_id TEXT, 
-                    title TEXT, 
-                    currency TEXT, 
-                    current_price REAL, 
-                    cost REAL, 
-                    stock INTEGER, 
-                    updated_at TEXT,
-                    PRIMARY KEY (sku, owner_id)
-                )"""
-         )
-         cur.execute(
-             "SELECT current_price, cost FROM product_catalog WHERE sku=? LIMIT 1",
-             (sku,),
-         )
-         r = cur.fetchone()
-         conn.close()
-         if r:
-             cp = float(r[0]) if r[0] is not None else None
-             cost = float(r[1]) if r[1] is not None else None
-             return cp, cost
 
+    def _read_product_prices(self, sku: str) -> tuple[Optional[float], Optional[float]]:
+        from core.config import resolve_app_db
+
+        adb = resolve_app_db().as_posix()
+        conn = sqlite3.connect(adb, check_same_thread=False)
+        cur = conn.cursor()
+        cur.execute(
+            """CREATE TABLE IF NOT EXISTS product_catalog (
+                sku TEXT,
+                owner_id TEXT,
+                title TEXT,
+                currency TEXT,
+                current_price REAL,
+                cost REAL,
+                stock INTEGER,
+                updated_at TEXT,
+                PRIMARY KEY (sku, owner_id)
+            )"""
+        )
+        cur.execute(
+            "SELECT current_price, cost FROM product_catalog WHERE sku=? LIMIT 1",
+            (sku,),
+        )
+        r = cur.fetchone()
+        conn.close()
+        if r:
+            cp = float(r[0]) if r[0] is not None else None
+            cost = float(r[1]) if r[1] is not None else None
+            return cp, cost
         return None, None
-
-
-
-
-
