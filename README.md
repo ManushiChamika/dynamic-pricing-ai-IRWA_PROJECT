@@ -213,58 +213,143 @@ These are displayed in the UI when the metadata panel is enabled.
 
 ```
 dynamic-pricing-ai-IRWA_PROJECT/
-├── backend/                           # FastAPI server
-│   ├── main.py                       # Main API application & endpoints
-│   ├── ui/                           # Static frontend assets
-│   ├── test_*.py                     # API endpoint tests
+├── ai_commit/                        # Auto-commit CLI tooling for MCP workflows
+│   ├── cli.py
+│   ├── git_context.py
+│   ├── prompt.py
+│   ├── validator.py
+│   ├── pyproject.toml
+│   └── providers/
+│       └── opencode.py
+├── app/                              # Persisted chat threads and legacy sqlite snapshot
+│   ├── chat_threads/
+│   │   └── *.json
+│   └── data.db.old
+├── assets/                           # Marketing/product imagery (PNG/JPG)
+├── backend/                          # FastAPI service layer
+│   ├── main.py                       # ASGI app wiring routers/deps
+│   ├── deps.py                       # Dependency injection helpers
+│   ├── routers/                      # Endpoint routers (auth, prices, streaming, etc.)
+│   │   ├── auth.py
+│   │   ├── catalog.py
+│   │   ├── messages.py
+│   │   ├── streaming.py
+│   │   └── threads.py
+│   ├── tests/                        # API + workflow regression suites
+│   │   ├── test_alerts_api.py
+│   │   ├── test_catalog_api.py
+│   │   ├── test_integration_workflow.py
+│   │   └── ...
+│   ├── test_auth_settings_api.py     # Additional top-level endpoint tests
+│   ├── test_chat_api.py
 │   └── __init__.py
-├── frontend/                          # React + TypeScript UI
+├── core/                             # Cross-cutting business logic & agents
+│   ├── agents/
+│   │   ├── llm_client.py             # Multi-provider LLM orchestration
+│   │   ├── supervisor.py             # Agent orchestration logic
+│   │   ├── auto_applier.py
+│   │   ├── auto_applier_db.py
+│   │   ├── alert_service/            # Alerting agent components
+│   │   │   ├── api.py
+│   │   │   ├── engine.py
+│   │   │   └── tools.py
+│   │   ├── data_collector/           # Market data collection agent
+│   │   │   ├── agent.py
+│   │   │   ├── collector.py
+│   │   │   ├── repo.py
+│   │   │   └── connectors/web_scraper.py
+│   │   ├── price_optimizer/          # Price optimization algorithms & tools
+│   │   │   ├── agent.py
+│   │   │   ├── algorithms.py
+│   │   │   └── optimizer.py
+│   │   ├── user_interact/            # User interaction agent bundle
+│   │   │   ├── user_interaction_agent.py
+│   │   │   ├── context.py
+│   │   │   └── tools.py
+│   │   └── pricing_optimizer_bus/
+│   │       └── pricing_ui_integration.py
+│   ├── evaluation/                   # Metrics & performance evaluation
+│   │   ├── evaluation_engine.py
+│   │   └── metrics.py
+│   ├── events/                       # Event journal + schemas
+│   │   ├── journal.py
+│   │   └── schemas.py
+│   ├── observability/                # Logging/telemetry plumbing
+│   │   └── logging.py
+│   ├── auth_service.py
+│   ├── chat_db.py
+│   ├── config.py
+│   ├── tool_registry.py
+│   └── workflow_templates.py
+├── data/                             # SQLite backups and exported datasets
+│   ├── auth.db.old
+│   ├── market.db.old
+│   └── ...
+├── docs/                             # Documentation, reports, and archives
+│   ├── archives/
+│   ├── chat-context/
+│   ├── planning/
+│   ├── testing/
+│   ├── system_architecture.mmd
+│   └── VIVA_PREPARATION.md
+├── frontend/                         # Vite + React + TypeScript web client
 │   ├── src/
-│   │   ├── components/               # React components (ChatPane, MessageView, etc.)
-│   │   ├── stores/                   # Zustand state management
-│   │   ├── lib/                      # Utilities (API client, hooks, constants)
-│   │   ├── pages/                    # Page components
-│   │   ├── App.tsx                   # Root component
-│   │   ├── main.tsx                  # Entry point
+│   │   ├── components/               # Chat, landing, settings, UI atoms
+│   │   ├── contexts/
+│   │   ├── hooks/
+│   │   ├── lib/                      # API client, utilities
+│   │   ├── pages/
+│   │   ├── stores/                   # Zustand stores
+│   │   ├── utils/
+│   │   ├── workers/
+│   │   ├── App.tsx
+│   │   ├── main.tsx
 │   │   └── styles.css
-│   ├── e2e/                          # Playwright end-to-end tests
-│   ├── public/                       # Static assets
-│   ├── package.json                  # Node dependencies
-│   ├── vite.config.ts                # Vite build config
-│   ├── tsconfig.json                 # TypeScript config
-│   └── tailwind.config.js            # Tailwind CSS config
-├── core/                              # Business logic & agents
-│   ├── agents/                       # Agent implementations
-│   │   ├── llm_client.py             # Multi-provider LLM wrapper
-│   │   ├── user_interact/            # User interaction agent
-│   │   ├── pricing_optimizer.py      # Pricing optimization algorithms
-│   │   ├── alert_*.py                # Alert & notification agents
-│   │   ├── data_collection_agent.py  # Market data collection
-│   │   └── supervisor.py             # Agent orchestration
-│   ├── auth_db.py                    # Auth database models
-│   ├── auth_service.py               # Authentication logic
-│   ├── chat_db.py                    # Chat persistence layer
-│   ├── config.py                     # Configuration management
-│   ├── events/                       # Event journal & schemas
-│   ├── evaluation/                   # Performance metrics
-│   └── observability/                # Logging & monitoring
-├── data/                              # Data files
-│   ├── market.db                     # Sample market data (SQLite)
-│   └── chat.db                       # Chat persistence (auto-created)
-├── scripts/                           # Utility scripts
-│   ├── run_*.py                      # Agent runners
-│   ├── test_*.py                     # Integration tests
-│   └── *.ps1                         # Windows PowerShell helpers
-├── docs/                              # Documentation
-│   ├── VIVA_PREPARATION.md           # VIVA session guide
-│   ├── system_architecture.mmd       # Mermaid diagrams
-│   └── *.md                          # Technical documentation
-├── .env.example                       # Environment template
-├── requirements.txt                  # Python dependencies
-├── package.json                      # Node.js root config
-├── pyproject.toml                    # Python project config
-├── pytest.ini                        # pytest configuration
-└── run_full_app.bat                 # Windows startup script
+│   ├── e2e/                          # Playwright scenarios
+│   ├── public/
+│   ├── node_modules/
+│   ├── package.json
+│   ├── playwright.config.ts
+│   ├── tailwind.config.js
+│   ├── vite.config.ts
+│   ├── vitest.config.ts
+│   ├── tsconfig.json
+│   └── eslint.config.js
+├── loadtests/
+│   └── locustfile.py
+├── scripts/                          # Automation, migrations, smoke tests
+│   ├── debug/
+│   ├── git/
+│   ├── misc/
+│   ├── run_autonomous_data_collector.py
+│   ├── smoke_end_to_end.py
+│   ├── sync_market_to_catalog.py
+│   └── ...
+├── tests/                            # System-level & LLM integration suites
+│   ├── conftest.py
+│   ├── test_llm_integration.py
+│   ├── test_prices_endpoint.py
+│   ├── test_workflow_templates_failures.py
+│   └── ...
+├── .env.example                      # Environment variable template
+├── .gitignore
+├── LICENSE
+├── README.md
+├── agent_tools.json
+├── fix_catalog_patches.py
+├── fix_prices_patches.py
+├── fix_tests.py
+├── launcher_config.ini
+├── llm_agent_friendly_codebase_research.json
+├── openapi.json
+├── pytest.ini
+├── requirements.txt
+├── run_app.bat
+├── run_full_app.bat
+├── run_llm_tests.bat
+├── test_price_optimizer_integration.py
+├── test_title_generation.py
+└── test_user_interaction_optimization.py
 ```
 
 ## Development
