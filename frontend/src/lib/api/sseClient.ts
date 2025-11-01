@@ -35,6 +35,14 @@ export async function streamMessage(
   const decoder = new TextDecoder()
   let buf = ''
   let thinkingShown = false
+  let lastActivity = Date.now()
+  let watchdog: number | undefined
+  const clearWatchdog = () => {
+    if (watchdog !== undefined) {
+      clearInterval(watchdog)
+      watchdog = undefined
+    }
+  }
 
   try {
     const resp = await fetch(url, {
@@ -47,21 +55,41 @@ export async function streamMessage(
     if (resp.status === 401) {
       try {
         triggerUnauthorized()
-      } catch {
-        /* ignore */
-      }
+      } catch {}
+      clearWatchdog()
       return
     } else if (!resp.ok) {
       useToasts.getState().push({ type: 'error', text: `Stream failed (${resp.status})` })
+      clearWatchdog()
       return
     }
 
     const reader = resp.body?.getReader()
-    if (!reader) return
+    if (!reader) {
+      clearWatchdog()
+      return
+    }
+
+    watchdog = window.setInterval(() => {
+      if (Date.now() - lastActivity > 25000) {
+        useToasts.getState().push({ type: 'error', text: 'Streaming timed out' })
+        try {
+          onUpdate({ done: true })
+          setTimeout(() => {
+            onUpdate({ tool: undefined as any, agent: undefined as any })
+          }, 1000)
+        } catch {}
+        try {
+          controller.abort()
+        } catch {}
+        clearWatchdog()
+      }
+    }, 5000)
 
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
+      lastActivity = Date.now()
       buf += decoder.decode(value, { stream: true })
       if (buf.indexOf('\r\n') !== -1) buf = buf.replace(/\r\n/g, '\n')
 
@@ -92,9 +120,7 @@ export async function streamMessage(
             const obj = JSON.parse(data)
             const name = obj.name || obj.agent || ''
             if (name) onUpdate({ agent: name })
-          } catch {
-            /* ignore */
-          }
+          } catch {}
           continue
         }
 
@@ -108,9 +134,7 @@ export async function streamMessage(
                 status === 'start' ? 'running' : status === 'end' ? 'done' : 'running'
               onUpdate({ tool: { name: tool, status: toolStatus } })
             }
-          } catch {
-            /* ignore */
-          }
+          } catch {}
           continue
         }
 
@@ -118,11 +142,10 @@ export async function streamMessage(
           onUpdate({ done: true })
           try {
             setTimeout(() => {
-              onUpdate({ tool: undefined, agent: undefined })
+              onUpdate({ tool: undefined as any, agent: undefined as any })
             }, 1000)
-          } catch {
-            /* ignore */
-          }
+          } catch {}
+          clearWatchdog()
           return
         }
 
@@ -133,9 +156,8 @@ export async function streamMessage(
               const msg = obj.detail || obj.error || (typeof obj === 'string' ? obj : '')
               if (msg) useToasts.getState().push({ type: 'error', text: String(msg) })
             }
-          } catch {
-            /* ignore */
-          }
+          } catch {}
+          clearWatchdog()
           return
         }
 
@@ -161,9 +183,7 @@ export async function streamMessage(
               console.log('[SSE] Received turnStats:', turnStats)
               onUpdate({ turnStats })
             }
-          } catch {
-            /* ignore */
-          }
+          } catch {}
         }
 
         if (ev === 'thread_renamed' && data) {
@@ -173,14 +193,13 @@ export async function streamMessage(
             if (tid && obj.title) {
               onUpdate({ threadRenamed: { thread_id: tid, title: obj.title } })
             }
-          } catch {
-            /* ignore */
-          }
+          } catch {}
           continue
         }
       }
     }
+    clearWatchdog()
   } catch {
-    // AbortError or network error - ignore
+    clearWatchdog()
   }
 }
