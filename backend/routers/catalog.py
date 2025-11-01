@@ -58,6 +58,8 @@ async def upload_catalog(
         raise HTTPException(status_code=400, detail="Duplicate SKU values found in file")
 
     owner_id = str(current_user["user_id"])
+    import logging
+    logging.info(f"[DEBUG CATALOG UPLOAD] token={token} owner_id={owner_id} user={current_user}")
     rows_data = df.to_dict("records")
 
     try:

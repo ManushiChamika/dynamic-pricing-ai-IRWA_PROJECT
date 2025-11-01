@@ -112,6 +112,18 @@ const MARKDOWN_COMPONENTS = {
      const match = /language-(\w+)/.exec(className || '')
      const language = match ? match[1] : 'plaintext'
      const code = String(children).replace(/\n$/, '')
+     
+     if (language === 'plaintext' && !code.includes('\n') && code.length < 100) {
+       return (
+         <code
+           className="px-1.5 py-0.5 bg-primary/10 text-primary rounded text-sm font-mono"
+           {...props}
+         >
+           {code}
+         </code>
+       )
+     }
+     
      return <CodeBlock code={code} language={language} />
    },
    pre: ({ children, ...props }: React.HTMLAttributes<HTMLPreElement>) => (
