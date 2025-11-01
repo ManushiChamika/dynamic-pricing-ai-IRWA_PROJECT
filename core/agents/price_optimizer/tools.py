@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -49,44 +49,34 @@ class Tools:
             with sqlite3.connect(uri_market, uri=True) as m:
                 m.row_factory = sqlite3.Row
                 
-                pricing_list_cnt = 0
+                # Count total market data records
                 market_data_cnt = 0
-                try:
-                    pricing_list_cnt = m.execute("SELECT COUNT(*) FROM pricing_list").fetchone()[0]
-                except Exception:
-                    pass
                 try:
                     market_data_cnt = m.execute("SELECT COUNT(*) FROM market_data").fetchone()[0]
                 except Exception:
                     pass
 
+                # Get average competitor price from market_data
                 competitor_price = None
-                r = m.execute(
-                    "SELECT optimized_price FROM pricing_list WHERE product_name=? LIMIT 1",
+                r2 = m.execute(
+                    "SELECT AVG(price) FROM market_data WHERE product_name=?",
                     (product_title,),
                 ).fetchone()
-                if r and r[0] is not None:
-                    competitor_price = float(r[0])
-                else:
-                    r2 = m.execute(
-                        "SELECT AVG(price) FROM market_data WHERE product_name=?",
-                        (product_title,),
-                    ).fetchone()
-                    if r2 and r2[0] is not None:
-                        competitor_price = float(r2[0])
+                if r2 and r2[0] is not None:
+                    competitor_price = float(r2[0])
 
+                # Get historical market records (use update_time instead of scraped_at)
                 market_records: List[Tuple[float, str]] = []
                 rows = m.execute(
-                    "SELECT price, scraped_at FROM market_data WHERE product_name=? ORDER BY scraped_at DESC LIMIT 50",
+                    "SELECT price, update_time FROM market_data WHERE product_name=? ORDER BY update_time DESC LIMIT 50",
                     (product_title,),
                 ).fetchall()
-                market_records = [(float(r["price"]), r["scraped_at"]) for r in rows if r["price"] is not None]
+                market_records = [(float(r["price"]), r["update_time"]) for r in rows if r["price"] is not None]
 
                 return {
                     "ok": True,
                     "competitor_price": competitor_price,
-                    "record_count": pricing_list_cnt + market_data_cnt,
-                    "pricing_list_count": pricing_list_cnt,
+                    "record_count": market_data_cnt,
                     "market_data_count": market_data_cnt,
                     "market_records": market_records,
                 }
@@ -198,6 +188,118 @@ class Tools:
             }
         except Exception as e:
             logger.error(f"Failed to publish price proposal: {e}")
+            return {"ok": False, "error": str(e)}
+
+    async def check_market_data_freshness(self, sku: str) -> Dict[str, Any]:
+        """Check if market data exists and is fresh for a given product."""
+        try:
+            uri_app = f"file:{self.app_db.as_posix()}?mode=ro"
+            with sqlite3.connect(uri_app, uri=True) as conn:
+                conn.row_factory = sqlite3.Row
+                
+                # Get product title
+                product_row = conn.execute(
+                    "SELECT title FROM product_catalog WHERE sku = ?",
+                    (sku,),
+                ).fetchone()
+                
+                if not product_row:
+                    return {"ok": False, "error": f"Product not found: {sku}"}
+                
+                product_title = product_row["title"]
+                
+                # Check market_ticks for freshness
+                tick_row = conn.execute(
+                    """
+                    SELECT MAX(ts) as last_ts, COUNT(*) as tick_count
+                    FROM market_ticks
+                    WHERE sku = ?
+                    """,
+                    (sku,),
+                ).fetchone()
+                
+                has_data = False
+                minutes_stale = None
+                last_update = None
+                
+                if tick_row and tick_row["last_ts"]:
+                    has_data = True
+                    last_ts = datetime.fromisoformat(tick_row["last_ts"])
+                    now = datetime.now(timezone.utc)
+                    if last_ts.tzinfo is None:
+                        last_ts = last_ts.replace(tzinfo=timezone.utc)
+                    minutes_stale = (now - last_ts).total_seconds() / 60
+                    last_update = tick_row["last_ts"]
+                
+                # Check if we have any market data records in market DB
+                uri_market = f"file:{self.market_db.as_posix()}?mode=ro"
+                with sqlite3.connect(uri_market, uri=True) as m:
+                    market_count = m.execute(
+                        "SELECT COUNT(*) FROM market_data WHERE product_name = ?",
+                        (product_title,),
+                    ).fetchone()[0]
+                
+                is_stale = (not has_data) or (minutes_stale and minutes_stale > 60)
+                
+                return {
+                    "ok": True,
+                    "sku": sku,
+                    "product_title": product_title,
+                    "has_data": has_data or market_count > 0,
+                    "last_update": last_update,
+                    "minutes_stale": minutes_stale,
+                    "is_stale": is_stale,
+                    "market_data_count": market_count,
+                }
+        except Exception as e:
+            logger.error(f"Failed to check market data freshness for {sku}: {e}")
+            return {"ok": False, "error": str(e)}
+
+    async def start_market_data_collection(self, sku: str) -> Dict[str, Any]:
+        """Trigger market data collection for a product."""
+        try:
+            from core.agents.agent_sdk.bus_factory import get_bus
+            from core.agents.agent_sdk.protocol import Topic
+            from core.payloads import MarketFetchRequestPayload
+            
+            # Check if product has source_url
+            uri_app = f"file:{self.app_db.as_posix()}?mode=ro"
+            with sqlite3.connect(uri_app, uri=True) as conn:
+                row = conn.execute(
+                    "SELECT source_url FROM product_catalog WHERE sku = ?",
+                    (sku,),
+                ).fetchone()
+                
+                has_url = bool(row and row[0])
+                urls = [row[0]] if has_url else []
+                connector = "web_scraper" if has_url else "mock"
+            
+            request_id = uuid.uuid4().hex
+            request_payload: MarketFetchRequestPayload = {
+                "request_id": request_id,
+                "sku": sku,
+                "market": "DEFAULT",
+                "sources": [connector],
+                "urls": urls,
+                "depth": 5,
+                "horizon_minutes": 60,
+            }
+            
+            bus = get_bus()
+            await bus.publish(Topic.MARKET_FETCH_REQUEST.value, request_payload)
+            
+            logger.info(f"Started market data collection for {sku} using {connector}")
+            
+            return {
+                "ok": True,
+                "request_id": request_id,
+                "sku": sku,
+                "connector": connector,
+                "has_source_url": has_url,
+                "message": f"Market data collection started for {sku} using {connector}",
+            }
+        except Exception as e:
+            logger.error(f"Failed to start market data collection for {sku}: {e}")
             return {"ok": False, "error": str(e)}
 
 
@@ -332,6 +434,40 @@ def get_llm_tools():
                     "required": ["sku", "old_price", "new_price"]
                 }
             }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "check_market_data_freshness",
+                "description": "Checks if market data exists and is fresh for a product. Returns staleness information to determine if new data collection is needed.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "sku": {
+                            "type": "string",
+                            "description": "Product SKU to check"
+                        }
+                    },
+                    "required": ["sku"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "start_market_data_collection",
+                "description": "Triggers market data collection for a product when data is missing or stale. This will gather fresh competitor pricing before optimization.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "sku": {
+                            "type": "string",
+                            "description": "Product SKU to collect data for"
+                        }
+                    },
+                    "required": ["sku"]
+                }
+            }
         }
     ]
 
@@ -379,6 +515,20 @@ async def execute_tool_call(tool_name: str, tool_args: dict, tools_instance: Too
             new_price=tool_args["new_price"],
         )
         logger.info(f"publish_price_proposal result: {result}")
+        return result
+    
+    elif tool_name == "check_market_data_freshness":
+        result = await tools_instance.check_market_data_freshness(
+            sku=tool_args["sku"],
+        )
+        logger.info(f"check_market_data_freshness result: {result}")
+        return result
+    
+    elif tool_name == "start_market_data_collection":
+        result = await tools_instance.start_market_data_collection(
+            sku=tool_args["sku"],
+        )
+        logger.info(f"start_market_data_collection result: {result}")
         return result
     
     else:
