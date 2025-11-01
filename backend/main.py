@@ -38,6 +38,7 @@ async def lifespan(app: FastAPI):
         from core.config import resolve_app_db
         db_path = resolve_app_db()
         data_collector_repo = DataRepo(db_path)
+        await data_collector_repo.init()
         reactive_collector = DataCollector(data_collector_repo)
         app.state.reactive_collector = reactive_collector
         data_collector = DataCollectorAgent(
