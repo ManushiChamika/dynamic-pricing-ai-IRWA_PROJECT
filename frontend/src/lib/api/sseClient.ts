@@ -63,6 +63,7 @@ export async function streamMessage(
       const { done, value } = await reader.read()
       if (done) break
       buf += decoder.decode(value, { stream: true })
+      if (buf.indexOf('\r\n') !== -1) buf = buf.replace(/\r\n/g, '\n')
 
       let idx
       while ((idx = buf.indexOf('\n\n')) !== -1) {
@@ -168,8 +169,9 @@ export async function streamMessage(
         if (ev === 'thread_renamed' && data) {
           try {
             const obj = JSON.parse(data)
-            if (obj.thread_id && obj.title) {
-              onUpdate({ threadRenamed: { thread_id: obj.thread_id, title: obj.title } })
+            const tid = obj.thread_id || obj.id
+            if (tid && obj.title) {
+              onUpdate({ threadRenamed: { thread_id: tid, title: obj.title } })
             }
           } catch {
             /* ignore */
