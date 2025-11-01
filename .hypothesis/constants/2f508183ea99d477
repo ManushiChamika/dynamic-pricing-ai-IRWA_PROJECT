@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\openai\types\beta\threads\file_path_annotation.py
+# hypothesis_version: 6.142.2
+
+['FilePath', 'FilePathAnnotation', 'file_path']

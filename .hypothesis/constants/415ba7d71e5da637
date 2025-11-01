@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\mcp\client\stdio\win32.py
+# hypothesis_version: 6.142.2
+
+[2.0, '.bat', '.cmd', '.exe', '.ps1', 'CREATE_NO_WINDOW']

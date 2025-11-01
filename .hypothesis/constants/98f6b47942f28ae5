@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\core\agents\alert_service\repo.py
+# hypothesis_version: 6.142.2
+
+[' AND ', ' WHERE ', 'OPEN', 'app/alert.db', 'channels', 'dict', 'enabled', 'h', 'm', 'model_dump', 'owner_id=?', 's', 'status=?']

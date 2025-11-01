@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\pandas\core\apply.py
+# hypothesis_version: 6.142.2
+
+['<lambda>', 'Series', '__array__', '_compat', '_name', 'agg', 'apply', 'as_index', 'axis', 'broadcast', 'by_row', 'compat', 'corrwith', 'engine', 'engine_kwargs', 'expand', 'idxmax', 'idxmin', 'ignore', 'np.', 'numba', 'parallel', 'python', 'reduce', 'size', 'skew', 'transform']

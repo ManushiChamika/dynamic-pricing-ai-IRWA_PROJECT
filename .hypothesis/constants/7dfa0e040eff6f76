@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\openai\types\chat\parsed_chat_completion.py
+# hypothesis_version: 6.142.2
+
+['ContentType', 'ParsedChatCompletion', 'ParsedChoice']

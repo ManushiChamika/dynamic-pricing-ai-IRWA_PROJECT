@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\core\agents\alert_service\schemas.py
+# hypothesis_version: 6.142.2
+
+['ACKED', 'MARKET_TICK', 'OPEN', 'PRICE_PROPOSAL', 'RESOLVED', 'crit', 'data', 'detector', 'email', 'info', 'sku', 'slack', 'ui', 'warn', 'webhook', 'where']

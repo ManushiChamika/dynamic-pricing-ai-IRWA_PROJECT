@@ -1,0 +1,124 @@
+flowchart TD
+    %% Simple, pretty, and draw.io-compatible
+
+    %% Actors & External
+    User["👤 User"]
+    External["🌐 Market Data Sources"]
+    LLM["🤖 LLM Provider"]
+
+    %% Interfaces
+    WebUI["🖥️ Web UI"]
+
+    %% Core Agents
+    subgraph CoreAgents["🚀 Core Agents"]
+        UIA["💬 User Interaction Agent"]
+        DC["📊 Data Collector Agent<br/>📡 MCP Server"]
+        PO["💰 Price Optimizer Agent<br/>📡 MCP Server"]
+        AA["🚨 Alert Agent<br/>📡 MCP Server"]
+    end
+
+    %% Storage with simple table-like nodes
+    subgraph Storage["💾 Storage"]
+        subgraph MarketDB["market.db"]
+            Ticks[("ticks")]
+            Products[("products")]
+            Prices[("prices")]
+        end
+        subgraph AppDB["data.db"]
+            Settings[("settings")]
+            Sessions[("sessions")]
+            Chats[("chat_threads")]
+        end
+        subgraph EventsLog["events.jsonl"]
+            PriceProposals[("price.proposal")]
+            AlertEvents[("alert.event")]
+            ChatToolCalls[("chat.tool_call")]
+        end
+    end
+
+    %% Alert channels
+    subgraph AlertChannels["📡 Alert Channels"]
+        Slack[/Slack/]
+        Email[/Email/]
+        Webhook[/Webhook/]
+        UIAlerts[/UI Alerts/]
+    end
+
+    %% Main user flow
+    User <--> WebUI
+    WebUI <--> UIA
+
+    %% Data ingestion
+    External -- "market ticks" --> DC
+    DC -- "ingest & clean" --> Ticks
+    DC -- "update" --> Prices
+    DC -- "catalog" --> Products
+
+    %% Optimization
+    Ticks --> PO
+    Prices --> PO
+    Products --> PO
+    Settings --> PO
+    PO -- "price proposals" --> PriceProposals
+
+    %% User data & sessions
+    UIA <--> Settings
+    UIA <--> Chats
+    UIA --> Sessions
+
+    %% Alerting
+    PriceProposals --> AA
+    AA -- "alerts" --> AlertEvents
+    AA -- "notify" --> Slack
+    AA -- "notify" --> Email
+    AA -- "notify" --> Webhook
+    AA -- "UI alerts" --> UIAlerts
+    UIAlerts --> WebUI
+
+    %% Direct inter-agent communication
+    DC -- "market updates" --> PO
+    PO -- "price proposals" --> AA
+    PO -- "pricing decisions" --> UIA
+    DC -- "data status" --> UIA
+    AA -- "alert summaries" --> UIA
+    UIA -- "user requests" --> PO
+    UIA -- "data queries" --> DC
+
+    %% MCP inter-agent communication (dotted for tool calls)
+    DC -. "MCP tools" .- PO
+    PO -. "MCP tools" .- AA
+    AA -. "MCP tools" .- UIA
+
+    %% LLM assistance to all core agents (dotted, labeled)
+    LLM -. "prompt/response" .- UIA
+    LLM -. "data enrichment" .- DC
+    LLM -. "scenario analysis" .- PO
+    LLM -. "summaries" .- AA
+    
+    %% LLM tool calls logged to events
+    UIA -- "tool calls" --> ChatToolCalls
+
+    %% Styling
+    classDef agent fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#0d47a1,font-weight:bold;
+    classDef storage fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#1b5e20,font-weight:bold;
+    classDef table fill:#f1f8e9,stroke:#66bb6a,stroke-width:1px,color:#2e7d32;
+    classDef external fill:#fff8e1,stroke:#f57c00,stroke-width:2px,color:#e65100,font-weight:bold;
+    classDef ui fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#880e4f,font-weight:bold;
+    classDef sink fill:#ede7f6,stroke:#5e35b1,stroke-width:2px,color:#4527a0,font-weight:bold;
+
+    class UIA,DC,PO,AA agent;
+    class MarketDB,AppDB,EventsLog storage;
+    class Ticks,Products,Prices,Settings,Sessions,Chats,PriceProposals,AlertEvents,ChatToolCalls table;
+    class External,LLM,User external;
+    class WebUI ui;
+    class Slack,Email,Webhook,UIAlerts sink;
+    
+    %% Legend
+    %%{ init: { "flowchart": { "htmlLabels": false } } }%%
+    subgraph Legend[" "]
+        direction LR
+        LegendSolid["Solid: Data/Event Flow"]
+        LegendDotted["Dotted: MCP Tools/LLM"]
+        LegendSolid -.->|"MCP/LLM"| LegendDotted
+        LegendSolid -->|"Data/Events"| LegendDotted
+    end

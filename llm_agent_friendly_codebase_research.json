@@ -1,0 +1,503 @@
+{
+  "bibliography": [
+    {
+      "url": "https://python.langchain.com/docs/concepts/tool_calling",
+      "title": "Tool Calling | LangChain Documentation",
+      "summary": "Comprehensive guide on tool calling concepts, best practices, and implementation patterns for LLM agents",
+      "relevance": 5,
+      "takeaways": [
+        "Use @tool decorator for simple tool creation with automatic schema generation",
+        "Bind tools to models using .bind_tools() method for standardized integration",
+        "Design simple, narrowly-scoped tools with clear names and descriptions",
+        "Implement proper error handling and validation for tool arguments",
+        "Use tool_choice parameter to force specific tool usage when needed"
+      ],
+      "mapping": "core/agents/llm_client.py - Add @tool decorator pattern, core/agents/agent_sdk/mcp_client.py - Implement tool binding patterns"
+    },
+    {
+      "url": "https://python.langchain.com/docs/concepts/tools",
+      "title": "Tools | LangChain Documentation",
+      "summary": "In-depth guide on tool design patterns, schema configuration, and best practices for LLM tool integration",
+      "relevance": 5,
+      "takeaways": [
+        "Tools associate functions with schemas for LLM consumption",
+        "Use special type annotations (InjectedToolArg, RunnableConfig) for runtime values",
+        "Implement tool artifacts for complex data returns vs model-facing content",
+        "Design tools with well-chosen names and descriptions for better LLM usage",
+        "Use toolkits to group related tools together"
+      ],
+      "mapping": "core/agents/llm_client.py - Add tool artifact support, core/tool_registry.py - Implement toolkit patterns"
+    },
+    {
+      "url": "https://python.langchain.com/docs/concepts/testing",
+      "title": "Testing | LangChain Documentation",
+      "summary": "Testing strategies and patterns for LLM applications including unit tests, integration tests, and standard test templates",
+      "relevance": 4,
+      "takeaways": [
+        "Use standard test templates (ToolsUnitTests, ToolsIntegrationTests) for consistency",
+        "Mock LLM responses for reliable unit testing",
+        "Test tool execution in isolation before integration testing",
+        "Implement both unit and integration test layers",
+        "Use LangChain's testing utilities for validation"
+      ],
+      "mapping": "tests/test_llm_integration.py - Add standard test templates, tests/test_tool_execution.py - Create tool isolation tests"
+    },
+    {
+      "url": "https://python.langchain.com/docs/security",
+      "title": "Security Policy | LangChain Documentation",
+      "summary": "Security best practices for LLM applications including principle of least privilege, defense in depth, and misuse anticipation",
+      "relevance": 5,
+      "takeaways": [
+        "Apply principle of least privilege to all tool permissions",
+        "Anticipate potential misuse and design defensive safeguards",
+        "Use defense in depth with multiple security layers",
+        "Scope credentials to specific resources and use read-only where possible",
+        "Implement sandboxing and rate limiting for tool execution"
+      ],
+      "mapping": "core/auth_service.py - Add permission validation, core/agents/llm_client.py - Implement security checks"
+    },
+    {
+      "url": "https://modelcontextprotocol.io/docs/develop/build-server",
+      "title": "Build an MCP Server | Model Context Protocol",
+      "summary": "Complete guide to building MCP servers with examples in multiple languages and best practices for tool implementation",
+      "relevance": 5,
+      "takeaways": [
+        "Never write to stdout in STDIO-based MCP servers (use stderr logging)",
+        "Use proper JSON-RPC message handling for communication",
+        "Implement tool registration with clear schemas and descriptions",
+        "Handle errors gracefully and provide meaningful error responses",
+        "Use absolute paths in configuration files for reliable connections"
+      ],
+      "mapping": "core/agents/agent_sdk/mcp_client.py - Fix stdout logging issues, core/agents/llm_client.py - Add MCP-compatible tool schemas"
+    },
+    {
+      "url": "https://python.langchain.com/docs/concepts/tracing",
+      "title": "Tracing | LangChain Documentation",
+      "summary": "Overview of tracing concepts for observability in LLM applications with run tracking and step visibility",
+      "relevance": 3,
+      "takeaways": [
+        "Implement trace IDs for request correlation across system components",
+        "Log individual steps (model calls, tool executions, retriever calls)",
+        "Use structured logging for debugging complex agent workflows",
+        "Integrate with observability platforms for production monitoring",
+        "Track token usage and performance metrics"
+      ],
+      "mapping": "core/agents/llm_client.py - Add trace ID generation, core/observability/ - Implement structured logging"
+    },
+    {
+      "url": "https://python.langchain.com/docs/concepts/prompt_templates",
+      "title": "Prompt Templates | LangChain Documentation",
+      "summary": "Comprehensive guide to prompt engineering patterns including template types, variable handling, and message formatting",
+      "relevance": 4,
+      "takeaways": [
+        "Use ChatPromptTemplate for multi-message conversations",
+        "Implement MessagesPlaceholder for dynamic conversation history",
+        "Separate system messages from user messages for clarity",
+        "Use template variables for consistent parameter injection",
+        "Design templates that support both simple and complex use cases"
+      ],
+      "mapping": "core/agents/llm_client.py - Add prompt template support, core/prompt.py - Create template management system"
+    }
+  ],
+  "actions": [
+    {
+      "priority": 1,
+      "action": "Implement @tool decorator pattern in llm_client.py",
+      "description": "Add LangChain-style @tool decorator for automatic schema generation and tool registration",
+      "files": [
+        "core/agents/llm_client.py"
+      ],
+      "change": "Replace manual TOOL_SCHEMAS with @tool decorated functions for better LLM compatibility"
+    },
+    {
+      "priority": 2,
+      "action": "Add comprehensive input validation to all tool functions",
+      "description": "Implement Pydantic-based validation for tool arguments with clear error messages",
+      "files": [
+        "core/agents/llm_client.py",
+        "core/agents/agent_sdk/mcp_client.py"
+      ],
+      "change": "Add validate_tool_args() function with schema enforcement and type checking"
+    },
+    {
+      "priority": 3,
+      "action": "Implement trace ID propagation across agent workflows",
+      "description": "Add unique trace IDs to track LLM decisions and tool executions end-to-end",
+      "files": [
+        "core/agents/llm_client.py",
+        "core/observability/__init__.py"
+      ],
+      "change": "Add generate_trace_id() function and logging integration with trace correlation"
+    },
+    {
+      "priority": 4,
+      "action": "Fix stdout logging in MCP client implementation",
+      "description": "Replace print statements with stderr logging to prevent JSON-RPC corruption",
+      "files": [
+        "core/agents/agent_sdk/mcp_client.py"
+      ],
+      "change": "Replace all print() calls with logging.error() or logging.info()"
+    },
+    {
+      "priority": 5,
+      "action": "Add security validation layer for tool execution",
+      "description": "Implement permission checks and input sanitization for all tool calls",
+      "files": [
+        "core/auth_service.py",
+        "core/agents/llm_client.py"
+      ],
+      "change": "Add validate_tool_permissions() function and rate limiting"
+    },
+    {
+      "priority": 6,
+      "action": "Create standardized test suite for agent tools",
+      "description": "Implement LangChain standard test templates for tool validation and integration",
+      "files": [
+        "tests/test_agent_tools.py",
+        "tests/test_mcp_integration.py"
+      ],
+      "change": "Add ToolsUnitTests and ToolsIntegrationTests inheritance classes"
+    },
+    {
+      "priority": 7,
+      "action": "Implement prompt template management system",
+      "description": "Create structured prompt templates with variable injection and message formatting",
+      "files": [
+        "core/prompt.py",
+        "core/agents/llm_client.py"
+      ],
+      "change": "Add ChatPromptTemplate support and template caching"
+    },
+    {
+      "priority": 8,
+      "action": "Add tool artifact support for complex data returns",
+      "description": "Implement artifact pattern for returning structured data vs model-facing content",
+      "files": [
+        "core/agents/llm_client.py"
+      ],
+      "change": "Add response_format='content_and_artifact' support to tool decorators"
+    },
+    {
+      "priority": 9,
+      "action": "Implement fallback and retry mechanisms for LLM calls",
+      "description": "Add robust error handling with exponential backoff and alternative providers",
+      "files": [
+        "core/agents/llm_client.py"
+      ],
+      "change": "Add call_with_fallback() method and configurable retry policies"
+    },
+    {
+      "priority": 10,
+      "action": "Create observability dashboard integration",
+      "description": "Add structured logging and metrics collection for production monitoring",
+      "files": [
+        "core/observability/",
+        "backend/routers/monitoring.py"
+      ],
+      "change": "Implement trace aggregation and performance metrics endpoints"
+    }
+  ],
+  "prompts": {
+    "user_interact": {
+      "system_prompt": "You are a helpful AI assistant that interacts with users through a chat interface. Your role is to understand user requests, ask clarifying questions when needed, and provide helpful, accurate responses. You have access to conversation history and should maintain context across interactions. Always be polite, professional, and focused on the user's needs. When you don't know something, admit it clearly and suggest alternative approaches.",
+      "tool_instructions": "Use the available tools to gather information, execute actions, or retrieve data when relevant. Always explain what tool you're using and why. Validate tool results before presenting them to users. If a tool fails, explain the error and suggest alternatives.",
+      "conversation_guidelines": [
+        "Maintain context from previous messages",
+        "Ask for clarification when requests are ambiguous",
+        "Provide progress updates for long-running operations",
+        "Summarize key points when providing detailed information"
+      ]
+    },
+    "price_optimizer": {
+      "system_prompt": "You are a specialized pricing optimization agent with deep expertise in e-commerce pricing strategies, market analysis, and revenue optimization. Your role is to analyze product data, market conditions, and pricing opportunities to recommend optimal pricing strategies. You should consider factors like demand elasticity, competitor pricing, inventory levels, and profit margins. Always provide data-driven recommendations with clear reasoning.",
+      "tool_instructions": "Use market data tools to gather current pricing information, competitor analysis tools for market positioning, and optimization tools to calculate optimal price points. Validate all pricing recommendations against business constraints and market realities. Explain the methodology behind your optimization suggestions.",
+      "decision_framework": [
+        "Analyze current market conditions and trends",
+        "Evaluate competitor pricing strategies",
+        "Consider inventory and capacity constraints",
+        "Calculate optimal price points using multiple models",
+        "Provide confidence intervals and risk assessments"
+      ]
+    }
+  },
+  "tests": {
+    "recipe": {
+      "name": "Agent Tool Integration Test",
+      "description": "Comprehensive test for agent tool execution with mocking and validation",
+      "setup": [
+        "Create mock LLM responses for consistent testing",
+        "Implement tool isolation tests",
+        "Add integration tests with real tool execution",
+        "Include error handling and edge case validation"
+      ],
+      "example_test": {
+        "file": "tests/test_agent_tools.py",
+        "content": [
+          "import pytest",
+          "from unittest.mock import Mock, patch",
+          "from core.agents.llm_client import LLMClient, chat_with_tools",
+          "from core.agents.price_optimizer.llm_brain import PriceOptimizerBrain",
+          "",
+          "class TestAgentToolExecution:",
+          "    def setup_method(self):",
+          "        self.mock_llm = Mock()",
+          "        self.llm_client = LLMClient(provider='test')",
+          "        ",
+          "    def test_tool_call_validation(self):",
+          "        # Test that tool arguments are properly validated",
+          "        with patch.object(self.llm_client, '_execute_tool_call') as mock_execute:",
+          "            mock_execute.return_value = {'status': 'success', 'data': 'test_result'}",
+          "            ",
+          "            result = chat_with_tools(",
+          "                messages=[{'role': 'user', 'content': 'Test message'}],",
+          "                tools={'test_tool': {'schema': {'type': 'object', 'properties': {'param': {'type': 'string'}}}}},",
+          "                llm_client=self.llm_client",
+          "                model='test-model'",
+          "                trace_id='test-trace-001'",
+          "            )",
+          "            ",
+          "            mock_execute.assert_called_once_with('test_tool', {'param': 'test_value'})",
+          "            assert result['status'] == 'success'",
+          "        ",
+          "    def test_error_handling(self):",
+          "        # Test that tool errors are properly handled and logged",
+          "        with patch.object(self.llm_client, '_execute_tool_call') as mock_execute:",
+          "            mock_execute.side_effect = Exception('Tool execution failed')",
+          "            ",
+          "            with pytest.raises(Exception):",
+          "                chat_with_tools(",
+          "                    messages=[{'role': 'user', 'content': 'Test message'}],",
+          "                    tools={'test_tool': {}},",
+          "                    llm_client=self.llm_client,",
+          "                    model='test-model',",
+          "                )",
+          "        ",
+          "    def test_trace_id_propagation(self):",
+          "        # Test that trace IDs are properly propagated through the workflow",
+          "        trace_id = 'test-trace-002'",
+          "        ",
+          "        with patch.object(self.llm_client, '_execute_tool_call') as mock_execute:",
+          "            mock_execute.return_value = {'status': 'success', 'data': 'test_result'}",
+          "            ",
+          "            result = chat_with_tools(",
+          "                messages=[{'role': 'user', 'content': 'Test message'}],",
+          "                tools={'test_tool': {}},",
+          "                llm_client=self.llm_client,",
+          "                model='test-model',",
+          "                trace_id=trace_id,",
+          "            )",
+          "            ",
+          "            # Verify trace ID is passed through to tool execution",
+          "            mock_execute.assert_called_once()",
+          "            assert mock_execute.call_args[0][1] == trace_id  # trace_id should be passed to tool execution",
+          "",
+          "    def teardown_method(self):",
+          "        # Clean up after tests",
+          "        pass"
+        ]
+      }
+    }
+  },
+  "security": {
+    "checklist": [
+      {
+        "category": "Input Validation",
+        "items": [
+          "Validate all tool arguments against Pydantic schemas",
+          "Sanitize user inputs to prevent injection attacks",
+          "Implement type checking and range validation",
+          "Use allowlists for sensitive operations",
+          "Reject malformed requests with clear error messages"
+        ]
+      },
+      {
+        "category": "Permission Management",
+        "items": [
+          "Apply principle of least privilege to all tool permissions",
+          "Use read-only credentials where possible",
+          "Implement role-based access control for tools",
+          "Scope tool access to specific resources/directories",
+          "Audit tool usage and access patterns"
+        ]
+      },
+      {
+        "category": "Execution Security",
+        "items": [
+          "Run tools in sandboxed environments when possible",
+          "Implement rate limiting for expensive operations",
+          "Add timeouts and resource limits for tool execution",
+          "Monitor for unusual usage patterns and anomalies",
+          "Implement circuit breakers for failing external services"
+        ]
+      },
+      {
+        "category": "Data Protection",
+        "items": [
+          "Redact sensitive information from logs and traces",
+          "Encrypt sensitive configuration and credentials",
+          "Use secure credential storage (key vaults, environment variables)",
+          "Implement data retention policies for conversation history",
+          "Add audit logging for sensitive operations"
+        ]
+      },
+      {
+        "category": "Network Security",
+        "items": [
+          "Validate TLS certificates for external API calls",
+          "Implement request signing for critical operations",
+          "Use VPNs or private networks for sensitive tool access",
+          "Monitor for suspicious network activity",
+          "Implement IP allowlisting for external service access"
+        ]
+      }
+    ],
+    "logging_recommendations": [
+      "Use structured logging with trace ID correlation",
+      "Implement log levels (DEBUG, INFO, WARNING, ERROR) appropriately",
+      "Redact PII and sensitive data from log outputs",
+      "Log tool execution start/end with timing information",
+      "Include error context and stack traces for debugging",
+      "Use JSON formatting for log parsing and analysis",
+      "Implement log rotation and retention policies",
+      "Add performance metrics to logs (token usage, response times)",
+      "Separate audit logs from debug logs"
+    ],
+    "telemetry_changes": [
+      "Add trace ID generation in core/agents/llm_client.py",
+      "Implement structured logging in core/observability/",
+      "Add security event logging in core/auth_service.py",
+      "Create monitoring endpoints in backend/routers/",
+      "Implement metrics collection for tool usage patterns",
+      "Add alerting for unusual activity patterns"
+    ]
+  },
+  "code_snippets": {
+    "schema_validation": {
+      "file": "core/agents/llm_client.py",
+      "snippet": [
+        "from pydantic import BaseModel, validator",
+        "from typing import Dict, Any, Optional",
+        "import logging",
+        "",
+        "class ToolArgument(BaseModel):",
+        "    \"\"\"Base class for tool argument validation.\"\"\"",
+        "    name: str",
+        "    value: Any",
+        "    type_hint: str",
+        "    required: bool = True",
+        "    ",
+        "    @validator('value')",
+        "    def validate_value(cls, v):",
+        "        # Add custom validation logic here",
+        "        return v",
+        "",
+        "def validate_tool_args(tool_name: str, args: Dict[str, Any], schema: Dict[str, Any]) -> Dict[str, Any]:",
+        "    \"\"\"Validate tool arguments against schema.\"\"\"",
+        "    try:",
+        "        # Validate using Pydantic models",
+        "        validated_args = ToolSchema(**args)",
+        "        return validated_args.dict()",
+        "    except Exception as e:",
+        "        logging.error(f\"Tool validation failed for {tool_name}: {e}\")",
+        "        raise ValueError(f\"Invalid arguments for {tool_name}: {e}\")",
+        "",
+        "def execute_tool_with_validation(tool_name: str, args: Dict[str, Any], schema: Dict[str, Any], trace_id: str):",
+        "    \"\"\"Execute tool with input validation and error handling.\"\"\"",
+        "    try:",
+        "        validated_args = validate_tool_args(tool_name, args, schema)",
+        "        logging.info(f\"Executing {tool_name} with trace_id={trace_id}\")",
+        "        # Execute tool with validated arguments",
+        "        result = TOOL_FUNCTIONS[tool_name](**validated_args)",
+        "        logging.info(f\"Tool {tool_name} completed successfully with trace_id={trace_id}\")",
+        "        return result",
+        "    except Exception as e:",
+        "        logging.error(f\"Tool {tool_name} failed with trace_id={trace_id}: {e}\")",
+        "        return {'error': str(e), 'trace_id': trace_id}"
+      ]
+    },
+    "trace_id_logging": {
+      "file": "core/agents/llm_client.py",
+      "snippet": [
+        "import uuid",
+        "import time",
+        "from contextlib import contextmanager",
+        "import logging",
+        "",
+        "@contextmanager",
+        "def trace_context(operation_name: str, trace_id: Optional[str] = None):",
+        "    \"\"\"Context manager for trace ID propagation.\"\"\"",
+        "    if trace_id is None:",
+        "        trace_id = str(uuid.uuid4())",
+        "    start_time = time.time()",
+        "    logging.info(f\"Starting {operation_name} with trace_id={trace_id}\")",
+        "    try:",
+        "        yield trace_id",
+        "    finally:",
+        "        duration = time.time() - start_time",
+        "        logging.info(f\"Completed {operation_name} with trace_id={trace_id} in {duration:.2f}s\")",
+        "",
+        "def chat_with_tools(messages, tools, llm_client, model, trace_id=None):",
+        "    \"\"\"Chat with tools and trace ID propagation.\"\"\"",
+        "    with trace_context(\"chat_with_tools\", trace_id) as current_trace_id:",
+        "        # Log the incoming request",
+        "        logging.info(f\"Processing chat request with trace_id={current_trace_id}\")",
+        "        ",
+        "        # Process messages and call tools as needed",
+        "        for message in messages:",
+        "            if message.get('tool_calls'):",
+        "                for tool_call in message['tool_calls']:",
+        "                    tool_trace_id = f\"{current_trace_id}_tool_{tool_call['id']}\"",
+        "                    result = execute_tool_with_validation(",
+        "                        tool_call['name'],",
+        "                        tool_call['args'],",
+        "                        tools[tool_call['name']],",
+        "                        tool_trace_id",
+        "                    )",
+        "                    # Add result back to message",
+        "                    message['tool_results'] = message.get('tool_results', [])",
+        "                    message['tool_results'].append(result)",
+        "        ",
+        "        return {'response': 'processed', 'trace_id': current_trace_id}"
+      ]
+    },
+    "mcp_compatible_logging": {
+      "file": "core/agents/agent_sdk/mcp_client.py",
+      "snippet": [
+        "import logging",
+        "import sys",
+        "from mcp.server.fastmcp import FastMCP",
+        "",
+        "# Configure logging to use stderr instead of stdout",
+        "logging.basicConfig(",
+        "    level=logging.INFO,",
+        "    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',",
+        "    stream=sys.stderr  # Critical: Use stderr for MCP servers",
+        ")",
+        "",
+        "class SafeMCPClient(FastMCP):",
+        "    \"\"\"MCP client with proper logging practices.\"\"\"",
+        "    ",
+        "    def __init__(self, name: str):",
+        "        super().__init__(name)",
+        "        self.logger = logging.getLogger(name)",
+        "    ",
+        "    @mcp.tool()",
+        "    async def safe_tool_example(self, input_data: str) -> str:",
+        "        \"\"\"Example tool with safe logging.\"\"\"",
+        "        # Log to stderr (safe for MCP)",
+        "        self.logger.info(f\"Processing tool request: {input_data}\")",
+        "        ",
+        "        # Never log to stdout in MCP servers!",
+        "        # print(f\"This would break MCP: {input_data}\")  # BAD",
+        "        ",
+        "        return f\"Processed: {input_data}\"",
+        "    ",
+        "    def log_error(self, error: Exception):",
+        "        \"\"\"Log errors safely to stderr.\"\"\"",
+        "        self.logger.error(f\"Tool execution failed: {error}\")",
+        "        # Also safe to log to stderr",
+        "        logging.error(f\"Error in {self.name}: {error}\")"
+      ]
+    }
+  }
+}

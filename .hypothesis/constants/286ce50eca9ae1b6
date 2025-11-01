@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\openai\resources\beta\realtime\realtime.py
+# hypothesis_version: 6.142.2
+
+[b'/', b'/realtime', 1000, 'AsyncRealtime', 'Connecting to %s', 'OpenAI-Beta', 'Realtime', 'audio', 'audio_end_ms', 'content_index', 'event_id', 'item', 'item_id', 'model', 'previous_item_id', 'realtime=v1', 'response', 'response.cancel', 'response.create', 'response_id', 'session', 'session.update', 'type', 'wss']

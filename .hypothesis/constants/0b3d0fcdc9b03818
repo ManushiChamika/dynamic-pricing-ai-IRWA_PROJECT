@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\backend\main.py
+# hypothesis_version: 6.142.2
+
+[401, '*', '/', '/api/login', '/api/me', '/api/messages', '/api/register', '/api/settings', '/api/threads', '/assets', '0', '1', 'Authorization', 'UI_REQUIRE_LOGIN', 'assets', 'authorization', 'bearer ', 'dist', 'error', 'fp_session', 'frontend', 'index.html', 'on', 'token', 'true', 'utf-8', 'yes']

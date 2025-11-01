@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\AppData\Roaming\Python\Python313\site-packages\pandas\core\missing.py
+# hypothesis_version: 6.142.2
+
+['akima', 'backfill', 'backward', 'barycentric', 'bfill', 'both', 'cubic', 'cubicspline', 'ffill', 'first', 'forward', 'from_derivatives', 'i8', 'index', 'inside', 'krogh', 'last', 'linear', 'mM', 'nearest', 'not-a-knot', 'order', 'outside', 'pad', 'pchip', 'piecewise_polynomial', 'polynomial', 'quadratic', 'scipy', 'slinear', 'spline', 'time', 'values', 'zero']

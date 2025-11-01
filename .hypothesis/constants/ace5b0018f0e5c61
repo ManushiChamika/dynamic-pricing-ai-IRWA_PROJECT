@@ -1,0 +1,4 @@
+# file: C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\core\config.py
+# hypothesis_version: 6.142.2
+
+[1000, 86400, 100000, '***MASKED***', '0.0.0.0', '1', '10', '1000', '300', '8000', 'BUS_BACKEND', 'BUS_MAX_QUEUE_SIZE', 'BUS_REDIS_URL', 'CRITICAL', 'Configuration: %s', 'DATABASE_URL', 'DEBUG', 'ENVIRONMENT', 'ERROR', 'INFO', 'LOG_LEVEL', 'LOG_STRUCTURED', 'MCP_AUTH_LOG_LEVEL', 'MCP_AUTH_METRICS', 'MCP_AUTH_SECRET', 'MCP_TOKEN_EXPIRY', 'OPENAI_API_KEY', 'OPENAI_BASE_URL', 'SERVICE_HOST', 'SERVICE_PORT', 'WARNING', '_', '__main__', 'development', 'inproc', 'key', 'mcp.auth', 'password', 'redis', 'redis://', 'secret', 'true', 'yes']
