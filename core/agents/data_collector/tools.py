@@ -188,7 +188,9 @@ class Tools:
             }
             
             bus = get_bus()
+            print(f"[DataCollectorTools] Publishing MARKET_FETCH_REQUEST: request_id={request_id}, sku={sku}, sources={[connector]}")
             await bus.publish(Topic.MARKET_FETCH_REQUEST.value, request_payload)
+            print(f"[DataCollectorTools] Published successfully. Bus has {len(bus._subs.get(Topic.MARKET_FETCH_REQUEST.value, []))} subscribers")
             
             return {
                 "ok": True,

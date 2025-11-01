@@ -39,6 +39,7 @@ async def lifespan(app: FastAPI):
         db_path = resolve_app_db()
         data_collector_repo = DataRepo(db_path)
         reactive_collector = DataCollector(data_collector_repo)
+        app.state.reactive_collector = reactive_collector
         data_collector = DataCollectorAgent(
             repo=data_collector_repo,
             check_interval_seconds=180
