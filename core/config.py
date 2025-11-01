@@ -149,43 +149,57 @@ def init_config() -> Config:
         logger.debug("Configuration: %s", _config.to_dict())
     
     return _config
-
-# Environment setup helpers
-def ensure_auth_secret():
-    """Ensure auth secret exists, generate if needed in development."""
-    config = get_config()
-    if not config.auth_secret:
-        if config.environment == "development":
-            secret = config.generate_auth_secret()
-            logger.warning(f"Generated development auth secret. Set MCP_AUTH_SECRET={secret} in your environment")
-            config.auth_secret = secret
-        else:
-            raise ConfigError("MCP_AUTH_SECRET is required in production")
-
-def check_redis_connection() -> bool:
-    """Check if Redis is available (when using Redis backend)."""
-    config = get_config()
-    if config.bus_backend != "redis":
-        return True
-    
-    try:
-        import redis.asyncio as redis
-        # Quick connection test
-        r = redis.from_url(config.bus_redis_url, decode_responses=True)
-        # This would need to be async in real usage
-        return True
-    except Exception as e:
-        logger.warning(f"Redis connection check failed: {e}")
-        return False
-
-if __name__ == "__main__":
-    # Configuration validation script
-    try:
-        config = init_config()
-        print("[OK] Configuration validation passed")
-        print("\nCurrent configuration:")
-        for key, value in config.to_dict().items():
-            print(f"  {key}: {value}")
-    except ConfigError as e:
-        print(f"[ERROR] Configuration validation failed:\n{e}")
-        exit(1)
+ 
+ # Environment setup helpers
+ def ensure_auth_secret():
+     """Ensure auth secret exists, generate if needed in development."""
+     config = get_config()
+     if not config.auth_secret:
+         if config.environment == "development":
+             secret = config.generate_auth_secret()
+             logger.warning(f"Generated development auth secret. Set MCP_AUTH_SECRET={secret} in your environment")
+             config.auth_secret = secret
+         else:
+             raise ConfigError("MCP_AUTH_SECRET is required in production")
+ 
+ def check_redis_connection() -> bool:
+     """Check if Redis is available (when using Redis backend)."""
+     config = get_config()
+     if config.bus_backend != "redis":
+         return True
+     
+     try:
+         import redis.asyncio as redis
+         r = redis.from_url(config.bus_redis_url, decode_responses=True)
+         return True
+     except Exception as e:
+         logger.warning(f"Redis connection check failed: {e}")
+         return False
+ 
+ def resolve_repo_root() -> Path:
+     return Path(__file__).resolve().parents[1]
+ 
+ def resolve_app_db() -> Path:
+     env_path = os.getenv("DATA_DB")
+     root = resolve_repo_root()
+     if env_path:
+         p = Path(env_path)
+         return p if p.is_absolute() else root / p
+     return root / "app" / "data.db"
+ 
+ def resolve_market_db() -> Path:
+     root = resolve_repo_root()
+     return root / "data" / "market.db"
+ 
+ if __name__ == "__main__":
+     try:
+         config = init_config()
+         print("[OK] Configuration validation passed")
+         print("\nCurrent configuration:")
+         for key, value in config.to_dict().items():
+             print(f"  {key}: {value}")
+         print(f"app_db: {resolve_app_db()}")
+         print(f"market_db: {resolve_market_db()}")
+     except ConfigError as e:
+         print(f"[ERROR] Configuration validation failed:\n{e}")
+         exit(1)
