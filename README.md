@@ -1,6 +1,6 @@
 # Dynamic Pricing AI
 
-A FastAPI backend with a lightweight static HTML/JS UI for chat-driven dynamic pricing workflows. The system supports authentication, per-user UI settings, threaded conversations with edit/branch/delete, streaming responses (SSE), rolling summarization, and cost/usage metadata capture from multiple LLM providers (OpenRouter, OpenAI, Gemini via OpenAI-compatible endpoint).
+Dynamic Pricing AI is a chat-first dynamic pricing platform built on FastAPI, with a lightweight web UI and multi-provider LLM support (OpenRouter, OpenAI, and Gemini). It supports user authentication, per-user UI settings, threaded conversations with editing and branching, streaming responses (SSE), automatic summarization, and detailed cost/usage tracking.
 
 <p align="center">
   <img src="assets/0.png" width="500" alt=""/>
