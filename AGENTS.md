@@ -20,6 +20,7 @@ Monorepo with Python/FastAPI backend and TypeScript/React frontend. Backend in `
 
 ## Important
 
+- **ALWAYS EXPLAIN BEFORE ACTING**: Before executing any action, clearly state what you are going to do and explain the reasoning behind it. This includes file modifications, command executions, deletions, and any other operations.
 - when you want to use chrome mcp tools do not attempt to run the backend and the frontend yourself just ask the user to run the full app and provide the necessary details
 - No comments in code
 - Try to achieve the desired functionality with minimum code
