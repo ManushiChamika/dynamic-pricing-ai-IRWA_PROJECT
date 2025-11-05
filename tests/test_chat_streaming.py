@@ -20,7 +20,8 @@ try:
     for delta in uia.stream_response(message):
         if isinstance(delta, str):
             parts.append(delta)
-            print(delta, end="", flush=True)
+            sys.stdout.buffer.write(delta.encode('utf-8'))
+            sys.stdout.flush()
         elif isinstance(delta, dict):
             print(f"\n[EVENT: {delta}]", flush=True)
 except Exception as e:

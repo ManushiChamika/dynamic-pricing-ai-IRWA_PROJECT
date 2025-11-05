@@ -144,3 +144,4 @@ htmlcov/
 frontend/playwright-report/
 frontend/test-results/
 
+"catalog_analysis.txt"  
