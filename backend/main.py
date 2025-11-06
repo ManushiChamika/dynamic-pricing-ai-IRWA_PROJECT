@@ -18,6 +18,7 @@ from core.agents.price_optimizer.agent import PricingOptimizerAgent
 from core.agents.data_collector.agent import DataCollectorAgent
 from core.agents.data_collector.repo import DataRepo
 from core.agents.data_collector.collector import DataCollector
+from core.agents.proposal_logger import ProposalLogger
 
 
 @asynccontextmanager
@@ -29,12 +30,21 @@ async def lifespan(app: FastAPI):
     if os.environ.get("EXPORT_OPENAPI_ONLY", "0") in {"1", "true", "yes", "on"}:
         yield
         return
+    
+    # Initialize agents
+    import logging
+    logger = logging.getLogger("main")
+    
     try:
+        logger.info("Initializing PricingOptimizerAgent...")
         pricing_optimizer = PricingOptimizerAgent()
-    except Exception:
+        logger.info("PricingOptimizerAgent initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize PricingOptimizerAgent: {e}", exc_info=True)
         pricing_optimizer = None
     
     try:
+        logger.info("Initializing DataCollectorAgent...")
         from core.config import resolve_app_db
         db_path = resolve_app_db()
         data_collector_repo = DataRepo(db_path)
@@ -45,16 +55,60 @@ async def lifespan(app: FastAPI):
             repo=data_collector_repo,
             check_interval_seconds=180
         )
-    except Exception:
+        logger.info("DataCollectorAgent initialized successfully")
+    except Exception as e:
+        logger.warning(f"Failed to initialize DataCollectorAgent: {e}", exc_info=True)
         data_collector = None
     
+    try:
+        logger.info("Initializing ProposalLogger...")
+        proposal_logger = ProposalLogger()
+        logger.info("ProposalLogger initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize ProposalLogger: {e}", exc_info=True)
+        proposal_logger = None
+    
+    # Start agents
+    logger.info("Starting agents...")
     await alert_api.start()
+    
     if pricing_optimizer is not None:
-        await pricing_optimizer.start()
+        logger.info("Starting PricingOptimizerAgent...")
+        try:
+            await pricing_optimizer.start()
+            logger.info("PricingOptimizerAgent started successfully")
+        except Exception as e:
+            logger.error(f"Failed to start PricingOptimizerAgent: {e}", exc_info=True)
+    else:
+        logger.warning("PricingOptimizerAgent not initialized - skipping start")
+    
     if data_collector is not None:
-        await data_collector.start()
+        logger.info("Starting DataCollectorAgent...")
+        try:
+            await data_collector.start()
+            logger.info("DataCollectorAgent started successfully")
+        except Exception as e:
+            logger.error(f"Failed to start DataCollectorAgent: {e}", exc_info=True)
+    else:
+        logger.warning("DataCollectorAgent not initialized - skipping start")
+    
+    if proposal_logger is not None:
+        logger.info("Starting ProposalLogger...")
+        try:
+            await proposal_logger.start()
+            logger.info("ProposalLogger started successfully")
+        except Exception as e:
+            logger.error(f"Failed to start ProposalLogger: {e}", exc_info=True)
+    else:
+        logger.warning("ProposalLogger not initialized - skipping start")
     
     yield
+    
+    # Cleanup on shutdown
+    if data_collector is not None:
+        await data_collector.stop()
+    if proposal_logger is not None:
+        await proposal_logger.stop()
 
 
 app = FastAPI(title="FluxPricer Auth + Chat API", lifespan=lifespan)

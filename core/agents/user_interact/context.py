@@ -1,16 +1,13 @@
-import logging
+import contextvars
+from typing import Optional
 
-_owner_id = None
-logger = logging.getLogger(__name__)
-
-
-def set_owner_id(owner_id: str):
-    global _owner_id
-    _owner_id = owner_id
-    logger.info(f"[DEBUG] set_owner_id({owner_id})")
+_owner_id_ctx: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar("owner_id", default=None)
 
 
-def get_owner_id():
-    val = _owner_id
-    logger.info(f"[DEBUG] get_owner_id() called. Returning owner_id: {val}")
-    return val
+def set_owner_id(owner_id: str) -> None:
+    _owner_id_ctx.set(owner_id)
+
+
+def get_owner_id() -> Optional[str]:
+    return _owner_id_ctx.get()
+

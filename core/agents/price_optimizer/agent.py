@@ -33,7 +33,11 @@ except Exception:
 try:
     from core.agents.agent_sdk.bus_factory import get_bus as _get_bus
     from core.agents.agent_sdk.protocol import Topic as _Topic
-except Exception:
+    _import_logger = logging.getLogger("price_optimizer.imports")
+    _import_logger.info("Event bus imports successful: _get_bus and _Topic available")
+except Exception as _import_err:
+    _import_logger = logging.getLogger("price_optimizer.imports")
+    _import_logger.error(f"Failed to import event bus components: {_import_err}", exc_info=True)
     _get_bus = None
     _Topic = None
 
@@ -46,18 +50,28 @@ class _DBPaths:
 
 SYSTEM_PROMPT = """You are an autonomous Pricing Optimization Agent for a dynamic pricing system. Your primary goal is to analyze pricing requests and determine optimal prices through multi-step reasoning.
 
-When handling optimization requests:
+When handling optimization requests, YOU MUST COMPLETE ALL STEPS:
 1. ALWAYS start by calling get_product_info() to fetch current product data
-2. Call get_market_intelligence() to gather competitive context
-3. Analyze the user request and market data to select the appropriate pricing algorithm:
-   - rule_based: Conservative pricing based on competitor averages
+2. Call check_market_data_freshness() to verify if market data exists and is fresh
+3. If market data is missing or stale (older than 60 minutes):
+   - Call start_market_data_collection() to trigger data gathering
+   - Wait briefly (30 seconds) for data collection to complete
+   - Proceed with optimization using available data
+4. Call get_market_intelligence() to gather competitive context
+5. Analyze the user request and market data to select the appropriate pricing algorithm:
+   - rule_based: Conservative pricing based on competitor averages (use when no market data available)
    - ml_model: Predictive pricing using historical patterns
    - profit_maximization: Aggressive pricing to maximize margins
-4. Call run_pricing_algorithm() with selected algorithm and gathered data
-5. Call validate_price() to ensure the proposed price meets business constraints
-6. If validation passes, call publish_price_proposal() to emit the final proposal
+6. Call run_pricing_algorithm() with selected algorithm and gathered data
+7. Call validate_price() to ensure the proposed price meets business constraints
+8. CRITICAL: Once validation passes, you MUST call publish_price_proposal() with the validated price
+   - This is REQUIRED to complete the workflow
+   - Even if the recommended price is the same as current price, you must publish it
+   - The proposal publication is what triggers downstream alerts and tracking
 
-IMPORTANT: You must complete the entire workflow autonomously. Use tools in sequence to gather data, compute prices, validate, and publish."""
+IMPORTANT: The workflow is NOT complete until you have called publish_price_proposal(). You must complete the entire workflow autonomously. Always ensure fresh market data before optimization. Use tools in sequence to gather data, compute prices, validate, and publish.
+
+REMEMBER: After validate_price() returns {"ok": True, "valid": True}, your NEXT action must be to call publish_price_proposal()."""
 
 
 class PricingOptimizerAgent:
@@ -127,33 +141,51 @@ class PricingOptimizerAgent:
                 self.tools = None
 
     async def start(self):
-        if _get_bus is None or _Topic is None:
-            self.logger.error("Event bus not available - cannot start autonomous agent")
+        self.logger.info("PricingOptimizerAgent.start() called")
+        
+        if _get_bus is None:
+            self.logger.error("Event bus factory (_get_bus) not available - cannot start autonomous agent")
             return
         
-        self.bus = _get_bus()
-        self.bus.subscribe(_Topic.OPTIMIZATION_REQUEST.value, self.on_optimization_request)
+        if _Topic is None:
+            self.logger.error("Topic enum (_Topic) not available - cannot start autonomous agent")
+            return
         
-        self.logger.info(
-            f"PricingOptimizerAgent started - LLM={'enabled' if self.llm and self.llm.is_available() else 'disabled'}"
-        )
-        
-        if self.bus and _Topic:
+        try:
+            self.logger.info("Getting event bus instance...")
+            self.bus = _get_bus()
+            self.logger.info(f"Event bus obtained: {self.bus}")
+            
+            self.logger.info(f"Subscribing to topic: {_Topic.OPTIMIZATION_REQUEST.value}")
+            self.bus.subscribe(_Topic.OPTIMIZATION_REQUEST.value, self.on_optimization_request)
+            self.logger.info("Subscription successful")
+            
+            llm_status = 'enabled' if self.llm and self.llm.is_available() else 'disabled'
+            self.logger.info(f"PricingOptimizerAgent started - LLM={llm_status}")
+            
+            # Publish alert to notify system
             await self.bus.publish(_Topic.ALERT.value, {
                 "ts": datetime.now().isoformat(),
                 "sku": "SYS",
                 "severity": "info",
-                "title": f"PricingOptimizerAgent ready (LLM={'enabled' if self.llm and self.llm.is_available() else 'disabled'})"
+                "title": f"PricingOptimizerAgent ready (LLM={llm_status})"
             })
+            self.logger.info("Startup alert published")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to start PricingOptimizerAgent: {e}", exc_info=True)
+            raise
 
     async def on_optimization_request(self, request: Any):
+        self.logger.info(f"on_optimization_request called with: {request}")
         request_dict = self._to_dict(request)
+        self.logger.info(f"Converted to dict: {request_dict}")
         
         product_identifier = request_dict.get("product_name") or request_dict.get("sku") or request_dict.get("product_id")
         user_request = request_dict.get("user_request", "Optimize price")
         
         if not product_identifier:
-            self.logger.error("Optimization request missing product identifier")
+            self.logger.error(f"Optimization request missing product identifier. Keys available: {list(request_dict.keys())}")
             return
         
         self.logger.info(f"Received optimization request for {product_identifier}: {user_request}")
@@ -213,12 +245,20 @@ Use your tools to complete this workflow autonomously."""
                     "sku": sku, "old_price": old_price, "new_price": new_price
                 }, self.tools)
             
+            async def check_market_data_freshness_async(sku: str):
+                return await execute_tool_call("check_market_data_freshness", {"sku": sku}, self.tools)
+            
+            async def start_market_data_collection_async(sku: str):
+                return await execute_tool_call("start_market_data_collection", {"sku": sku}, self.tools)
+            
             functions_map = {
                 "get_product_info": get_product_info_async,
                 "get_market_intelligence": get_market_intelligence_async,
                 "run_pricing_algorithm": run_pricing_algorithm_async,
                 "validate_price": validate_price_async,
-                "publish_price_proposal": publish_price_proposal_async
+                "publish_price_proposal": publish_price_proposal_async,
+                "check_market_data_freshness": check_market_data_freshness_async,
+                "start_market_data_collection": start_market_data_collection_async
             }
             
             try:
@@ -226,7 +266,7 @@ Use your tools to complete this workflow autonomously."""
                     messages=messages,
                     tools=tools_schema,
                     functions_map=functions_map,
-                    max_rounds=8,
+                    max_rounds=12,
                     max_tokens=2000
                 )
                 
@@ -350,6 +390,10 @@ Use your tools to complete this workflow autonomously."""
 
     @staticmethod
     def _to_dict(obj: Any) -> Dict[str, Any]:
+        # If already a dict, return it
+        if isinstance(obj, dict):
+            return obj
+        
         fn = getattr(obj, "model_dump", None)
         if callable(fn):
             try:

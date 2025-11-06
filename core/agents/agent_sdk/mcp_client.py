@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 import time
+import uuid
 
 from typing import Any, Dict, Optional, Tuple
 
@@ -387,6 +388,12 @@ class _LocalPriceOptimizerTools:
     async def publish_price_proposal(self, sku: str, old_price: float, new_price: float, margin: float = 0.0, algorithm: str = "unknown") -> Dict[str, Any]:
         return await self._impl.publish_price_proposal(sku=sku, old_price=old_price, new_price=new_price, margin=margin, algorithm=algorithm)
 
+    async def check_market_data_freshness(self, sku: str) -> Dict[str, Any]:
+        return await self._impl.check_market_data_freshness(sku)
+
+    async def start_market_data_collection(self, sku: str) -> Dict[str, Any]:
+        return await self._impl.start_market_data_collection(sku)
+
 
 class _MCPPriceOptimizerTools:
     """MCP-backed price optimizer tools that delegate to a price optimizer MCP server.
@@ -476,6 +483,26 @@ class _MCPPriceOptimizerTools:
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
+    async def check_market_data_freshness(self, sku: str) -> Dict[str, Any]:
+        try:
+            # MCP may not expose this; fallback to error indicating unavailable
+            res = await self._call("check_market_data_freshness", {"sku": sku})
+            if res and res.get("ok") is not False:
+                return res
+            return {"ok": False, "error": "check_market_data_freshness_unavailable_via_mcp"}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    async def start_market_data_collection(self, sku: str) -> Dict[str, Any]:
+        try:
+            # MCP may not expose this; fallback to error indicating unavailable
+            res = await self._call("start_market_data_collection", {"sku": sku})
+            if res and res.get("ok") is not False:
+                return res
+            return {"ok": False, "error": "start_market_data_collection_unavailable_via_mcp"}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
 
 class PriceOptimizerTools:
     """Facade over price optimizer functions, optionally MCP-enabled via USE_MCP."""
@@ -529,6 +556,20 @@ class PriceOptimizerTools:
             if res and res.get("ok") is not False:
                 return res
         return await self._local_impl.publish_price_proposal(*args, **kwargs)
+
+    async def check_market_data_freshness(self, *args, **kwargs) -> Dict[str, Any]:
+        if self.using_mcp():
+            res = await self._mcp_impl.check_market_data_freshness(*args, **kwargs)  # type: ignore[arg-type]
+            if res and res.get("ok") is not False:
+                return res
+        return await self._local_impl.check_market_data_freshness(*args, **kwargs)
+
+    async def start_market_data_collection(self, *args, **kwargs) -> Dict[str, Any]:
+        if self.using_mcp():
+            res = await self._mcp_impl.start_market_data_collection(*args, **kwargs)  # type: ignore[arg-type]
+            if res and res.get("ok") is not False:
+                return res
+        return await self._local_impl.start_market_data_collection(*args, **kwargs)
 
 
 def get_price_optimizer_client(use_mcp: bool | None = None, app_db: str | None = None, market_db: str | None = None) -> PriceOptimizerTools:

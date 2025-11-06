@@ -215,6 +215,16 @@ def list_proposals(sku: str = "", limit: int = 10) -> Dict[str, Any]:
 
 
 def optimize_price(sku: str) -> Dict[str, Any]:
+    """
+    Trigger price optimization workflow for a product.
+    
+    This publishes an OPTIMIZATION_REQUEST event that triggers the autonomous
+    Price Optimizer Agent, which will:
+    1. Check market data freshness
+    2. Trigger data collection if needed
+    3. Run pricing algorithm
+    4. Validate and publish price proposal
+    """
     owner_id = get_owner_id()
     
     if owner_id:
@@ -225,29 +235,55 @@ def optimize_price(sku: str) -> Dict[str, Any]:
             return {"ok": False, "error": f"SKU '{sku}' not found in your inventory"}
     
     try:
-        from core.agents.price_optimizer.agent import PricingOptimizerAgent
+        from core.agents.agent_sdk.bus_factory import get_bus
+        from core.agents.agent_sdk.protocol import Topic
         import asyncio
         
-        agent = PricingOptimizerAgent()
+        bus = get_bus()
+        
+        # Publish OPTIMIZATION_REQUEST event to trigger autonomous workflow
+        optimization_payload = {
+            "sku": sku,
+            "product_name": sku,
+            "user_request": f"Optimize price for {sku}",
+        }
         
         try:
             loop = asyncio.get_running_loop()
-            task = loop.create_task(agent.process_full_workflow(f"Optimize price for {sku}", sku))
+            # If we're already in an async context, schedule the publish
+            task = loop.create_task(bus.publish(Topic.OPTIMIZATION_REQUEST.value, optimization_payload))
             return {
                 "ok": True,
-                "message": f"Price optimization started for {sku}. Processing in background.",
+                "message": f"✅ Price optimization request sent for **{sku}**.\n\n"
+                          f"The system will:\n"
+                          f"1. Check market data freshness\n"
+                          f"2. Collect fresh data if needed\n"
+                          f"3. Run pricing algorithm\n"
+                          f"4. Generate price proposal\n\n"
+                          f"You can check the proposals in a moment using the Proposals panel or by asking for proposals for this SKU.",
                 "sku": sku
             }
         except RuntimeError:
-            result = asyncio.run(agent.process_full_workflow(f"Optimize price for {sku}", sku))
+            # Not in async context, use asyncio.run
+            async def trigger_optimization():
+                await bus.publish(Topic.OPTIMIZATION_REQUEST.value, optimization_payload)
+            
+            asyncio.run(trigger_optimization())
+            
             return {
-                "ok": result.get("status") == "ok",
-                "message": result.get("message") or result.get("reason") or f"Optimization completed for {sku}",
-                "sku": sku,
-                "result": result
+                "ok": True,
+                "message": f"✅ Price optimization request sent for **{sku}**.\n\n"
+                          f"The autonomous pricing agent will:\n"
+                          f"- Check if market data is fresh (last 60 minutes)\n"
+                          f"- Collect new data if stale or missing\n"
+                          f"- Analyze competitive pricing\n"
+                          f"- Run optimization algorithm\n"
+                          f"- Generate validated price proposal\n\n"
+                          f"💡 Check proposals in a few seconds using the Proposals panel.",
+                "sku": sku
             }
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": f"Failed to trigger optimization: {str(e)}"}
 
 
 def run_pricing_workflow(sku: str) -> Dict[str, Any]:
