@@ -173,6 +173,76 @@ echo Checking prerequisites...
 echo.
 goto :eof
 
+:validateStartup
+echo Validating startup environment...
+echo [%date% %time%] INFO: Running startup validation script >> "%LOG_FILE%"
+
+:: Run the Python validation script with self-healing
+python scripts/validate_startup.py 2>&1
+set "VALIDATION_EXIT=%errorlevel%"
+
+if %VALIDATION_EXIT% equ 0 (
+    echo [OK] Startup validation passed
+    echo [%date% %time%] INFO: Startup validation passed >> "%LOG_FILE%"
+    exit /b 0
+)
+
+if %VALIDATION_EXIT% equ 2 (
+    echo [WARNING] Startup validation has warnings but can proceed
+    echo [%date% %time%] WARN: Startup validation has warnings >> "%LOG_FILE%"
+    echo Check %LOG_FILE% for details
+    echo.
+    choice /C YN /M "Continue anyway"
+    if errorlevel 2 (
+        echo [%date% %time%] INFO: User cancelled due to warnings >> "%LOG_FILE%"
+        exit /b 1
+    )
+    exit /b 0
+)
+
+:: Critical errors found (exit code 1) - Try auto-healing
+echo [WARNING] Startup validation found issues - attempting auto-heal...
+echo [%date% %time%] INFO: Running auto-heal system >> "%LOG_FILE%"
+
+python scripts/auto_heal.py 2>&1
+set "HEAL_EXIT=%errorlevel%"
+
+if %HEAL_EXIT% equ 0 (
+    echo [OK] Auto-heal completed - retrying validation...
+    echo [%date% %time%] INFO: Auto-heal succeeded, retrying validation >> "%LOG_FILE%"
+    
+    :: Retry validation after healing
+    python scripts/validate_startup.py 2>&1
+    set "VALIDATION_EXIT=%errorlevel%"
+    
+    if %VALIDATION_EXIT% equ 0 (
+        echo [OK] Validation passed after auto-healing!
+        echo [%date% %time%] INFO: Validation passed after healing >> "%LOG_FILE%"
+        exit /b 0
+    )
+    
+    if %VALIDATION_EXIT% equ 2 (
+        echo [WARNING] Warnings remain but can proceed
+        echo [%date% %time%] WARN: Warnings after healing >> "%LOG_FILE%"
+        choice /C YN /M "Continue anyway"
+        if errorlevel 2 exit /b 1
+        exit /b 0
+    )
+)
+
+:: Auto-healing didn't resolve all issues
+echo [ERROR] Startup validation failed - auto-healing could not fix all issues
+echo [%date% %time%] ERROR: Critical validation errors remain >> "%LOG_FILE%"
+echo.
+echo Please manually fix the issues above before launching.
+echo Common manual fixes:
+echo   1. Configure API keys in .env file
+echo   2. Run: pip install -r requirements.txt
+echo   3. Check database file permissions
+echo.
+echo Check %LOG_FILE% for detailed error information.
+exit /b 1
+
 :validatePorts
 echo Validating port availability...
 echo [%date% %time%] INFO: validatePorts started >> "%LOG_FILE%"
