@@ -2,14 +2,16 @@ import { api } from '../apiClient'
 import type { Thread } from '../../stores/threadStore'
 
 export async function loadThreads(): Promise<Thread[]> {
-  const { ok, data } = await api('/api/threads')
+  const { ok, data } = await api<Thread[]>('/api/threads')
   if (ok && Array.isArray(data)) return data
   return []
 }
 
+type CreateThreadResponse = { id: number }
+
 export async function createThread(title?: string): Promise<number | null> {
   try {
-    const { ok, data, status } = await api('/api/threads', {
+    const { ok, data, status } = await api<CreateThreadResponse>('/api/threads', {
       method: 'POST',
       json: { title: title || 'New Thread' },
     })

@@ -56,6 +56,7 @@ user_data.json
 # ---------- Patches / diffs ----------
 # Local patch/diff files created during development should not be tracked.
 *.diff
+staged_diff.txt
 
 # ---------- Archives & build artifacts ----------
 # Build outputs, distributions and cache directories can be large and
@@ -75,6 +76,9 @@ build/
 # ---------- Node / JS ----------
 # Node modules are installed by package managers and are not tracked.
 node_modules/
+# Root workspace package files (use frontend/package.json instead)
+/package.json
+/package-lock.json
 
 # ---------- Project-specific / scripts ----------
 # Local dumps, prompts and scripts used for development or data
@@ -144,4 +148,4 @@ htmlcov/
 frontend/playwright-report/
 frontend/test-results/
 
-"catalog_analysis.txt"  
+catalog_analysis.txt
