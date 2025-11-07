@@ -377,49 +377,60 @@ _llm_client_lock_: Any = None
 
 
 def get_llm_client(model: Optional[str] = None) -> LLMClient:
-    """Return a cached LLM client instance. If `model` is provided, return a fresh
-    client with that model; otherwise return the singleton cached instance.
-
-    The singleton cache ensures that the environment is loaded once and reused,
-    fixing issues where is_available() differs between diagnostics and runtime.
-    """
     global _llm_client_cache
-    
     try:
+        use_langchain = (os.getenv("USE_LANGCHAIN") or "").strip().lower() in ("1", "true", "yes", "on")
+        LangChainLLM = None
+        if use_langchain:
+            try:
+                from .langchain_integration import LangChainLLMClient as _LCn                LangChainLLM = _LC
+            except Exception as e:
+                logging.getLogger("core.agents.llm").error("LangChain wrapper unavailable: %s", e)
+                use_langchain = False
+
         if model:
             key = (os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
             if not key:
                 logging.getLogger("core.agents.llm").error("No API key found for custom model: %s", model)
                 raise RuntimeError("No API key configured for LLM client")
-            
             base = None
             if key and (os.getenv("OPENROUTER_API_KEY") or "").strip() == key:
                 base = (os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1").strip()
             elif key and (os.getenv("GEMINI_API_KEY") or "").strip() == key:
                 base = (os.getenv("GEMINI_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta/openai/").strip()
-            
+            if use_langchain and LangChainLLM is not None:
+                lc = LangChainLLM(api_key=key, base_url=base, model=model)
+                if getattr(lc, "is_available", lambda: False)():
+                    return lc
+                logging.getLogger("core.agents.llm").error("LLM client unavailable: %s", getattr(lc, "unavailable_reason", lambda: None)())
             client = LLMClient(api_key=key, base_url=base, model=model)
             if not client.is_available():
                 raise RuntimeError(f"LLM client initialization failed: {client.unavailable_reason()}")
             return client
-        
-        # During pytest runs, avoid returning a cached client so tests that monkeypatch
-        # env variables after module import can control LLM availability deterministically.
+
         if os.getenv("PYTEST_CURRENT_TEST") is not None:
+            if use_langchain and LangChainLLM is not None:
+                lc = LangChainLLM()
+                if getattr(lc, "is_available", lambda: False)():
+                    return lc
+                logging.getLogger("core.agents.llm").error("LLM client unavailable: %s", getattr(lc, "unavailable_reason", lambda: None)())
             client = LLMClient()
             if not client.is_available():
-                logging.getLogger("core.agents.llm").error(
-                    "LLM client unavailable: %s", client.unavailable_reason()
-                )
+                logging.getLogger("core.agents.llm").error("LLM client unavailable: %s", client.unavailable_reason())
             return client
 
         if _llm_client_cache is None:
-            _llm_client_cache = LLMClient()
-            if not _llm_client_cache.is_available():
-                logging.getLogger("core.agents.llm").error(
-                    "LLM client unavailable: %s", _llm_client_cache.unavailable_reason()
-                )
-        
+            if use_langchain and LangChainLLM is not None:
+                lc = LangChainLLM()
+                if getattr(lc, "is_available", lambda: False)():
+                    _llm_client_cache = lc
+                else:
+                    logging.getLogger("core.agents.llm").error("LLM client unavailable: %s", getattr(lc, "unavailable_reason", lambda: None)())
+                    _llm_client_cache = LLMClient()
+            else:
+                _llm_client_cache = LLMClient()
+            if not getattr(_llm_client_cache, "is_available", lambda: False)():
+                logging.getLogger("core.agents.llm").error("LLM client unavailable: %s", getattr(_llm_client_cache, "unavailable_reason", lambda: None)())
         return _llm_client_cache
     except Exception as e:
         logging.getLogger("core.agents.llm").error("Failed to get LLM client: %s", e)

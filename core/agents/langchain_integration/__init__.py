@@ -1,1 +1,1 @@
-# LangChain integration for dynamic pricing agents
+from .langchain_client import LangChainLLMClient

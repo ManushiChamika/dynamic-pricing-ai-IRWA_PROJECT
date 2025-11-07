@@ -4,8 +4,7 @@ Monorepo with Python/FastAPI backend and TypeScript/React frontend. Backend in `
 
 ## Backend (Python)
 
-**Run:** using "C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\run_full_app.bat"
-
+**Run:** "C:\Users\SASINDU\Desktop\IRWA Group Repo\dynamic-pricing-ai-IRWA_PROJECT\run_full_app.bat"
 **Test:** `pytest` (all), `pytest path/to/test_file.py` (single)
 **Lint:** `black .`, `isort .`, `flake8 .` before committing
 **Style:** snake_case functions/vars, PascalCase classes; fully typed (mypy strict); use `HTTPException` in API endpoints
@@ -20,19 +19,43 @@ Monorepo with Python/FastAPI backend and TypeScript/React frontend. Backend in `
 
 ## Important
 
-- **ALWAYS EXPLAIN BEFORE ACTING**: Before executing any action, clearly state what you are going to do and explain the reasoning behind it. This includes file modifications, command executions, deletions, and any other operations.
-- when you want to use chrome mcp tools do not attempt to run the backend and the frontend yourself just ask the user to run the full app and provide the necessary details
-- No comments in code
-- Try to achieve the desired functionality with minimum code
+- **ALWAYS EXPLAIN BEFORE ACTING**: State intent and reasoning before any file modification, command, or deletion.
+- Ask user to run full app when chrome MCP tools needed; do not self-start services for that.
+- No comments in code.
+- Minimize handwritten code; prefer mature libraries with thin wrappers.
 - Testing credentials: demo@example.com / 1234567890
--  Important : when you delete files move them to recycle bin do not permanently delete.
--  Commit frequently . do not push without instruction . commit super frequently . do local commits only
-- i am new to git when you do something intermediate or advanced inform me what is happening
-- If you made a change then tell me weather i have to restart to see the changes
-- DO NOT MAKE ANY BRANCHES
+- Move deleted files to recycle bin (do not permanently delete).
+- Commit locally frequently (no pushes unless instructed). Explain intermediate/advanced git actions.
+- Inform if restart required for a change to take effect.
+- DO NOT CREATE BRANCHES.
 
+## Current Modernization Status (Migration Plan Alignment)
 
-## Feel free to do long horizon tasks
+Planned/ongoing migrations to reduce custom LOC:
+- Config: Migrating to `pydantic-settings` (`core/settings.py` planned) replacing `os.getenv` usage.
+- LLM: Adopting LangChain via thin wrapper `LangChainLLMClient` maintaining failover, streaming, tool calling, cost tracking.
+- Event Bus: Transitioning to Blinker signals (Redis future option) with async task scheduling.
+- Auth: Parallel rollout of `fastapi-users` (session/cookie transport) before removing legacy auth.
+- Database CRUD: Introducing FastCRUD-style repositories with optimistic locking extensions.
+- SSE Client: Replacing custom client with `react-eventsource` (auth headers supported).
+- Frontend Forms: Migrating to React Hook Form + Zod for validation.
+- Global State: Using Zustand for auth/session and cross-component state.
+- Server State: Standardizing API access with Axios + TanStack Query (caching, mutations, optimistic updates).
+- Type Generation: Using `@hey-api/openapi-ts` to generate TS types and query hooks from `openapi.json`.
+- Testing Backend: Converting to async tests with `httpx.AsyncClient` + `pytest-asyncio`.
+- Testing Frontend: Using Vitest + React Testing Library for components/hooks.
+- Observability: Adding OpenTelemetry tracing + Prometheus metrics (API, event bus, LLM calls).
+
+## Anti-Corruption Layer Wrappers
+Use thin wrappers to isolate external libraries:
+- Config: `get_settings()`
+- LLM: `LangChainLLMClient` (maintains legacy method signatures)
+- Event Bus: `EventBus` abstraction over Blinker (future Redis)
+- Repositories: `BaseRepo` customizing CRUD + locking
+- SSE: `useChatStream()` encapsulates streaming client
+
+## Rollback Strategy (General)
+Maintain legacy implementation until new path validated; use feature flags or conditional imports; revert quickly on anomalies while capturing metrics.
 
 ---
 
@@ -45,63 +68,35 @@ Monorepo with Python/FastAPI backend and TypeScript/React frontend. Backend in `
 - **`data/`**: SQLite databases (market.db, auth.db, chat.db) + events.jsonl
 
 ### Event-Driven Communication
-Agents communicate via pub-sub event bus (`core/agents/agent_sdk/bus_factory.py`):
-- **9 event topics**: MARKET_TICK, PRICE_PROPOSAL, PRICE_UPDATE, OPTIMIZATION_REQUEST, MARKET_FETCH_REQUEST, MARKET_FETCH_ACK, MARKET_FETCH_DONE, ALERT
-- **Auto-logging**: All events → `data/events.jsonl` for debugging
-- **Pattern**: Publish typed events (`await get_bus().publish(Topic.X.value, payload)`), subscribe in agent `start()` method
-- **Rule**: Never block in event callbacks - offload heavy work to background threads
+(Currently migrating from custom bus to Blinker)
+- 9 topics: MARKET_TICK, PRICE_PROPOSAL, PRICE_UPDATE, OPTIMIZATION_REQUEST, MARKET_FETCH_REQUEST, MARKET_FETCH_ACK, MARKET_FETCH_DONE, ALERT
+- Logging: events appended to `data/events.jsonl`
+- Async handlers scheduled via `asyncio.create_task` (avoid blocking)
 
 ### MCP Integration
-Dual-mode operation via `USE_MCP` env var:
-- **`USE_MCP=true`**: Route tools through MCP servers (distributed)
-- **`USE_MCP=false`**: Direct local function calls (dev/test)
-- **Pattern**: Use factory functions like `get_price_optimizer_client()` - never hardcode MCP choice
-- **Servers**: Data Collector MCP, Price Optimizer MCP
+- Controlled by `USE_MCP`; use factory functions (e.g., `get_price_optimizer_client()`) to avoid hardcoding.
 
 ### LLM Orchestration
-Multi-provider failover (OpenRouter → OpenAI → Gemini):
-- **Autonomous agents**: System prompt defines workflow, LLM selects tools
-- **Fallback**: Always implement deterministic heuristics for when LLM unavailable
-- **Streaming**: Use `chat_with_tools_stream()` for real-time updates
-- **Tool execution**: `core/agents/chat_executor.py` handles sync/async bridge
+- Legacy multi-provider failover (OpenRouter → OpenAI → Gemini) migrating to LangChain wrapper preserving streaming + tool calling.
+- Deterministic fallbacks required when LLM unavailable.
+- Streaming path emits SSE events (`thinking`, `message`, `done`, `error`).
 
 ### Streaming (SSE)
-Backend emits 7 event types to frontend:
-1. `thinking` - Shows "Thinking..." indicator
-2. `agent` - Active agent name for badge display
-3. `tool_call` - Tool execution start/end
-4. `message` - Text deltas or final message with token counts
-5. `thread_renamed` - Auto-generated title
-6. `done` - Stream completion
-7. `error` - Error details
-
-**Rule**: Always emit events in order, flush after each, always emit `done` or `error` to close stream
+- 7 event types: thinking, agent, tool_call, message, thread_renamed, done, error.
+- Client migration to `react-eventsource` with proper auth header handling.
 
 ### Governance & Pricing
-Two agents enforce business rules:
-1. **AutoApplier** (`core/agents/auto_applier.py`):
-   - Guardrails: `min_margin` (12%), `max_delta` (10%), `auto_apply` toggle
-   - Optimistic concurrency with compare-and-swap
-   - Logs all decisions to `decision_log` table
-2. **GovernanceExecutionAgent** (`core/agents/governance_execution_agent.py`):
-   - Decision states: RECEIVED, APPROVED, REJECTED, APPLIED_AUTO, APPLY_FAILED, STALE
-   - WAL mode for concurrent reads during writes
-
-**Rule**: Never write to `pricing_list` directly - always go through governance agents
+- **AutoApplier**: guardrails (min_margin 12%, max_delta 10%), CAS updates, decision logging.
+- **GovernanceExecutionAgent**: state transitions (RECEIVED → APPROVED/REJECTED etc.). Do not write directly to `pricing_list`.
 
 ### Market Data Collection
-Request/response pattern (3 events):
-1. Publish `MARKET_FETCH_REQUEST` with `request_id`, `sku`, `sources`, `urls`
-2. Receive `MARKET_FETCH_ACK` with `job_id` and status
-3. Receive `MARKET_FETCH_DONE` with `tick_count`
+- 3-event pattern (REQUEST, ACK, DONE). Unique `request_id` required. Handle FAILED gracefully.
 
-**Rule**: Always generate unique `request_id`, handle `FAILED` status gracefully
-
-### Testing Strategy
-- **Unit tests**: Mock `DataRepo`, monkeypatch env vars (`USE_MCP`, API keys)
-- **Smoke tests**: Full workflows in `scripts/smoke_*.py`
-- **LLM tests**: Test both enabled and fallback modes
-- **Event tests**: Verify publish/subscribe, check `events.jsonl` output
+### Testing Strategy (Evolving)
+- Backend: shift to async tests; mock LLM providers and DataRepo.
+- Smoke: `scripts/smoke_*.py` for end-to-end validation.
+- Frontend: Vitest for components/hooks; MSW optional for API mocking.
+- Event bus tests verify delivery + error isolation.
 
 ---
 
@@ -109,30 +104,31 @@ Request/response pattern (3 events):
 
 ### Add New Agent
 1. Create agent class in `core/agents/`
-2. Define system prompt with clear workflow steps
-3. Implement fallback heuristics for LLM unavailability
-4. Subscribe to events in `start()` method
-5. Publish results via event bus
+2. Define system prompt/workflow steps
+3. Use LangChain wrapper for LLM operations
+4. Subscribe to signals/event topics in `start()`
+5. Publish results through EventBus abstraction
 6. Add smoke test in `scripts/`
 
 ### Add New API Endpoint
 1. Define route in `backend/routers/`
-2. Use `Depends(get_current_user)` for auth, `Depends(get_repo)` for DB
-3. Use Pydantic models for request/response validation
-4. Run `python scripts/export_openapi.py` to update `openapi.json`
-5. Test with mocked `DataRepo`
+2. Apply `Depends(get_current_user)` and repository dependency
+3. Use Pydantic models
+4. Run `python scripts/export_openapi.py` (then regenerate TS types)
+5. Test with mocked repositories
 
 ### Add Frontend Feature
-1. Add Zustand store if new global state needed (`src/store/`)
-2. Create React Query hook for API calls (`src/hooks/`)
-3. Build UI with Tailwind CSS + components from `components/ui/`
-4. Data flow: API → React Query → Zustand → Components
+1. Add/extend Zustand store if global state needed
+2. Use Axios + TanStack Query hook for API access
+3. Build UI with Tailwind + shared components
+4. SSE-driven updates via `useChatStream()` when streaming needed
 
 ### Debug Issues
-- **Events**: Check `data/events.jsonl` for event history
-- **LLM**: Check `self.last_usage` in LLMClient for token counts/costs
-- **Database**: Use `scripts/debug/` tools
-- **Streaming**: Monitor browser Network tab for SSE events
+- Events: inspect `data/events.jsonl`
+- LLM: check usage metrics in wrapper (tokens/cost)
+- Database: use scripts in `scripts/debug/`
+- Streaming: browser Network tab SSE inspection
+- Tracing: review OpenTelemetry spans (once active)
 
 ### Reset Demo Environment
 ```bash
@@ -144,7 +140,8 @@ python scripts/insert_mock_market_data.py
 ---
 
 ## Key Resources
-- **Full architecture details**: `suggestions_for_agents.md`
-- **API spec**: `openapi.json`
-- **Event journal**: `data/events.jsonl`
-- **Agent tool manifest**: `agent_tools.json`
+- Architecture deep dive: `suggestions_for_agents.md`
+- API spec: `openapi.json`
+- Event journal: `data/events.jsonl`
+- Tool manifest: `agent_tools.json`
+- Migration plan: `docs/LIBRARY_MIGRATION_PLAN.md`
