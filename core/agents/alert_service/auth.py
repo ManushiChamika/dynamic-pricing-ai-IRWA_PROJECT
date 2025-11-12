@@ -1,6 +1,10 @@
 import hmac, hashlib, time, os
 
-SECRET = os.getenv("ALERTS_CAP_SECRET", "dev-secret")
+try:
+    from core.settings import get_settings
+    SECRET = getattr(get_settings(), "alerts_cap_secret", "dev-secret")
+except Exception:
+    SECRET = os.getenv("ALERTS_CAP_SECRET", "dev-secret")
 
 SCOPES = {"read","write","create_rule"}
 

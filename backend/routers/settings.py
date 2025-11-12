@@ -10,7 +10,24 @@ SETTINGS_STORE: Dict[int, Dict[str, Any]] = {}
 
 def _default_settings() -> Dict[str, Any]:
     import os
-    dev = (os.getenv("DEV_MODE", "0").lower() in {"1", "true", "yes", "on"})
+    def _dev_enabled() -> bool:
+        try:
+            if os.getenv("PYTEST_CURRENT_TEST") is not None:
+                return os.environ.get("DEV_MODE", "").lower() in {"1", "true", "yes", "on"}
+            raw = os.environ.get("DEV_MODE")
+            if raw is not None:
+                try:
+                    return raw.lower() in {"1", "true", "yes", "on"}
+                except Exception:
+                    return False
+            from core.settings import get_settings
+            return bool(getattr(get_settings(), "dev_mode", False))
+        except Exception:
+            try:
+                return os.environ.get("DEV_MODE", "").lower() in {"1", "true", "yes", "on"}
+            except Exception:
+                return False
+    dev = _dev_enabled()
     return {
         "show_model_tag": True,
         "show_timestamps": bool(dev),
@@ -20,6 +37,7 @@ def _default_settings() -> Dict[str, Any]:
         "streaming": "sse",
         "mode": "user",
     }
+
 
 
 def _get_user_settings(token: Optional[str]) -> Dict[str, Any]:

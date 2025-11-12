@@ -151,13 +151,18 @@ def _require_login_enabled() -> bool:
     try:
         if os.getenv("PYTEST_CURRENT_TEST") is not None:
             return os.environ.get("UI_REQUIRE_LOGIN", "").lower() in {"1", "true", "yes", "on"}
-
+        try:
+            from core.settings import get_settings
+            flag = getattr(get_settings(), "ui_require_login", False)
+            if flag:
+                return True
+        except Exception:
+            pass
         if _ORIG_UI_REQUIRE_LOGIN is not None:
             try:
                 return _ORIG_UI_REQUIRE_LOGIN.lower() in {"1", "true", "yes", "on"}
             except Exception:
                 return False
-
         return False
     except Exception:
         return False

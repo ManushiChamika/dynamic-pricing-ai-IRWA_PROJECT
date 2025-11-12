@@ -21,8 +21,15 @@ class DataRepo:
 
     def __init__(self, path: Optional[str] = None) -> None:
         root = Path(__file__).resolve().parents[3]
+        settings_path = None
+        try:
+            from core.settings import get_settings
+            settings_path = getattr(get_settings(), "data_db", None)
+        except Exception:
+            settings_path = None
         env_path = os.getenv("DATA_DB")
-        candidate = Path(path or env_path) if (path or env_path) else (root / "app" / "data.db")
+        base = path or settings_path or env_path
+        candidate = Path(base) if base else (root / "app" / "data.db")
         if not candidate.is_absolute():
             candidate = root / candidate
         self.path = candidate

@@ -22,43 +22,37 @@ class Config:
         self._validate_required()
     
     def _load_config(self):
-        """Load configuration from environment variables."""
-        
-        # Environment first (used for conditional defaults)
-        self.environment = os.getenv("ENVIRONMENT", "development").lower()
-        self.debug = self.environment == "development"
-        
-        # Auth Configuration
-        self.auth_secret = os.getenv("MCP_AUTH_SECRET")
+        """Load configuration from environment variables via pydantic settings."""
+        from core.settings import get_settings
+        s = get_settings()
+
+        self.environment = (s.environment or "development").lower()
+        self.debug = bool(s.dev_mode or self.environment == "development")
+
+        self.auth_secret = s.mcp_auth_secret
         if not self.auth_secret and self.debug:
-            # Auto-generate a dev secret to keep imports working locally
             import secrets
             self.auth_secret = secrets.token_urlsafe(32)
             logger.warning("Generated development auth secret. Set MCP_AUTH_SECRET in your environment for stability.")
-        self.token_expiry_seconds = int(os.getenv("MCP_TOKEN_EXPIRY", "300"))  # 5 minutes default
-        self.auth_metrics_enabled = os.getenv("MCP_AUTH_METRICS", "1").lower() in ("1", "true", "yes")
-        self.auth_log_level = os.getenv("MCP_AUTH_LOG_LEVEL", "INFO").upper()
-        
-        # Bus Configuration
-        self.bus_backend = os.getenv("BUS_BACKEND", "inproc").lower()  # inproc|redis
-        self.bus_redis_url = os.getenv("BUS_REDIS_URL", "redis://localhost:6379/0")
-        self.bus_max_queue_size = int(os.getenv("BUS_MAX_QUEUE_SIZE", "1000"))
-        self.bus_concurrency_limit = int(os.getenv("BUS_CONCURRENCY_LIMIT", "10"))
-        
-        # Database Configuration
-        self.database_url = os.getenv("DATABASE_URL", "sqlite:///./app/data.db")
-        
-        # OpenAI Configuration
-        self.openai_api_key = os.getenv("OPENAI_API_KEY")
-        self.openai_base_url = os.getenv("OPENAI_BASE_URL")
-        
-        # Logging Configuration
-        self.log_level = os.getenv("LOG_LEVEL", "INFO").upper()
-        self.log_structured = os.getenv("LOG_STRUCTURED", "1").lower() in ("1", "true", "yes")
-        
-        # Service Configuration
-        self.service_host = os.getenv("SERVICE_HOST", "0.0.0.0")
-        self.service_port = int(os.getenv("SERVICE_PORT", "8000"))
+        self.token_expiry_seconds = int(getattr(s, "mcp_token_expiry", 300) or 300)
+        self.auth_metrics_enabled = bool(getattr(s, "mcp_auth_metrics", True))
+        self.auth_log_level = str(getattr(s, "mcp_auth_log_level", "INFO")).upper()
+
+        self.bus_backend = str(getattr(s, "bus_backend", "inproc")).lower()
+        self.bus_redis_url = str(getattr(s, "bus_redis_url", "redis://localhost:6379/0"))
+        self.bus_max_queue_size = int(getattr(s, "bus_max_queue_size", 1000) or 1000)
+        self.bus_concurrency_limit = int(getattr(s, "bus_concurrency_limit", 10) or 10)
+
+        self.database_url = str(getattr(s, "database_url", "sqlite:///./app/data.db"))
+
+        self.openai_api_key = getattr(s, "openai_api_key", None)
+        self.openai_base_url = getattr(s, "openai_base_url", None)
+
+        self.log_level = str(getattr(s, "log_level", "INFO")).upper()
+        self.log_structured = bool(getattr(s, "log_structured", True))
+
+        self.service_host = str(getattr(s, "service_host", "0.0.0.0"))
+        self.service_port = int(getattr(s, "service_port", 8000) or 8000)
     
     def _validate_required(self):
         """Validate required configuration values."""
@@ -150,56 +144,64 @@ def init_config() -> Config:
     
     return _config
  
- # Environment setup helpers
- def ensure_auth_secret():
-     """Ensure auth secret exists, generate if needed in development."""
-     config = get_config()
-     if not config.auth_secret:
-         if config.environment == "development":
-             secret = config.generate_auth_secret()
-             logger.warning(f"Generated development auth secret. Set MCP_AUTH_SECRET={secret} in your environment")
-             config.auth_secret = secret
-         else:
-             raise ConfigError("MCP_AUTH_SECRET is required in production")
- 
- def check_redis_connection() -> bool:
-     """Check if Redis is available (when using Redis backend)."""
-     config = get_config()
-     if config.bus_backend != "redis":
-         return True
-     
-     try:
-         import redis.asyncio as redis
-         r = redis.from_url(config.bus_redis_url, decode_responses=True)
-         return True
-     except Exception as e:
-         logger.warning(f"Redis connection check failed: {e}")
-         return False
- 
- def resolve_repo_root() -> Path:
-     return Path(__file__).resolve().parents[1]
- 
- def resolve_app_db() -> Path:
-     env_path = os.getenv("DATA_DB")
-     root = resolve_repo_root()
-     if env_path:
-         p = Path(env_path)
-         return p if p.is_absolute() else root / p
-     return root / "app" / "data.db"
- 
- def resolve_market_db() -> Path:
-     root = resolve_repo_root()
-     return root / "data" / "market.db"
- 
- if __name__ == "__main__":
-     try:
-         config = init_config()
-         print("[OK] Configuration validation passed")
-         print("\nCurrent configuration:")
-         for key, value in config.to_dict().items():
-             print(f"  {key}: {value}")
-         print(f"app_db: {resolve_app_db()}")
-         print(f"market_db: {resolve_market_db()}")
-     except ConfigError as e:
-         print(f"[ERROR] Configuration validation failed:\n{e}")
-         exit(1)
+# Environment setup helpers
+def ensure_auth_secret():
+    """Ensure auth secret exists, generate if needed in development."""
+    config = get_config()
+    if not config.auth_secret:
+        if config.environment == "development":
+            secret = config.generate_auth_secret()
+            logger.warning(f"Generated development auth secret. Set MCP_AUTH_SECRET={secret} in your environment")
+            config.auth_secret = secret
+        else:
+            raise ConfigError("MCP_AUTH_SECRET is required in production")
+
+def check_redis_connection() -> bool:
+    """Check if Redis is available (when using Redis backend)."""
+    config = get_config()
+    if config.bus_backend != "redis":
+        return True
+    
+    try:
+        import redis.asyncio as redis
+        r = redis.from_url(config.bus_redis_url, decode_responses=True)
+        return True
+    except Exception as e:
+        logger.warning(f"Redis connection check failed: {e}")
+        return False
+
+def resolve_repo_root() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+def resolve_app_db() -> Path:
+    try:
+        from core.settings import get_settings
+        settings_path = getattr(get_settings(), "data_db", None)
+    except Exception:
+        settings_path = None
+    env_path = os.getenv("DATA_DB")
+    root = resolve_repo_root()
+    base = settings_path or env_path
+    if base:
+        p = Path(base)
+        return p if p.is_absolute() else root / p
+    return root / "app" / "data.db"
+
+
+def resolve_market_db() -> Path:
+    root = resolve_repo_root()
+    return root / "data" / "market.db"
+
+if __name__ == "__main__":
+    try:
+        config = init_config()
+        print("[OK] Configuration validation passed")
+        print("\nCurrent configuration:")
+        for key, value in config.to_dict().items():
+            print(f"  {key}: {value}")
+        print(f"app_db: {resolve_app_db()}")
+        print(f"market_db: {resolve_market_db()}")
+    except ConfigError as e:
+        print(f"[ERROR] Configuration validation failed:\n{e}")
+        exit(1)
+

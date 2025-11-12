@@ -379,25 +379,42 @@ _llm_client_lock_: Any = None
 def get_llm_client(model: Optional[str] = None) -> LLMClient:
     global _llm_client_cache
     try:
-        use_langchain = (os.getenv("USE_LANGCHAIN") or "").strip().lower() in ("1", "true", "yes", "on")
+        try:
+            from core.settings import get_settings
+            use_langchain = bool(getattr(get_settings(), "use_langchain", False))
+        except Exception:
+            use_langchain = (os.getenv("USE_LANGCHAIN") or "").strip().lower() in ("1", "true", "yes", "on")
         LangChainLLM = None
         if use_langchain:
             try:
-                from .langchain_integration import LangChainLLMClient as _LCn                LangChainLLM = _LC
+                from .langchain_integration import LangChainLLMClient as _LC
+                LangChainLLM = _LC
             except Exception as e:
                 logging.getLogger("core.agents.llm").error("LangChain wrapper unavailable: %s", e)
                 use_langchain = False
 
         if model:
-            key = (os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
+            try:
+                from core.settings import get_settings
+                s = get_settings()
+                key = (getattr(s, "openai_api_key", None) or getattr(s, "openrouter_api_key", None) or getattr(s, "gemini_api_key", None) or "").strip()
+                if not key:
+                    key = (os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
+                base = None
+                if key and getattr(s, "openrouter_api_key", "") and getattr(s, "openrouter_api_key", "").strip() == key:
+                    base = (getattr(s, "openrouter_base_url", None) or os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1").strip()
+                elif key and getattr(s, "gemini_api_key", "") and getattr(s, "gemini_api_key", "").strip() == key:
+                    base = (getattr(s, "gemini_base_url", None) or os.getenv("GEMINI_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta/openai/").strip()
+            except Exception:
+                key = (os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
+                base = None
+                if key and (os.getenv("OPENROUTER_API_KEY") or "").strip() == key:
+                    base = (os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1").strip()
+                elif key and (os.getenv("GEMINI_API_KEY") or "").strip() == key:
+                    base = (os.getenv("GEMINI_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta/openai/").strip()
             if not key:
                 logging.getLogger("core.agents.llm").error("No API key found for custom model: %s", model)
                 raise RuntimeError("No API key configured for LLM client")
-            base = None
-            if key and (os.getenv("OPENROUTER_API_KEY") or "").strip() == key:
-                base = (os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1").strip()
-            elif key and (os.getenv("GEMINI_API_KEY") or "").strip() == key:
-                base = (os.getenv("GEMINI_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta/openai/").strip()
             if use_langchain and LangChainLLM is not None:
                 lc = LangChainLLM(api_key=key, base_url=base, model=model)
                 if getattr(lc, "is_available", lambda: False)():

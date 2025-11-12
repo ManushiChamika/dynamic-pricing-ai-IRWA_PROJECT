@@ -14,7 +14,14 @@ def default_price_map() -> Dict[str, Dict[str, float]]:
 
 def load_price_map() -> Dict[str, Dict[str, float]]:
     import os, json
-    raw = os.getenv("LLM_PRICE_MAP")
+    raw = None
+    try:
+        from core.settings import get_settings
+        raw = getattr(get_settings(), "llm_price_map", None)
+    except Exception:
+        raw = None
+    if not raw:
+        raw = os.getenv("LLM_PRICE_MAP")
     if not raw:
         return default_price_map()
     try:
@@ -173,8 +180,12 @@ def generate_summary(thread_id: int, upto_message_id: int) -> Optional[str]:
     if get_llm_client is None:
         return None
     try:
-        import os as _os
-        summary_model = _os.getenv("SUMMARIZER_MODEL")
+        try:
+            from core.settings import get_settings
+            summary_model = getattr(get_settings(), "summarizer_model", None)
+        except Exception:
+            import os as _os
+            summary_model = _os.getenv("SUMMARIZER_MODEL")
         llm = get_llm_client(model=summary_model) if summary_model else get_llm_client()
         if not llm.is_available():
             return None
