@@ -10,16 +10,18 @@ except Exception:
 
 
 def get_db_paths():
-    import os
-    root = Path(__file__).resolve().parents[3]
-    env_path = os.getenv("DATA_DB")
-    candidate = Path(env_path) if env_path else (root / "app" / "data.db")
-    if not candidate.is_absolute():
-        candidate = root / candidate
-    return {
-        "app": candidate,
-        "market": root / "data" / "market.db"
-    }
+    try:
+        from core.config import resolve_app_db, resolve_market_db
+        return {
+            "app": resolve_app_db(),
+            "market": resolve_market_db()
+        }
+    except Exception:
+        root = Path(__file__).resolve().parents[3]
+        return {
+            "app": root / "app" / "data.db",
+            "market": root / "data" / "market.db"
+        }
 
 
 def _table_exists(conn: sqlite3.Connection, table: str) -> bool:

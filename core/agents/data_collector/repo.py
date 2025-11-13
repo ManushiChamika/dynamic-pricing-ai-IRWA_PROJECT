@@ -20,19 +20,15 @@ class DataRepo:
     """
 
     def __init__(self, path: Optional[str] = None) -> None:
-        root = Path(__file__).resolve().parents[3]
-        settings_path = None
-        try:
-            from core.settings import get_settings
-            settings_path = getattr(get_settings(), "data_db", None)
-        except Exception:
-            settings_path = None
-        env_path = os.getenv("DATA_DB")
-        base = path or settings_path or env_path
-        candidate = Path(base) if base else (root / "app" / "data.db")
-        if not candidate.is_absolute():
-            candidate = root / candidate
-        self.path = candidate
+        if path:
+            self.path = Path(path) if not isinstance(path, Path) else path
+        else:
+            try:
+                from core.config import resolve_app_db
+                self.path = resolve_app_db()
+            except Exception:
+                root = Path(__file__).resolve().parents[3]
+                self.path = root / "app" / "data.db"
 
     async def init(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
